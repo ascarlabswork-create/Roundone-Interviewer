@@ -137,7 +137,17 @@ export function DashboardPage() {
             <DataTable headers={['Candidate', 'Interview Type', 'Service', 'Date', 'Time', 'Status', '']}>
               {upcoming.map((booking) => (
                 <TableRow key={booking.id}>
-                  <Td className="font-medium text-navy-950">{booking.candidate.name}</Td>
+                  <Td>
+                    <p className="font-medium text-navy-950">{booking.candidate.name}</p>
+                    {booking.candidate.targetRole || booking.candidate.candidateLevel ? (
+                      <p className="text-xs text-slate-500">
+                        {[booking.candidate.targetRole, booking.candidate.candidateLevel].filter(Boolean).join(' · ')}
+                      </p>
+                    ) : null}
+                    {booking.candidate.skills.length > 0 ? (
+                      <p className="text-xs text-slate-500">{booking.candidate.skills.join(', ')}</p>
+                    ) : null}
+                  </Td>
                   <Td>{booking.interviewType}</Td>
                   <Td>{booking.serviceName}</Td>
                   <Td>{formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)}</Td>
@@ -161,6 +171,14 @@ export function DashboardPage() {
               {upcoming.map((booking) => (
                 <Card key={booking.id} className="p-4">
                   <p className="font-semibold text-navy-950">{booking.candidate.name}</p>
+                  {booking.candidate.targetRole || booking.candidate.candidateLevel ? (
+                    <p className="text-xs text-slate-500">
+                      {[booking.candidate.targetRole, booking.candidate.candidateLevel].filter(Boolean).join(' · ')}
+                    </p>
+                  ) : null}
+                  {booking.candidate.skills.length > 0 ? (
+                    <p className="text-xs text-slate-500">{booking.candidate.skills.join(', ')}</p>
+                  ) : null}
                   <p className="mt-1 text-sm text-slate-600">
                     {booking.serviceName} · {formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)} ·{' '}
                     {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)}
@@ -234,9 +252,17 @@ export function DashboardPage() {
           {pending.map((booking) => (
             <Card key={booking.id} className="p-4 sm:flex sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
-                <Avatar src={booking.candidate.photoUrl ?? ''} name={booking.candidate.name} size="sm" />
+                <Avatar src="" name={booking.candidate.name} size="sm" />
                 <div>
                   <p className="font-medium text-navy-950">{booking.candidate.name}</p>
+                  {booking.candidate.targetRole || booking.candidate.candidateLevel ? (
+                    <p className="text-xs text-slate-500">
+                      {[booking.candidate.targetRole, booking.candidate.candidateLevel].filter(Boolean).join(' · ')}
+                    </p>
+                  ) : null}
+                  {booking.candidate.skills.length > 0 ? (
+                    <p className="text-xs text-slate-500">{booking.candidate.skills.join(', ')}</p>
+                  ) : null}
                   <p className="text-sm text-slate-600">
                     {booking.serviceName} · {formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)}{' '}
                     {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)}

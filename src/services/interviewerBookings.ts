@@ -20,13 +20,19 @@ export type InterviewerBookingTab = 'pending' | 'upcoming' | 'completed' | 'canc
 
 export type InterviewerBookingCandidate = {
   candidateProfileId: string
-  profileId: string | null
   name: string
-  photoUrl: string | null
-  headline: string | null
   targetRole: string | null
-  targetCompany: string | null
   candidateLevel: string | null
+  skills: string[]
+}
+
+export type BookingCandidateSummary = {
+  booking_id: string
+  candidate_profile_id: string
+  display_name: string
+  target_role: string | null
+  candidate_level: string | null
+  skills: string[]
 }
 
 export type InterviewerBooking = {
@@ -78,9 +84,9 @@ const BOOKING_COLUMNS = [
 
 const BOOKING_SELECT_CORE = `${BOOKING_COLUMNS}, interviewer_services ( name, interview_type, duration_min )`
 
-const BOOKING_SELECT = `${BOOKING_SELECT_CORE}, candidate_profiles ( id, profile_id, headline, target_role, target_company, candidate_level, profiles ( full_name, avatar_url, timezone ) )`
+const BOOKING_SELECTS = [BOOKING_SELECT_CORE, BOOKING_COLUMNS] as const
 
-const BOOKING_SELECTS = [BOOKING_SELECT, BOOKING_SELECT_CORE, BOOKING_COLUMNS] as const
+const SUMMARY_SELECT = 'booking_id, candidate_profile_id, display_name, target_role, candidate_level, skills'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -141,19 +147,49 @@ async function myInterviewerProfileId() {
   return account.interviewer.id
 }
 
-function parseCandidate(row: Record<string, unknown>, candidateProfileId: string): InterviewerBookingCandidate {
-  const nested = asRecord(row.candidate_profiles)
-  const profile = nested ? asRecord(nested.profiles) : null
-  const name = profile ? readString(profile, 'full_name') : null
+function readStringArray(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string')
+}
+
+function emptyCandidate(candidateProfileId: string): InterviewerBookingCandidate {
   return {
     candidateProfileId,
-    profileId: nested ? readString(nested, 'profile_id') : null,
-    name: name?.trim() || 'Candidate',
-    photoUrl: profile ? readString(profile, 'avatar_url') : null,
-    headline: nested ? readString(nested, 'headline') : null,
-    targetRole: nested ? readString(nested, 'target_role') : null,
-    targetCompany: nested ? readString(nested, 'target_company') : null,
-    candidateLevel: nested ? readString(nested, 'candidate_level') : null,
+    name: 'Candidate',
+    targetRole: null,
+    candidateLevel: null,
+    skills: [],
+  }
+}
+
+function parseSummary(value: unknown): BookingCandidateSummary | null {
+  const row = asRecord(value)
+  if (!row) return null
+  const bookingId = readString(row, 'booking_id')
+  const candidateProfileId = readString(row, 'candidate_profile_id')
+  const displayName = readString(row, 'display_name')
+  if (!bookingId || !candidateProfileId || !displayName) return null
+  return {
+    booking_id: bookingId,
+    candidate_profile_id: candidateProfileId,
+    display_name: displayName,
+    target_role: readString(row, 'target_role'),
+    candidate_level: readString(row, 'candidate_level'),
+    skills: readStringArray(row.skills),
+  }
+}
+
+function candidateFromSummary(
+  candidateProfileId: string,
+  summary: BookingCandidateSummary | undefined,
+): InterviewerBookingCandidate {
+  if (!summary) return emptyCandidate(candidateProfileId)
+  return {
+    candidateProfileId: summary.candidate_profile_id,
+    name: summary.display_name.trim() || 'Candidate',
+    targetRole: summary.target_role,
+    candidateLevel: summary.candidate_level,
+    skills: summary.skills,
   }
 }
 
@@ -222,8 +258,30 @@ function parseBooking(value: unknown): InterviewerBooking | null {
     updatedAt,
     serviceName: (service && readString(service, 'name')) || 'Interview',
     interviewType: (service && readString(service, 'interview_type')) || 'Interview',
-    candidate: parseCandidate(row, candidateProfileId),
+    candidate: emptyCandidate(candidateProfileId),
   }
+}
+
+async function getSummariesByBookingId(bookingIds: string[]) {
+  const summaries = new Map<string, BookingCandidateSummary>()
+  if (bookingIds.length === 0) return summaries
+  const { data, error } = await supabase
+    .from(TABLES.bookingCandidateSummary)
+    .select(SUMMARY_SELECT)
+    .in('booking_id', bookingIds)
+  fail(error)
+  for (const row of data ?? []) {
+    const summary = parseSummary(row)
+    if (summary) summaries.set(summary.booking_id, summary)
+  }
+  return summaries
+}
+
+function mergeSummaries(bookings: InterviewerBooking[], summaries: Map<string, BookingCandidateSummary>) {
+  return bookings.map((booking) => ({
+    ...booking,
+    candidate: candidateFromSummary(booking.candidateProfileId, summaries.get(booking.id)),
+  }))
 }
 
 export function tabForBooking(status: DbBookingStatus): InterviewerBookingTab | null {
@@ -273,7 +331,11 @@ export async function getMyBookings(): Promise<InterviewerBooking[]> {
   for (const select of BOOKING_SELECTS) {
     const result = await selectMyBookings(interviewerProfileId, select)
     if (!result.error) {
-      return (result.data ?? []).map(parseBooking).filter((item): item is InterviewerBooking => item !== null)
+      const bookings = (result.data ?? [])
+        .map(parseBooking)
+        .filter((item): item is InterviewerBooking => item !== null)
+      const summaries = await getSummariesByBookingId(bookings.map((item) => item.id))
+      return mergeSummaries(bookings, summaries)
     }
     lastError = result.error
   }
@@ -290,7 +352,10 @@ export async function getMyBooking(bookingId: string): Promise<InterviewerBookin
     if (!result.error) {
       const booking = parseBooking(result.data)
       if (!booking) throw new Error('Booking not found.')
-      return booking
+      const summaries = await getSummariesByBookingId([booking.id])
+      const merged = mergeSummaries([booking], summaries)[0]
+      if (!merged) throw new Error('Booking not found.')
+      return merged
     }
     lastError = result.error
   }
