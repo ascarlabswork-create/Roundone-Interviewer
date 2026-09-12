@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase.ts'
 import { TABLES } from './tables.ts'
-import { requireUser, updateAuthMetadata } from './auth.ts'
+import { claimInterviewerPersona, requireUser, updateAuthMetadata } from './auth.ts'
 
 export type ProfileRole = 'candidate' | 'interviewer' | 'admin'
 
@@ -184,37 +184,41 @@ export async function getInterviewerProfile(options?: { retries?: number }): Pro
     } else {
       const profile = mapProfile(profileRow)
       if (profile.role !== 'interviewer') {
-        throw new Error(WRONG_APP_ROLE)
-      }
+        const claimed = await claimInterviewerPersona()
+        if (!claimed) throw new Error(WRONG_APP_ROLE)
+        lastError = new Error('Your interviewer profile is not ready yet. Try again in a moment.')
+      } else {
+        const { data: interviewerRow, error: interviewerError } = await supabase
+          .from(TABLES.interviewerProfiles)
+          .select(INTERVIEWER_SELECT)
+          .eq('profile_id', user.id)
+          .maybeSingle()
+        fail(interviewerError)
 
-      const { data: interviewerRow, error: interviewerError } = await supabase
-        .from(TABLES.interviewerProfiles)
-        .select(INTERVIEWER_SELECT)
-        .eq('profile_id', user.id)
-        .maybeSingle()
-      fail(interviewerError)
-
-      if (interviewerRow) {
-        const interviewer = mapInterviewer(interviewerRow)
-        const [skills, roleRows, verifications] = await Promise.all([
-          getInterviewerSkills(interviewer.id),
-          getInterviewerRoleRows(interviewer.id),
-          getVerificationStatus(interviewer.id),
-        ])
-        return {
-          userId: user.id,
-          email: user.email ?? '',
-          linkedin: metadataString(user, 'linkedin'),
-          phone: metadataString(user, 'phone'),
-          profile,
-          interviewer,
-          skills,
-          targetRoles: unique(roleRows.map((row) => row.target_role).filter((role) => role !== 'Any')),
-          candidateLevels: unique(roleRows.map((row) => row.candidate_level).filter((level): level is string => Boolean(level))),
-          verifications,
+        if (interviewerRow) {
+          const interviewer = mapInterviewer(interviewerRow)
+          const [skills, roleRows, verifications] = await Promise.all([
+            getInterviewerSkills(interviewer.id),
+            getInterviewerRoleRows(interviewer.id),
+            getVerificationStatus(interviewer.id),
+          ])
+          return {
+            userId: user.id,
+            email: user.email ?? '',
+            linkedin: metadataString(user, 'linkedin'),
+            phone: metadataString(user, 'phone'),
+            profile,
+            interviewer,
+            skills,
+            targetRoles: unique(roleRows.map((row) => row.target_role).filter((role) => role !== 'Any')),
+            candidateLevels: unique(
+              roleRows.map((row) => row.candidate_level).filter((level): level is string => Boolean(level)),
+            ),
+            verifications,
+          }
         }
+        lastError = new Error('Your interviewer profile is not ready yet. Try again in a moment.')
       }
-      lastError = new Error('Your interviewer profile is not ready yet. Try again in a moment.')
     }
 
     if (attempt < retries) await sleep(250 * (attempt + 1))

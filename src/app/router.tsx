@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { RequireInterviewerAuth } from '../components/auth/RequireInterviewerAuth.tsx'
 import { AppShell } from '../components/layout/AppShell.tsx'
 import { PublicLayout } from '../components/layout/PublicLayout.tsx'
+import { AuthCallbackPage } from '../pages/AuthCallbackPage.tsx'
 import { BookingsPage } from '../pages/BookingsPage.tsx'
 import { CalendarPage } from '../pages/CalendarPage.tsx'
 import { CandidateDetailPage } from '../pages/CandidateDetailPage.tsx'
@@ -30,6 +31,7 @@ export function AppRouter() {
           <Route path="/interviewer" element={<LandingPage />} />
           <Route path="/interviewer/login" element={<LoginPage />} />
           <Route path="/interviewer/register" element={<RegisterPage />} />
+          <Route path="/interviewer/auth/callback" element={<AuthCallbackPage />} />
           <Route element={<RequireInterviewerAuth />}>
             <Route path="/interviewer/setup" element={<SetupPage />} />
           </Route>
