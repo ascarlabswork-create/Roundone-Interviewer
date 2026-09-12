@@ -2,20 +2,25 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { GoogleIcon } from '../components/ui/GoogleIcon.tsx'
-import { Card, FieldLabel, TextInput } from '../components/ui/primitives.tsx'
+import { Card, FieldLabel, SelectInput, TextInput } from '../components/ui/primitives.tsx'
+import { TIMEZONES } from '../data/catalogs.ts'
 import { cn } from '../lib/cn.ts'
 import { safeNextPath } from '../lib/nextPath.ts'
 import {
   authErrorMessage,
+  isUnconfirmedEmailError,
+  normalizeLinkedInUrl,
+  resendSignupEmail,
   sendPasswordReset,
   signInInterviewer,
   signInWithGoogle,
   signUpInterviewer,
 } from '../services/auth.ts'
+import { applySignupProfile } from '../services/interviewerProfile.ts'
 import { useSession } from '../state/session.tsx'
 
 export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
-  const { status, user, error: sessionError, refreshAccount } = useSession()
+  const { status, user, account, error: sessionError, refreshAccount } = useSession()
   const [params] = useSearchParams()
   const isRegister = mode === 'register'
   const nextPath = safeNextPath(
@@ -23,18 +28,39 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     isRegister ? '/interviewer/setup?step=professional' : '/interviewer/dashboard',
   )
   const nextQuery = `?next=${encodeURIComponent(nextPath)}`
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [timezone, setTimezone] = useState('Asia/Kolkata')
+  const [company, setCompany] = useState('')
+  const [currentRole, setCurrentRole] = useState('')
+  const [experienceYears, setExperienceYears] = useState('')
+  const [linkedin, setLinkedin] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [googleSubmitting, setGoogleSubmitting] = useState(false)
+  const [resending, setResending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
 
-  if (status === 'authenticated' && user) {
+  if (status === 'authenticated' && user && account) {
     return <Navigate to={nextPath} replace />
   }
 
-  const busy = submitting || googleSubmitting || status === 'loading'
+  if (status === 'authenticated' && user && !sessionError) {
+    return (
+      <Card className="p-6 sm:p-8">
+        <h1 className="text-xl font-semibold text-navy-950">Signing you in\u2026</h1>
+        <p className="mt-1 text-sm text-slate-600">Loading your interviewer pages on this computer.</p>
+      </Card>
+    )
+  }
+
+  const busy = submitting || googleSubmitting || resending || status === 'loading'
+  const showResend = awaitingConfirmation || isUnconfirmedEmailError(error)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -43,11 +69,40 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     setSubmitting(true)
     try {
       if (isRegister) {
-        const result = await signUpInterviewer({ email, password })
+        if (password !== confirmPassword) {
+          throw new Error('Passwords do not match.')
+        }
+        const years = Number(experienceYears)
+        if (!Number.isFinite(years) || years < 0) {
+          throw new Error('Enter years of experience as a number.')
+        }
+        const result = await signUpInterviewer({
+          firstName,
+          lastName,
+          email,
+          password,
+          phone,
+          timezone,
+          currentRole,
+          company,
+          experienceYears: years,
+          linkedin,
+        })
         if (result.needsEmailConfirmation) {
-          setInfo('Check your email to confirm your account, then sign in to finish setup.')
+          setAwaitingConfirmation(true)
+          setInfo('Check your email for a confirmation link. After you confirm, sign in to continue setup.')
           return
         }
+        await applySignupProfile({
+          fullName: `${firstName.trim()} ${lastName.trim()}`.trim(),
+          timezone,
+          currentRole,
+          company,
+          experienceYears: years,
+          linkedin: normalizeLinkedInUrl(linkedin),
+          phone,
+          headline: currentRole.trim(),
+        })
         await refreshAccount()
       } else {
         await signInInterviewer({ email, password })
@@ -83,6 +138,21 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     }
   }
 
+  async function resendConfirmation() {
+    setError(null)
+    setInfo(null)
+    setResending(true)
+    try {
+      await resendSignupEmail(email)
+      setAwaitingConfirmation(true)
+      setInfo('We sent a new confirmation link. Check your inbox and spam folder.')
+    } catch (caught) {
+      setError(authErrorMessage(caught))
+    } finally {
+      setResending(false)
+    }
+  }
+
   return (
     <Card className="p-6 sm:p-8">
       <div className="mb-6 grid grid-cols-2 rounded-lg bg-slate-100 p-1">
@@ -109,9 +179,38 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       <h1 className="text-xl font-semibold text-navy-950">
         {isRegister ? 'Create your interviewer account' : 'Sign in'}
       </h1>
-      <p className="mt-1 text-sm text-slate-600">Use email and password, or continue with Google.</p>
+      <p className="mt-1 text-sm text-slate-600">
+        {isRegister
+          ? 'We’ll save your professional details to your interviewer profile. Skills, services, and availability come next.'
+          : 'Use email and password, or continue with Google.'}
+      </p>
 
       <form className="mt-6 space-y-4" onSubmit={submit}>
+        {isRegister ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <FieldLabel htmlFor="firstName">First name</FieldLabel>
+              <TextInput
+                id="firstName"
+                required
+                autoComplete="given-name"
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+              />
+            </div>
+            <div>
+              <FieldLabel htmlFor="lastName">Last name</FieldLabel>
+              <TextInput
+                id="lastName"
+                required
+                autoComplete="family-name"
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+              />
+            </div>
+          </div>
+        ) : null}
+
         <div>
           <FieldLabel htmlFor="email">Email</FieldLabel>
           <TextInput
@@ -123,6 +222,20 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             onChange={(event) => setEmail(event.target.value)}
           />
         </div>
+
+        {isRegister ? (
+          <div>
+            <FieldLabel htmlFor="phone">Phone (optional)</FieldLabel>
+            <TextInput
+              id="phone"
+              type="tel"
+              autoComplete="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+            />
+          </div>
+        ) : null}
+
         <div>
           <div className="flex items-center justify-between">
             <FieldLabel htmlFor="password">Password</FieldLabel>
@@ -148,8 +261,88 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           />
         </div>
 
+        {isRegister ? (
+          <>
+            <div>
+              <FieldLabel htmlFor="confirmPassword">Confirm password</FieldLabel>
+              <TextInput
+                id="confirmPassword"
+                type="password"
+                required
+                minLength={6}
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+            </div>
+            <div>
+              <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
+              <SelectInput id="timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)}>
+                {TIMEZONES.map((zone) => (
+                  <option key={zone.id} value={zone.id}>
+                    {zone.label}
+                  </option>
+                ))}
+              </SelectInput>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <FieldLabel htmlFor="company">Current company</FieldLabel>
+                <TextInput
+                  id="company"
+                  required
+                  autoComplete="organization"
+                  value={company}
+                  onChange={(event) => setCompany(event.target.value)}
+                />
+              </div>
+              <div>
+                <FieldLabel htmlFor="currentRole">Current role</FieldLabel>
+                <TextInput
+                  id="currentRole"
+                  required
+                  autoComplete="organization-title"
+                  value={currentRole}
+                  onChange={(event) => setCurrentRole(event.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <FieldLabel htmlFor="experienceYears">Years of experience</FieldLabel>
+              <TextInput
+                id="experienceYears"
+                type="number"
+                required
+                min={0}
+                max={60}
+                step={1}
+                value={experienceYears}
+                onChange={(event) => setExperienceYears(event.target.value)}
+              />
+            </div>
+            <div>
+              <FieldLabel htmlFor="linkedin">LinkedIn profile URL</FieldLabel>
+              <TextInput
+                id="linkedin"
+                type="text"
+                required
+                placeholder="https://www.linkedin.com/in/your-name"
+                autoComplete="url"
+                value={linkedin}
+                onChange={(event) => setLinkedin(event.target.value)}
+              />
+            </div>
+          </>
+        ) : null}
+
         {error || sessionError ? <p className="text-sm text-red-700">{error || sessionError}</p> : null}
         {info ? <p className="text-sm text-emerald-700">{info}</p> : null}
+
+        {showResend ? (
+          <Button type="button" variant="outline" fullWidth disabled={busy} onClick={() => void resendConfirmation()}>
+            {resending ? 'Sending link\u2026' : 'Resend confirmation email'}
+          </Button>
+        ) : null}
 
         <Button type="submit" fullWidth disabled={busy}>
           {submitting ? 'Please wait\u2026' : isRegister ? 'Create account' : 'Sign in'}

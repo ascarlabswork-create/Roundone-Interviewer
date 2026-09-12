@@ -44,7 +44,7 @@ export function AppShell() {
   const [open, setOpen] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
   const { account, signOut } = useSession()
-  const displayName = account?.profile.full_name ?? 'Interviewer'
+  const displayName = account?.profile?.full_name ?? 'Interviewer'
   const verifications = account?.verifications ?? []
   const overallVerification = verifications.some((item) => item.status === 'rejected')
     ? 'rejected'
