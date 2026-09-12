@@ -75,7 +75,18 @@ export function authErrorMessage(error: unknown): string {
   if (message.includes('provider is not enabled') || message.includes('unsupported provider')) {
     return 'Google sign-in is not enabled yet. Use email and password, or ask an admin to enable Google in Auth providers.'
   }
+  if (message.includes('exchange external code') || message.includes('unexpected_failure')) {
+    return 'Google sign-in did not finish. Use email and password for now, or try Google again after the live site URL is allowed in Supabase Auth.'
+  }
   return raw || 'Something went wrong. Please try again.'
+}
+
+export function oauthRedirectErrorMessage(params: URLSearchParams): string | null {
+  const description = params.get('error_description')?.replace(/\+/g, ' ').trim() ?? ''
+  const code = params.get('error_code')?.trim() ?? ''
+  const error = params.get('error')?.trim() ?? ''
+  if (!description && !code && !error) return null
+  return authErrorMessage(description || code || error)
 }
 
 function fail(error: { message: string } | null) {

@@ -10,6 +10,7 @@ import {
   authErrorMessage,
   isUnconfirmedEmailError,
   normalizeLinkedInUrl,
+  oauthRedirectErrorMessage,
   resendSignupEmail,
   sendPasswordReset,
   signInInterviewer,
@@ -54,13 +55,14 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     return (
       <Card className="p-6 sm:p-8">
         <h1 className="text-xl font-semibold text-navy-950">Signing you in\u2026</h1>
-        <p className="mt-1 text-sm text-slate-600">Loading your interviewer pages on this computer.</p>
+        <p className="mt-1 text-sm text-slate-600">Loading your interviewer pages.</p>
       </Card>
     )
   }
 
   const busy = submitting || googleSubmitting || resending || status === 'loading'
   const showResend = awaitingConfirmation || isUnconfirmedEmailError(error)
+  const redirectError = oauthRedirectErrorMessage(params)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -335,7 +337,9 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           </>
         ) : null}
 
-        {error || sessionError ? <p className="text-sm text-red-700">{error || sessionError}</p> : null}
+        {error || sessionError || redirectError ? (
+          <p className="text-sm text-red-700">{error || sessionError || redirectError}</p>
+        ) : null}
         {info ? <p className="text-sm text-emerald-700">{info}</p> : null}
 
         {showResend ? (
