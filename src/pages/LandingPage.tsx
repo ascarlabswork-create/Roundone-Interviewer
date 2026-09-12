@@ -8,6 +8,7 @@ import {
 import { Link } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/primitives.tsx'
+import { useSession } from '../state/session.tsx'
 
 const benefits = [
   { title: 'Verified Professional Profile', body: 'Show candidates a trusted identity, employment, and LinkedIn check.', icon: BadgeCheck },
@@ -27,6 +28,8 @@ const steps = [
 ]
 
 export function LandingPage() {
+  const { status, account } = useSession()
+  const signedIn = status === 'authenticated' && Boolean(account)
   return (
     <div>
       <section className="bg-white">
@@ -57,8 +60,11 @@ export function LandingPage() {
             </div>
             <p className="mt-6 text-sm text-slate-500">
               Already on RoundOne?{' '}
-              <Link to="/interviewer/dashboard" className="font-semibold text-navy-950">
-                Go to dashboard
+              <Link
+                to={signedIn ? '/interviewer/dashboard' : '/interviewer/login'}
+                className="font-semibold text-navy-950"
+              >
+                {signedIn ? 'Go to dashboard' : 'Sign in'}
               </Link>
             </p>
           </div>

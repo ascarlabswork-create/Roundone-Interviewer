@@ -1,18 +1,17 @@
-import { useMemo, useState } from 'react'
-import {
-  addBlockedTime,
-  addCustomSlot,
-  deleteBlockedTime,
-  deleteCustomSlot,
-  getAvailabilitySchedule,
-  listBookings,
-  listServices,
-  saveRecurringAvailability,
-} from '../api/index.ts'
+import { useEffect, useMemo, useState } from 'react'
+import { listBookings, listServices } from '../api/index.ts'
 import { Button } from '../components/ui/Button.tsx'
 import { SlotBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
-import { Card, FieldLabel, PageHeader, SelectInput, Skeleton, TextInput } from '../components/ui/primitives.tsx'
+import {
+  Card,
+  ErrorState,
+  FieldLabel,
+  PageHeader,
+  SelectInput,
+  Skeleton,
+  TextInput,
+} from '../components/ui/primitives.tsx'
 import { BUFFER_OPTIONS, TIMEZONES, WEEKDAY_LABELS, WEEKDAY_ORDER } from '../data/catalogs.ts'
 import { cn } from '../lib/cn.ts'
 import {
@@ -24,60 +23,100 @@ import {
   nextDateWithWeekday,
   sameDay,
   startOfWeek,
+  timeToMinutes,
   timezoneLabel,
   toISODate,
   weekdayShort,
 } from '../lib/dates.ts'
-import {
-  buildDayPeriods,
-  defaultRangeForDay,
-  generateBookableSlots,
-  generateUpcomingSlots,
-  validateRecurring,
-} from '../lib/slots.ts'
+import { buildDayPeriods, defaultRangeForDay, generateBookableSlots, generateUpcomingSlots } from '../lib/slots.ts'
 import { useAsync } from '../lib/useAsync.ts'
+import {
+  createAvailability,
+  createBlockedTime,
+  createCustomSlot,
+  deleteAvailability,
+  deleteBlockedTime,
+  deleteCustomSlot,
+  loadMyAvailabilityBoard,
+  updateAvailability,
+  updateBlockedTime,
+  updateCustomSlot,
+  updateMyBookingBuffer,
+  updateMyTimezone,
+  type AvailabilityBoard,
+  type BlockedTimeRecord,
+  type BookingBufferMinutes,
+  type CustomSlotRecord,
+  type Weekday,
+} from '../services/interviewerAvailability.ts'
+import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
-import type {
-  AvailabilitySchedule,
-  AvailabilitySettings,
-  BufferMinutes,
-  CalendarPeriod,
-  RecurringAvailability,
-} from '../types.ts'
+import type { AvailabilitySchedule, CalendarPeriod } from '../types.ts'
+
+type CustomForm = {
+  id: string | null
+  date: string
+  startTime: string
+  endTime: string
+}
+
+type BlockForm = {
+  id: string | null
+  date: string
+  allDay: boolean
+  startTime: string
+  endTime: string
+  reason: string
+}
+
+const emptyCustomForm = (): CustomForm => ({
+  id: null,
+  date: '',
+  startTime: '14:00',
+  endTime: '18:00',
+})
+
+const emptyBlockForm = (): BlockForm => ({
+  id: null,
+  date: '',
+  allDay: true,
+  startTime: '18:00',
+  endTime: '21:00',
+  reason: '',
+})
 
 export function CalendarPage() {
-  const scheduleState = useAsync(() => getAvailabilitySchedule(), [])
+  const { refreshAccount } = useSession()
+  const boardState = useAsync(() => loadMyAvailabilityBoard(), [])
   const bookingsState = useAsync(() => listBookings(), [])
   const servicesState = useAsync(() => listServices(), [])
   const { pushToast } = useToast()
+  const [board, setBoard] = useState<AvailabilityBoard | null>(null)
   const [view, setView] = useState<'week' | 'month'>('week')
   const [weekOffset, setWeekOffset] = useState(0)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewDate, setPreviewDate] = useState(nextDateWithWeekday(6))
   const [previewServiceId, setPreviewServiceId] = useState('rahul-coding')
-  const [customOpen, setCustomOpen] = useState(false)
-  const [blockOpen, setBlockOpen] = useState(false)
+  const [customForm, setCustomForm] = useState<CustomForm | null>(null)
+  const [blockForm, setBlockForm] = useState<BlockForm | null>(null)
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
-  const [draft, setDraft] = useState<{ recurring: RecurringAvailability[]; settings: AvailabilitySettings } | null>(null)
-  const [customForm, setCustomForm] = useState({ date: '', startTime: '14:00', endTime: '18:00', note: '' })
-  const [blockForm, setBlockForm] = useState({
-    date: '',
-    allDay: true,
-    startTime: '18:00',
-    endTime: '21:00',
-    reason: '',
-  })
 
-  const schedule = scheduleState.status === 'success' ? scheduleState.data : null
-  const working = draft ?? (schedule ? { recurring: schedule.recurring, settings: schedule.settings } : null)
+  useEffect(() => {
+    if (boardState.status === 'success') setBoard(boardState.data)
+  }, [boardState.status, boardState.data])
+
   const bookings = bookingsState.status === 'success' ? bookingsState.data : []
   const services = servicesState.status === 'success' ? servicesState.data.filter((item) => item.isActive) : []
   const previewService = services.find((item) => item.id === previewServiceId) ?? services[0]
   const weekStart = addDays(startOfWeek(new Date()), weekOffset * 7)
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
-
-  const liveSchedule = schedule && working ? { ...schedule, ...working } : schedule
+  const liveSchedule = board ? toSchedule(board, previewService?.durationMin ?? 60) : null
+  const timezoneOptions = board
+    ? TIMEZONES.some((zone) => zone.id === board.timezone)
+      ? TIMEZONES
+      : [{ id: board.timezone, label: board.timezone }, ...TIMEZONES]
+    : TIMEZONES
 
   const previewSlots = liveSchedule
     ? generateBookableSlots({
@@ -89,95 +128,106 @@ export function CalendarPage() {
       })
     : []
 
-  function updateRange(id: string, patch: Partial<RecurringAvailability>) {
-    if (!working) return
-    setDraft({
-      ...working,
-      recurring: working.recurring.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    })
+  async function refreshBoard() {
+    const next = await loadMyAvailabilityBoard()
+    setBoard(next)
   }
 
-  function addRange(dayOfWeek: number) {
-    if (!working) return
-    const existing = working.recurring.filter((item) => item.dayOfWeek === dayOfWeek && item.isActive)
-    const defaults = existing.length ? { startTime: '18:00', endTime: '21:00' } : defaultRangeForDay(dayOfWeek)
-    setDraft({
-      ...working,
-      recurring: [
-        ...working.recurring,
-        {
-          id: `rec-${dayOfWeek}-${Date.now()}`,
-          interviewerId: working.settings.interviewerId,
-          dayOfWeek,
-          startTime: defaults.startTime,
-          endTime: defaults.endTime,
-          timezone: working.settings.timezone,
-          isActive: true,
-          serviceId: null,
-        },
-      ],
-    })
-  }
-
-  function removeRange(id: string) {
-    if (!working) return
-    const target = working.recurring.find((item) => item.id === id)
-    const sameDay = working.recurring.filter((item) => item.dayOfWeek === target?.dayOfWeek)
-    if (sameDay.length <= 1 && target) {
-      updateRange(id, { isActive: false })
-      return
-    }
-    setDraft({ ...working, recurring: working.recurring.filter((item) => item.id !== id) })
-  }
-
-  async function onSave() {
-    if (!working) return
-    const nextErrors = validateRecurring(working.recurring, working.settings.timezone)
-    setErrors(nextErrors)
-    if (nextErrors.length) return
+  async function runMutation(action: () => Promise<unknown>, successMessage = 'Saved successfully') {
+    setErrors([])
     setSaving(true)
     try {
-      await saveRecurringAvailability(working.recurring, working.settings)
-      pushToast('Availability saved. Candidates will only see generated valid slots.')
-      setDraft(null)
-      scheduleState.reload()
-    } catch (error) {
-      setErrors([error instanceof Error ? error.message : 'Could not save availability'])
+      await action()
+      await refreshBoard()
+      pushToast(successMessage)
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not save availability.'
+      setErrors([message])
+      pushToast(message)
     } finally {
       setSaving(false)
     }
   }
 
-  async function onAddCustom() {
-    try {
-      await addCustomSlot({
-        ...customForm,
-        timezone: working?.settings.timezone ?? 'Asia/Kolkata',
-        serviceId: null,
+  async function onToggleDay(day: Weekday, enabled: boolean) {
+    if (!board) return
+    await runMutation(async () => {
+      if (!enabled) {
+        const rows = board.availability.filter((item) => item.weekday === day)
+        for (const row of rows) {
+          await deleteAvailability(row.id)
+        }
+        return
+      }
+      if (board.availability.some((item) => item.weekday === day)) return
+      const defaults = defaultRangeForDay(day)
+      await createAvailability({
+        weekday: day,
+        startTime: defaults.startTime,
+        endTime: defaults.endTime,
       })
-      pushToast('Custom availability added')
-      setCustomOpen(false)
-      scheduleState.reload()
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Could not add custom slot')
-    }
+    })
   }
 
-  async function onAddBlock() {
-    try {
-      await addBlockedTime({
-        date: blockForm.date,
+  async function onAddRange(day: Weekday) {
+    if (!board) return
+    const next = nextRangeForDay(day, board)
+    await runMutation(() =>
+      createAvailability({
+        weekday: day,
+        startTime: next.startTime,
+        endTime: next.endTime,
+      }),
+    )
+  }
+
+  async function onUpdateRange(id: string, patch: { startTime?: string; endTime?: string }) {
+    await runMutation(() => updateAvailability(id, patch))
+  }
+
+  async function onRemoveRange(id: string) {
+    await runMutation(() => deleteAvailability(id))
+  }
+
+  async function onTimezoneChange(timezone: string) {
+    await runMutation(async () => {
+      await updateMyTimezone(timezone)
+      await refreshAccount()
+    })
+  }
+
+  async function onBufferChange(bufferMin: BookingBufferMinutes) {
+    await runMutation(() => updateMyBookingBuffer(bufferMin))
+  }
+
+  async function onSaveCustom() {
+    if (!customForm) return
+    await runMutation(async () => {
+      const payload = {
+        onDate: customForm.date,
+        startTime: customForm.startTime,
+        endTime: customForm.endTime,
+      }
+      if (customForm.id) await updateCustomSlot(customForm.id, payload)
+      else await createCustomSlot(payload)
+      setCustomForm(null)
+    })
+  }
+
+  async function onSaveBlock() {
+    if (!blockForm) return
+    await runMutation(async () => {
+      const payload = {
+        onDate: blockForm.date,
         allDay: blockForm.allDay,
         startTime: blockForm.allDay ? null : blockForm.startTime,
         endTime: blockForm.allDay ? null : blockForm.endTime,
-        reason: blockForm.reason || 'Blocked',
-      })
-      pushToast('Blocked time saved. It overrides recurring availability.')
-      setBlockOpen(false)
-      scheduleState.reload()
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Could not block time')
-    }
+        reason: blockForm.reason,
+      }
+      if (blockForm.id) await updateBlockedTime(blockForm.id, payload)
+      else await createBlockedTime(payload)
+      setBlockForm(null)
+    })
   }
 
   return (
@@ -186,38 +236,14 @@ export function CalendarPage() {
         title="Availability"
         subtitle="Set when candidates can book your interview sessions."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)}>
-              Preview Candidate View
-            </Button>
-            <Button size="sm" onClick={onSave} disabled={saving}>
-              Save Availability
-            </Button>
-          </div>
+          <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)}>
+            Preview Candidate View
+          </Button>
         }
       />
 
-      <Card className="p-5">
-        <p className="text-sm font-medium text-slate-500">Timezone</p>
-        <div className="mt-2 max-w-md">
-          <SelectInput
-            value={working?.settings.timezone ?? 'Asia/Kolkata'}
-            onChange={(event) =>
-              working && setDraft({ ...working, settings: { ...working.settings, timezone: event.target.value } })
-            }
-          >
-            {TIMEZONES.map((zone) => (
-              <option key={zone.id} value={zone.id}>
-                {zone.label}
-              </option>
-            ))}
-          </SelectInput>
-        </div>
-        <p className="mt-2 text-xs text-slate-500">
-          Availability belongs to your timezone ({timezoneLabel(working?.settings.timezone ?? 'Asia/Kolkata')}). Candidates
-          never pick a time you have not opened.
-        </p>
-      </Card>
+      {boardState.status === 'loading' && !board ? <Skeleton className="h-64" /> : null}
+      {boardState.status === 'error' ? <ErrorState body={boardState.error} onRetry={boardState.reload} /> : null}
 
       {errors.length ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -227,19 +253,42 @@ export function CalendarPage() {
         </div>
       ) : null}
 
-      {scheduleState.status === 'loading' || !working ? <Skeleton className="h-64" /> : null}
-
-      {working ? (
+      {board ? (
         <>
+          <Card className="p-5">
+            <h2 className="text-lg font-semibold text-navy-950">Timezone</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Availability times are interpreted in your timezone ({timezoneLabel(board.timezone)}).
+            </p>
+            <div className="mt-4 max-w-md">
+              <SelectInput
+                value={board.timezone}
+                disabled={saving}
+                onChange={(event) => void onTimezoneChange(event.target.value)}
+              >
+                {timezoneOptions.map((zone) => (
+                  <option key={zone.id} value={zone.id}>
+                    {zone.label}
+                  </option>
+                ))}
+              </SelectInput>
+            </div>
+          </Card>
+
           <section className="space-y-3">
             <div>
-              <h2 className="text-lg font-semibold text-navy-950">Weekly recurring schedule</h2>
-              <p className="text-sm text-slate-500">You control the windows. RoundOne generates the slots inside them.</p>
+              <h2 className="text-lg font-semibold text-navy-950">Weekly Availability</h2>
+              <p className="text-sm text-slate-500">Enable a day and add one or more time ranges. Times use your timezone.</p>
             </div>
+            {board.availability.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
+                No weekly availability yet. Enable a weekday and add a time range.
+              </p>
+            ) : null}
             <div className="space-y-3">
               {WEEKDAY_ORDER.map((day) => {
-                const ranges = working.recurring.filter((item) => item.dayOfWeek === day)
-                const enabled = ranges.some((item) => item.isActive)
+                const ranges = board.availability.filter((item) => item.weekday === day)
+                const enabled = ranges.length > 0
                 return (
                   <Card key={day} className="p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -247,22 +296,8 @@ export function CalendarPage() {
                         <input
                           type="checkbox"
                           checked={enabled}
-                          onChange={(event) => {
-                            if (!event.target.checked) {
-                              setDraft({
-                                ...working,
-                                recurring: working.recurring.map((item) =>
-                                  item.dayOfWeek === day ? { ...item, isActive: false } : item,
-                                ),
-                              })
-                              return
-                            }
-                            const next = working.recurring.map((item) =>
-                              item.dayOfWeek === day ? { ...item, isActive: true } : item,
-                            )
-                            if (!next.some((item) => item.dayOfWeek === day)) addRange(day)
-                            else setDraft({ ...working, recurring: next })
-                          }}
+                          disabled={saving}
+                          onChange={(event) => void onToggleDay(day, event.target.checked)}
                         />
                         {WEEKDAY_LABELS[day]}
                       </label>
@@ -270,37 +305,37 @@ export function CalendarPage() {
                     </div>
                     {enabled ? (
                       <div className="mt-3 space-y-2">
-                        {ranges
-                          .filter((item) => item.isActive)
-                          .map((range) => (
-                            <div key={range.id} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
-                              <SelectInput
-                                value={range.startTime}
-                                onChange={(event) => updateRange(range.id, { startTime: event.target.value })}
-                              >
-                                {TIME_OPTIONS.map((time) => (
-                                  <option key={time} value={time}>
-                                    {formatClock(time)}
-                                  </option>
-                                ))}
-                              </SelectInput>
-                              <SelectInput
-                                value={range.endTime}
-                                onChange={(event) => updateRange(range.id, { endTime: event.target.value })}
-                              >
-                                {TIME_OPTIONS.map((time) => (
-                                  <option key={time} value={time}>
-                                    {formatClock(time)}
-                                  </option>
-                                ))}
-                              </SelectInput>
-                              <Button size="sm" variant="ghost" onClick={() => removeRange(range.id)}>
-                                Remove
-                              </Button>
-                            </div>
-                          ))}
-                        <Button size="sm" variant="outline" onClick={() => addRange(day)}>
-                          + Add Time Range
+                        {ranges.map((range) => (
+                          <div key={range.id} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+                            <SelectInput
+                              value={range.start_time}
+                              disabled={saving}
+                              onChange={(event) => void onUpdateRange(range.id, { startTime: event.target.value })}
+                            >
+                              {TIME_OPTIONS.map((time) => (
+                                <option key={time} value={time}>
+                                  {formatClock(time)}
+                                </option>
+                              ))}
+                            </SelectInput>
+                            <SelectInput
+                              value={range.end_time}
+                              disabled={saving}
+                              onChange={(event) => void onUpdateRange(range.id, { endTime: event.target.value })}
+                            >
+                              {TIME_OPTIONS.map((time) => (
+                                <option key={time} value={time}>
+                                  {formatClock(time)}
+                                </option>
+                              ))}
+                            </SelectInput>
+                            <Button size="sm" variant="ghost" disabled={saving} onClick={() => void onRemoveRange(range.id)}>
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                        <Button size="sm" variant="outline" disabled={saving} onClick={() => void onAddRange(day)}>
+                          Add time
                         </Button>
                       </div>
                     ) : null}
@@ -310,109 +345,110 @@ export function CalendarPage() {
             </div>
           </section>
 
-          <Card className="p-5">
-            <h2 className="text-lg font-semibold text-navy-950">Booking buffer</h2>
-            <p className="mt-1 text-sm text-slate-500">Buffer time prevents back-to-back sessions.</p>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div>
-                <FieldLabel htmlFor="duration">Interview duration</FieldLabel>
-                <SelectInput
-                  id="duration"
-                  value={String(working.settings.defaultDurationMin)}
-                  onChange={(event) =>
-                    setDraft({
-                      ...working,
-                      settings: { ...working.settings, defaultDurationMin: Number(event.target.value) },
-                    })
-                  }
-                >
-                  {[45, 60, 90].map((item) => (
-                    <option key={item} value={item}>
-                      {item} minutes
-                    </option>
-                  ))}
-                </SelectInput>
-              </div>
-              <div>
-                <FieldLabel htmlFor="buffer">Buffer between interviews</FieldLabel>
-                <SelectInput
-                  id="buffer"
-                  value={String(working.settings.bufferMin)}
-                  onChange={(event) =>
-                    setDraft({
-                      ...working,
-                      settings: { ...working.settings, bufferMin: Number(event.target.value) as BufferMinutes },
-                    })
-                  }
-                >
-                  {BUFFER_OPTIONS.map((item) => (
-                    <option key={item} value={item}>
-                      {item} min
-                    </option>
-                  ))}
-                </SelectInput>
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-slate-500">
-              Slot generation uses each service’s duration. A 90-minute Full Interview only appears if the whole window
-              fits.
-            </p>
-          </Card>
-
-          <Card className="p-5">
-            <h2 className="text-lg font-semibold text-navy-950">Service-specific availability</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Global availability applies to every service today. Each window can later target a single service (for
-              example System Design on Saturday 6–9 PM, Coding on Sunday 10 AM–1 PM).
-            </p>
-          </Card>
-
           <section className="grid gap-4 lg:grid-cols-2">
             <Card className="p-5">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-navy-950">Custom Availability</h2>
-                <Button size="sm" variant="outline" onClick={() => setCustomOpen(true)}>
-                  + Add Custom Slot
+                <Button size="sm" variant="outline" disabled={saving} onClick={() => setCustomForm(emptyCustomForm())}>
+                  Add custom slot
                 </Button>
               </div>
               <p className="mt-1 text-sm text-slate-500">One-time windows even when the weekly schedule is closed.</p>
-              <ul className="mt-4 space-y-3">
-                {schedule?.customSlots.map((slot) => (
-                  <li key={slot.id} className="rounded-lg border border-slate-100 p-3 text-sm">
-                    <p className="font-medium text-navy-950">{formatDateLong(combineIso(slot.date))}</p>
-                    <p className="text-slate-600">{formatClockRange(slot.startTime, slot.endTime)}</p>
-                    {slot.note ? <p className="mt-1 text-xs text-slate-500">{slot.note}</p> : null}
-                    <Button size="sm" variant="ghost" className="mt-2" onClick={() => deleteCustomSlot(slot.id).then(() => scheduleState.reload())}>
-                      Remove
-                    </Button>
-                  </li>
-                ))}
-              </ul>
+              {board.customSlots.length === 0 ? (
+                <p className="mt-4 rounded-lg border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
+                  No custom slots yet. Add a one-time window for a specific date.
+                </p>
+              ) : (
+                <ul className="mt-4 space-y-3">
+                  {board.customSlots.map((slot) => (
+                    <li key={slot.id} className="rounded-lg border border-slate-100 p-3 text-sm">
+                      <p className="font-medium text-navy-950">{formatDateLong(combineIso(slot.on_date))}</p>
+                      <p className="text-slate-600">{formatClockRange(slot.start_time, slot.end_time)}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" disabled={saving} onClick={() => setCustomForm(toCustomForm(slot))}>
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={saving}
+                          onClick={() => void runMutation(() => deleteCustomSlot(slot.id))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Card>
             <Card className="p-5">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-navy-950">Blocked Dates</h2>
-                <Button size="sm" variant="outline" onClick={() => setBlockOpen(true)}>
-                  + Block Date
+                <Button size="sm" variant="outline" disabled={saving} onClick={() => setBlockForm(emptyBlockForm())}>
+                  Add blocked date/time
                 </Button>
               </div>
-              <p className="mt-1 text-sm text-slate-500">Blocked times override recurring availability.</p>
-              <ul className="mt-4 space-y-3">
-                {schedule?.blockedTimes.map((item) => (
-                  <li key={item.id} className="rounded-lg border border-slate-100 p-3 text-sm">
-                    <p className="font-medium text-navy-950">{formatDateLong(combineIso(item.date))}</p>
-                    <p className="text-slate-600">
-                      {item.allDay ? 'All day' : formatClockRange(item.startTime ?? '00:00', item.endTime ?? '23:59')}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">Reason: {item.reason}</p>
-                    <Button size="sm" variant="ghost" className="mt-2" onClick={() => deleteBlockedTime(item.id).then(() => scheduleState.reload())}>
-                      Remove
-                    </Button>
-                  </li>
-                ))}
-              </ul>
+              <p className="mt-1 text-sm text-slate-500">
+                Blocked times override recurring availability. Reasons stay private and are never shown to candidates.
+              </p>
+              {board.blockedTimes.length === 0 ? (
+                <p className="mt-4 rounded-lg border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
+                  No blocked dates yet. Block a full day or a partial time when you cannot take interviews.
+                </p>
+              ) : (
+                <ul className="mt-4 space-y-3">
+                  {board.blockedTimes.map((item) => (
+                    <li key={item.id} className="rounded-lg border border-slate-100 p-3 text-sm">
+                      <p className="font-medium text-navy-950">{formatDateLong(combineIso(item.on_date))}</p>
+                      <p className="text-slate-600">
+                        {item.all_day
+                          ? 'All day'
+                          : formatClockRange(item.start_time ?? '00:00', item.end_time ?? '23:59')}
+                      </p>
+                      {item.reason ? (
+                        <p className="mt-1 text-xs text-slate-500">Private reason: {item.reason}</p>
+                      ) : null}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" disabled={saving} onClick={() => setBlockForm(toBlockForm(item))}>
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={saving}
+                          onClick={() => void runMutation(() => deleteBlockedTime(item.id))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Card>
           </section>
+
+          <Card className="p-5">
+            <h2 className="text-lg font-semibold text-navy-950">Booking Buffer</h2>
+            <p className="mt-1 text-sm text-slate-500">Buffer time helps prevent back-to-back sessions.</p>
+            <div className="mt-4 max-w-md">
+              <FieldLabel htmlFor="buffer">Buffer between interviews</FieldLabel>
+              <SelectInput
+                id="buffer"
+                value={String(board.bookingBufferMin)}
+                disabled={saving}
+                onChange={(event) => void onBufferChange(Number(event.target.value) as BookingBufferMinutes)}
+              >
+                {BUFFER_OPTIONS.map((item) => (
+                  <option key={item} value={item}>
+                    {item} minutes
+                  </option>
+                ))}
+              </SelectInput>
+            </div>
+            <p className="mt-3 text-xs text-slate-500">This value is private and is not shown to candidates.</p>
+          </Card>
 
           <section className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -456,7 +492,8 @@ export function CalendarPage() {
           <Card className="p-5">
             <h2 className="text-lg font-semibold text-navy-950">Preview what candidates will see</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Candidates can only select these generated slots. They cannot choose an arbitrary date or time.
+              Local preview from your live windows, blocked times, and mock bookings. Candidate-visible slots will later
+              come from the slot-generation RPC. This preview is not stored.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
@@ -503,8 +540,7 @@ export function CalendarPage() {
 
       <SlideOver title="Preview what candidates will see" open={previewOpen} onClose={() => setPreviewOpen(false)}>
         <p className="text-sm text-slate-600">
-          These are the only times a candidate can select for the chosen service duration. They cannot pick an arbitrary
-          time.
+          Local preview only. Candidate booking will use generated slots from the database RPC later.
         </p>
         <div className="mt-4 grid gap-3">
           <div>
@@ -543,84 +579,121 @@ export function CalendarPage() {
         </div>
       </SlideOver>
 
-      <SlideOver title="Add custom availability" open={customOpen} onClose={() => setCustomOpen(false)}>
-        <div className="grid gap-4">
-          <div>
-            <FieldLabel htmlFor="custom-date">Date</FieldLabel>
-            <TextInput id="custom-date" type="date" value={customForm.date} onChange={(event) => setCustomForm({ ...customForm, date: event.target.value })} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+      <SlideOver
+        title={customForm?.id ? 'Edit custom availability' : 'Add custom availability'}
+        open={Boolean(customForm)}
+        onClose={() => setCustomForm(null)}
+      >
+        {customForm ? (
+          <div className="grid gap-4">
             <div>
-              <FieldLabel htmlFor="custom-start">Start</FieldLabel>
-              <SelectInput id="custom-start" value={customForm.startTime} onChange={(event) => setCustomForm({ ...customForm, startTime: event.target.value })}>
-                {TIME_OPTIONS.map((time) => (
-                  <option key={time} value={time}>
-                    {formatClock(time)}
-                  </option>
-                ))}
-              </SelectInput>
+              <FieldLabel htmlFor="custom-date">Date</FieldLabel>
+              <TextInput
+                id="custom-date"
+                type="date"
+                value={customForm.date}
+                onChange={(event) => setCustomForm({ ...customForm, date: event.target.value })}
+              />
             </div>
-            <div>
-              <FieldLabel htmlFor="custom-end">End</FieldLabel>
-              <SelectInput id="custom-end" value={customForm.endTime} onChange={(event) => setCustomForm({ ...customForm, endTime: event.target.value })}>
-                {TIME_OPTIONS.map((time) => (
-                  <option key={time} value={time}>
-                    {formatClock(time)}
-                  </option>
-                ))}
-              </SelectInput>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel htmlFor="custom-start">Start</FieldLabel>
+                <SelectInput
+                  id="custom-start"
+                  value={customForm.startTime}
+                  onChange={(event) => setCustomForm({ ...customForm, startTime: event.target.value })}
+                >
+                  {TIME_OPTIONS.map((time) => (
+                    <option key={time} value={time}>
+                      {formatClock(time)}
+                    </option>
+                  ))}
+                </SelectInput>
+              </div>
+              <div>
+                <FieldLabel htmlFor="custom-end">End</FieldLabel>
+                <SelectInput
+                  id="custom-end"
+                  value={customForm.endTime}
+                  onChange={(event) => setCustomForm({ ...customForm, endTime: event.target.value })}
+                >
+                  {TIME_OPTIONS.map((time) => (
+                    <option key={time} value={time}>
+                      {formatClock(time)}
+                    </option>
+                  ))}
+                </SelectInput>
+              </div>
             </div>
+            <Button onClick={() => void onSaveCustom()} disabled={saving}>
+              {customForm.id ? 'Save custom slot' : 'Add custom slot'}
+            </Button>
           </div>
-          <div>
-            <FieldLabel htmlFor="custom-note">Reason / note</FieldLabel>
-            <TextInput id="custom-note" value={customForm.note} onChange={(event) => setCustomForm({ ...customForm, note: event.target.value })} />
-          </div>
-          <Button onClick={onAddCustom}>Add custom slot</Button>
-        </div>
+        ) : null}
       </SlideOver>
 
-      <SlideOver title="Block date" open={blockOpen} onClose={() => setBlockOpen(false)}>
-        <div className="grid gap-4">
-          <div>
-            <FieldLabel htmlFor="block-date">Date</FieldLabel>
-            <TextInput id="block-date" type="date" value={blockForm.date} onChange={(event) => setBlockForm({ ...blockForm, date: event.target.value })} />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={blockForm.allDay}
-              onChange={(event) => setBlockForm({ ...blockForm, allDay: event.target.checked })}
-            />
-            All day
-          </label>
-          {blockForm.allDay ? null : (
-            <div className="grid grid-cols-2 gap-3">
-              <SelectInput value={blockForm.startTime} onChange={(event) => setBlockForm({ ...blockForm, startTime: event.target.value })}>
-                {TIME_OPTIONS.map((time) => (
-                  <option key={time} value={time}>
-                    {formatClock(time)}
-                  </option>
-                ))}
-              </SelectInput>
-              <SelectInput value={blockForm.endTime} onChange={(event) => setBlockForm({ ...blockForm, endTime: event.target.value })}>
-                {TIME_OPTIONS.map((time) => (
-                  <option key={time} value={time}>
-                    {formatClock(time)}
-                  </option>
-                ))}
-              </SelectInput>
+      <SlideOver
+        title={blockForm?.id ? 'Edit blocked date/time' : 'Block date'}
+        open={Boolean(blockForm)}
+        onClose={() => setBlockForm(null)}
+      >
+        {blockForm ? (
+          <div className="grid gap-4">
+            <div>
+              <FieldLabel htmlFor="block-date">Date</FieldLabel>
+              <TextInput
+                id="block-date"
+                type="date"
+                value={blockForm.date}
+                onChange={(event) => setBlockForm({ ...blockForm, date: event.target.value })}
+              />
             </div>
-          )}
-          <div>
-            <FieldLabel htmlFor="block-reason">Reason</FieldLabel>
-            <TextInput
-              id="block-reason"
-              value={blockForm.reason}
-              onChange={(event) => setBlockForm({ ...blockForm, reason: event.target.value })}
-            />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={blockForm.allDay}
+                onChange={(event) => setBlockForm({ ...blockForm, allDay: event.target.checked })}
+              />
+              All day
+            </label>
+            {blockForm.allDay ? null : (
+              <div className="grid grid-cols-2 gap-3">
+                <SelectInput
+                  value={blockForm.startTime}
+                  onChange={(event) => setBlockForm({ ...blockForm, startTime: event.target.value })}
+                >
+                  {TIME_OPTIONS.map((time) => (
+                    <option key={time} value={time}>
+                      {formatClock(time)}
+                    </option>
+                  ))}
+                </SelectInput>
+                <SelectInput
+                  value={blockForm.endTime}
+                  onChange={(event) => setBlockForm({ ...blockForm, endTime: event.target.value })}
+                >
+                  {TIME_OPTIONS.map((time) => (
+                    <option key={time} value={time}>
+                      {formatClock(time)}
+                    </option>
+                  ))}
+                </SelectInput>
+              </div>
+            )}
+            <div>
+              <FieldLabel htmlFor="block-reason">Private reason</FieldLabel>
+              <TextInput
+                id="block-reason"
+                value={blockForm.reason}
+                onChange={(event) => setBlockForm({ ...blockForm, reason: event.target.value })}
+              />
+              <p className="mt-1 text-xs text-slate-500">Candidates never see this reason.</p>
+            </div>
+            <Button onClick={() => void onSaveBlock()} disabled={saving}>
+              {blockForm.id ? 'Save blocked time' : 'Block date'}
+            </Button>
           </div>
-          <Button onClick={onAddBlock}>Block date</Button>
-        </div>
+        ) : null}
       </SlideOver>
     </div>
   )
@@ -630,6 +703,80 @@ const TIME_OPTIONS = Array.from({ length: 29 }, (_, index) => minutesToTime(8 * 
 
 function combineIso(ymd: string) {
   return `${ymd}T00:00:00`
+}
+
+function toCustomForm(slot: CustomSlotRecord): CustomForm {
+  return {
+    id: slot.id,
+    date: slot.on_date,
+    startTime: slot.start_time,
+    endTime: slot.end_time,
+  }
+}
+
+function toBlockForm(item: BlockedTimeRecord): BlockForm {
+  return {
+    id: item.id,
+    date: item.on_date,
+    allDay: item.all_day,
+    startTime: item.start_time ?? '18:00',
+    endTime: item.end_time ?? '21:00',
+    reason: item.reason ?? '',
+  }
+}
+
+function toSchedule(board: AvailabilityBoard, defaultDurationMin: number): AvailabilitySchedule {
+  return {
+    settings: {
+      interviewerId: board.interviewerProfileId,
+      timezone: board.timezone,
+      defaultDurationMin,
+      bufferMin: board.bookingBufferMin,
+    },
+    recurring: board.availability.map((item) => ({
+      id: item.id,
+      interviewerId: item.interviewer_profile_id,
+      dayOfWeek: item.weekday,
+      startTime: item.start_time,
+      endTime: item.end_time,
+      timezone: board.timezone,
+      isActive: true,
+      serviceId: null,
+    })),
+    customSlots: board.customSlots.map((item) => ({
+      id: item.id,
+      interviewerId: item.interviewer_profile_id,
+      date: item.on_date,
+      startTime: item.start_time,
+      endTime: item.end_time,
+      timezone: board.timezone,
+      serviceId: null,
+    })),
+    blockedTimes: board.blockedTimes.map((item) => ({
+      id: item.id,
+      interviewerId: item.interviewer_profile_id,
+      date: item.on_date,
+      startTime: item.start_time,
+      endTime: item.end_time,
+      allDay: item.all_day,
+      reason: item.reason ?? '',
+      timezone: board.timezone,
+    })),
+  }
+}
+
+function nextRangeForDay(day: Weekday, board: AvailabilityBoard) {
+  const existing = board.availability
+    .filter((item) => item.weekday === day)
+    .sort((a, b) => a.start_time.localeCompare(b.start_time))
+  if (existing.length === 0) return defaultRangeForDay(day)
+  const last = existing[existing.length - 1]
+  const startMin = timeToMinutes(last.end_time)
+  const endMin = startMin + 180
+  if (endMin <= 22 * 60) {
+    return { startTime: minutesToTime(startMin), endTime: minutesToTime(endMin) }
+  }
+  return { startTime: '10:00', endTime: '14:00' }
 }
 
 function Legend({ color, label }: { color: string; label: string }) {

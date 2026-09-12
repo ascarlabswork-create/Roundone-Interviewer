@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { RequireInterviewerAuth } from '../components/auth/RequireInterviewerAuth.tsx'
 import { AppShell } from '../components/layout/AppShell.tsx'
 import { PublicLayout } from '../components/layout/PublicLayout.tsx'
 import { BookingsPage } from '../pages/BookingsPage.tsx'
@@ -10,6 +11,7 @@ import { EarningsPage } from '../pages/EarningsPage.tsx'
 import { FeedbackPage } from '../pages/FeedbackPage.tsx'
 import { InterviewRoomPage } from '../pages/InterviewRoomPage.tsx'
 import { LandingPage } from '../pages/LandingPage.tsx'
+import { LoginPage } from '../pages/LoginPage.tsx'
 import { NotFoundPage } from '../pages/NotFoundPage.tsx'
 import { ProfilePage } from '../pages/ProfilePage.tsx'
 import { RegisterPage } from '../pages/RegisterPage.tsx'
@@ -26,24 +28,29 @@ export function AppRouter() {
         <Route path="/" element={<Navigate to="/interviewer" replace />} />
         <Route element={<PublicLayout />}>
           <Route path="/interviewer" element={<LandingPage />} />
+          <Route path="/interviewer/login" element={<LoginPage />} />
           <Route path="/interviewer/register" element={<RegisterPage />} />
-          <Route path="/interviewer/setup" element={<SetupPage />} />
-          <Route path="/interviewer/verification" element={<VerificationPage />} />
+          <Route element={<RequireInterviewerAuth />}>
+            <Route path="/interviewer/setup" element={<SetupPage />} />
+          </Route>
         </Route>
-        <Route element={<AppShell />}>
-          <Route path="/interviewer/dashboard" element={<DashboardPage />} />
-          <Route path="/interviewer/bookings" element={<BookingsPage />} />
-          <Route path="/interviewer/calendar" element={<CalendarPage />} />
-          <Route path="/interviewer/services" element={<ServicesPage />} />
-          <Route path="/interviewer/candidates" element={<CandidatesPage />} />
-          <Route path="/interviewer/candidates/:id" element={<CandidateDetailPage />} />
-          <Route path="/interviewer/feedback/:bookingId" element={<FeedbackPage />} />
-          <Route path="/interviewer/reviews" element={<ReviewsPage />} />
-          <Route path="/interviewer/earnings" element={<EarningsPage />} />
-          <Route path="/interviewer/profile" element={<ProfilePage />} />
-          <Route path="/interviewer/settings" element={<SettingsPage />} />
+        <Route element={<RequireInterviewerAuth />}>
+          <Route element={<AppShell />}>
+            <Route path="/interviewer/dashboard" element={<DashboardPage />} />
+            <Route path="/interviewer/bookings" element={<BookingsPage />} />
+            <Route path="/interviewer/calendar" element={<CalendarPage />} />
+            <Route path="/interviewer/services" element={<ServicesPage />} />
+            <Route path="/interviewer/candidates" element={<CandidatesPage />} />
+            <Route path="/interviewer/candidates/:id" element={<CandidateDetailPage />} />
+            <Route path="/interviewer/feedback/:bookingId" element={<FeedbackPage />} />
+            <Route path="/interviewer/reviews" element={<ReviewsPage />} />
+            <Route path="/interviewer/earnings" element={<EarningsPage />} />
+            <Route path="/interviewer/profile" element={<ProfilePage />} />
+            <Route path="/interviewer/verification" element={<VerificationPage />} />
+            <Route path="/interviewer/settings" element={<SettingsPage />} />
+          </Route>
+          <Route path="/interviewer/interview/:id" element={<InterviewRoomPage />} />
         </Route>
-        <Route path="/interviewer/interview/:id" element={<InterviewRoomPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>

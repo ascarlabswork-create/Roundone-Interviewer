@@ -1,68 +1,96 @@
+import { useState } from 'react'
 import { CalendarCheck, IndianRupee, Star, Video } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { acceptBooking, getAvailabilitySummary, listBookings, listInterviewerReviews, rejectBooking } from '../api/index.ts'
+import { getAvailabilitySummary, listBookings, listInterviewerReviews } from '../api/index.ts'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
-import { BookingStatusBadge } from '../components/ui/StatusBadge.tsx'
+import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
 import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
 import { MetricCard } from '../components/ui/dashboard.tsx'
 import { Avatar, StarRating } from '../components/ui/identity.tsx'
 import { Card, ErrorState, Skeleton } from '../components/ui/primitives.tsx'
 import { getCandidateById } from '../data/candidates.ts'
 import { currentInterviewer } from '../data/interviewer.ts'
-import { completedWhenLabel, formatDateShort, formatTime, sameDay } from '../lib/dates.ts'
+import { completedWhenLabel, formatDateShortInZone, formatTimeInZone, sameDay } from '../lib/dates.ts'
 import { isPrivateFeedbackPending, isPrivateFeedbackSubmitted } from '../lib/feedback.ts'
 import { nextAvailableLabel, weeklyAvailableHours } from '../lib/slots.ts'
 import { formatCount, formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
+import {
+  BOOKING_ALREADY_UPDATED,
+  confirmBooking,
+  getMyBookings,
+  rejectBooking,
+} from '../services/interviewerBookings.ts'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
 
 export function DashboardPage() {
-  const interviewer = useSession()
+  const { account } = useSession()
   const { pushToast } = useToast()
-  const bookings = useAsync(() => listBookings(), [])
+  const liveBookings = useAsync(() => getMyBookings(), [])
+  const mockBookings = useAsync(() => listBookings(), [])
   const reviews = useAsync(() => listInterviewerReviews(currentInterviewer.id), [])
   const availability = useAsync(() => getAvailabilitySummary(), [])
+  const [actingId, setActingId] = useState<string | null>(null)
 
-  const upcoming = bookings.status === 'success' ? bookings.data.filter((item) => item.status === 'upcoming') : []
-  const pending = bookings.status === 'success' ? bookings.data.filter((item) => item.status === 'pending') : []
+  const upcoming =
+    liveBookings.status === 'success'
+      ? liveBookings.data.filter((item) => item.status === 'confirmed')
+      : []
+  const pending =
+    liveBookings.status === 'success'
+      ? liveBookings.data.filter((item) => item.status === 'requested')
+      : []
   const feedbackQueue =
-    bookings.status === 'success'
-      ? bookings.data.filter((item) => {
+    mockBookings.status === 'success'
+      ? mockBookings.data.filter((item) => {
           if (isPrivateFeedbackPending(item)) return true
           return isPrivateFeedbackSubmitted(item) && sameDay(new Date(item.start), new Date())
         })
       : []
   const recent = reviews.status === 'success' ? reviews.data.slice(0, 3) : []
 
+  async function runBookingAction(id: string, action: () => Promise<unknown>, successMessage: string) {
+    setActingId(id)
+    try {
+      await action()
+      pushToast(successMessage)
+      liveBookings.reload()
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not update this booking.'
+      pushToast(message)
+      if (message === BOOKING_ALREADY_UPDATED) liveBookings.reload()
+    } finally {
+      setActingId(null)
+    }
+  }
+
   async function onAccept(id: string) {
-    await acceptBooking(id)
-    pushToast('Booking accepted')
-    bookings.reload()
+    await runBookingAction(id, () => confirmBooking(id), 'Booking confirmed')
   }
 
   async function onReject(id: string) {
-    await rejectBooking(id)
-    pushToast('Booking declined')
-    bookings.reload()
+    await runBookingAction(id, () => rejectBooking(id), 'Booking rejected')
   }
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-navy-950">Welcome back, {interviewer.name.split(' ')[0]}!</h1>
+        <h1 className="text-2xl font-semibold text-navy-950">
+          Welcome back, {account?.profile.full_name.split(' ')[0] ?? 'there'}!
+        </h1>
         <p className="mt-1 text-sm text-slate-600">Here’s what needs attention in your interview practice today.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Upcoming Interviews" value={String(upcoming.length)} hint="Next 7 days" icon={<Video className="h-4 w-4" />} />
+        <MetricCard label="Upcoming Interviews" value={String(upcoming.length)} hint="Confirmed" icon={<Video className="h-4 w-4" />} />
         <MetricCard
           label="Completed Interviews"
-          value={formatCount(interviewer.completedInterviews)}
+          value={formatCount(currentInterviewer.completedInterviews)}
           icon={<CalendarCheck className="h-4 w-4" />}
         />
-        <MetricCard label="Rating" value={`${interviewer.rating}`} hint={`${formatCount(interviewer.reviewCount)} reviews`} icon={<Star className="h-4 w-4" />} />
+        <MetricCard label="Rating" value={`${currentInterviewer.rating}`} hint={`${formatCount(currentInterviewer.reviewCount)} reviews`} icon={<Star className="h-4 w-4" />} />
         <MetricCard label="This Month's Earnings" value={formatINR(48500)} icon={<IndianRupee className="h-4 w-4" />} />
       </div>
 
@@ -99,63 +127,53 @@ export function DashboardPage() {
             View all
           </Link>
         </div>
-        {bookings.status === 'loading' ? <Skeleton className="h-40" /> : null}
-        {bookings.status === 'error' ? <ErrorState body={bookings.error} onRetry={bookings.reload} /> : null}
-        {bookings.status === 'success' ? (
+        {liveBookings.status === 'loading' ? <Skeleton className="h-40" /> : null}
+        {liveBookings.status === 'error' ? <ErrorState body={liveBookings.error} onRetry={liveBookings.reload} /> : null}
+        {liveBookings.status === 'success' && upcoming.length === 0 ? (
+          <p className="text-sm text-slate-500">No confirmed interviews yet.</p>
+        ) : null}
+        {liveBookings.status === 'success' && upcoming.length > 0 ? (
           <>
             <DataTable headers={['Candidate', 'Interview Type', 'Service', 'Date', 'Time', 'Status', '']}>
-              {upcoming.map((booking) => {
-                const candidate = getCandidateById(booking.candidateId)
-                return (
-                  <TableRow key={booking.id}>
-                    <Td className="font-medium text-navy-950">{candidate?.name}</Td>
-                    <Td>{booking.interviewType}</Td>
-                    <Td>{booking.serviceName}</Td>
-                    <Td>{formatDateShort(booking.start)}</Td>
-                    <Td>{formatTime(booking.start)}</Td>
-                    <Td>
-                      <BookingStatusBadge status={booking.status} />
-                    </Td>
-                    <Td>
-                      <div className="flex justify-end gap-2">
-                        <Link to={`/interviewer/candidates/${booking.candidateId}`}>
-                          <Button size="sm" variant="outline">
-                            View
-                          </Button>
-                        </Link>
-                        <Link to={`/interviewer/interview/${booking.id}`}>
-                          <Button size="sm">Join</Button>
-                        </Link>
-                      </div>
-                    </Td>
-                  </TableRow>
-                )
-              })}
-            </DataTable>
-            <div className="mt-4 space-y-3 lg:hidden">
-              {upcoming.map((booking) => {
-                const candidate = getCandidateById(booking.candidateId)
-                return (
-                  <Card key={booking.id} className="p-4">
-                    <p className="font-semibold text-navy-950">{candidate?.name}</p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {booking.serviceName} · {formatDateShort(booking.start)} · {formatTime(booking.start)}
-                    </p>
-                    <div className="mt-3 flex gap-2">
-                      <Link to={`/interviewer/candidates/${booking.candidateId}`} className="flex-1">
-                        <Button size="sm" variant="outline" fullWidth>
+              {upcoming.map((booking) => (
+                <TableRow key={booking.id}>
+                  <Td className="font-medium text-navy-950">{booking.candidate.name}</Td>
+                  <Td>{booking.interviewType}</Td>
+                  <Td>{booking.serviceName}</Td>
+                  <Td>{formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)}</Td>
+                  <Td>{formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)}</Td>
+                  <Td>
+                    <LiveBookingStatusBadge status={booking.status} />
+                  </Td>
+                  <Td>
+                    <div className="flex justify-end gap-2">
+                      <Link to="/interviewer/bookings">
+                        <Button size="sm" variant="outline">
                           View
                         </Button>
                       </Link>
-                      <Link to={`/interviewer/interview/${booking.id}`} className="flex-1">
-                        <Button size="sm" fullWidth>
-                          Join
-                        </Button>
-                      </Link>
                     </div>
-                  </Card>
-                )
-              })}
+                  </Td>
+                </TableRow>
+              ))}
+            </DataTable>
+            <div className="mt-4 space-y-3 lg:hidden">
+              {upcoming.map((booking) => (
+                <Card key={booking.id} className="p-4">
+                  <p className="font-semibold text-navy-950">{booking.candidate.name}</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {booking.serviceName} · {formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)} ·{' '}
+                    {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)}
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <Link to="/interviewer/bookings" className="flex-1">
+                      <Button size="sm" variant="outline" fullWidth>
+                        View
+                      </Button>
+                    </Link>
+                  </div>
+                </Card>
+              ))}
             </div>
           </>
         ) : null}
@@ -170,7 +188,7 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
-        {feedbackQueue.length === 0 && bookings.status === 'success' ? (
+        {feedbackQueue.length === 0 && mockBookings.status === 'success' ? (
           <p className="text-sm text-slate-500">No private candidate feedback waiting.</p>
         ) : null}
         <div className="grid gap-3">
@@ -203,40 +221,48 @@ export function DashboardPage() {
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-navy-950">Booking requests</h2>
-        {pending.length === 0 && bookings.status === 'success' ? (
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-navy-950">Booking requests</h2>
+          <p className="text-sm text-slate-500">{pending.length} pending</p>
+        </div>
+        {liveBookings.status === 'loading' ? <Skeleton className="h-24" /> : null}
+        {liveBookings.status === 'error' ? <ErrorState body={liveBookings.error} onRetry={liveBookings.reload} /> : null}
+        {liveBookings.status === 'success' && pending.length === 0 ? (
           <p className="text-sm text-slate-500">No pending requests.</p>
         ) : null}
         <div className="grid gap-3">
-          {pending.map((booking) => {
-            const candidate = getCandidateById(booking.candidateId)
-            return (
-              <Card key={booking.id} className="p-4 sm:flex sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <Avatar src={candidate?.photo ?? ''} name={candidate?.name ?? ''} size="sm" />
-                  <div>
-                    <p className="font-medium text-navy-950">{candidate?.name}</p>
-                    <p className="text-sm text-slate-600">
-                      {booking.serviceName} · {formatDateShort(booking.start)} {formatTime(booking.start)}
-                    </p>
-                  </div>
+          {pending.map((booking) => (
+            <Card key={booking.id} className="p-4 sm:flex sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar src={booking.candidate.photoUrl ?? ''} name={booking.candidate.name} size="sm" />
+                <div>
+                  <p className="font-medium text-navy-950">{booking.candidate.name}</p>
+                  <p className="text-sm text-slate-600">
+                    {booking.serviceName} · {formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)}{' '}
+                    {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)}
+                  </p>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2 sm:mt-0">
-                  <Button size="sm" onClick={() => onAccept(booking.id)}>
-                    Accept
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 sm:mt-0">
+                <Button size="sm" onClick={() => void onAccept(booking.id)} disabled={actingId !== null}>
+                  {actingId === booking.id ? 'Accepting…' : 'Accept'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void onReject(booking.id)}
+                  disabled={actingId !== null}
+                >
+                  Reject
+                </Button>
+                <Link to="/interviewer/bookings">
+                  <Button size="sm" variant="ghost">
+                    Details
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => onReject(booking.id)}>
-                    Reject
-                  </Button>
-                  <Link to="/interviewer/bookings">
-                    <Button size="sm" variant="ghost">
-                      Suggest New Time
-                    </Button>
-                  </Link>
-                </div>
-              </Card>
-            )
-          })}
+                </Link>
+              </div>
+            </Card>
+          ))}
         </div>
       </section>
 

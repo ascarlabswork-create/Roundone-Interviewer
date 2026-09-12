@@ -8,7 +8,7 @@ import { IMPROVEMENT_TAGS, STRENGTH_TAGS } from '../data/catalogs.ts'
 import { getCandidateById } from '../data/candidates.ts'
 import { canSubmitPrivateFeedback } from '../lib/feedback.ts'
 import { useAsync } from '../lib/useAsync.ts'
-import { useSession } from '../state/session.tsx'
+import { currentInterviewer } from '../data/interviewer.ts'
 import { useToast } from '../state/toast.tsx'
 import type { FeedbackScores, InterviewerFeedback, Readiness } from '../types.ts'
 
@@ -35,7 +35,7 @@ const defaultScores: FeedbackScores = {
 export function FeedbackPage() {
   const { bookingId = '' } = useParams()
   const navigate = useNavigate()
-  const interviewer = useSession()
+  const interviewer = currentInterviewer
   const { pushToast } = useToast()
   const bookingState = useAsync(() => getBooking(bookingId), [bookingId])
   const existing = useAsync(() => getBookingFeedback(bookingId), [bookingId])

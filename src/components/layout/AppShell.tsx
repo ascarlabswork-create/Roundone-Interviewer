@@ -4,8 +4,10 @@ import {
   ClipboardList,
   IndianRupee,
   LayoutDashboard,
+  LogOut,
   Menu,
   Settings,
+  Shield,
   Star,
   UserRound,
   Users,
@@ -15,6 +17,8 @@ import {
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { listNotifications } from '../../api/index.ts'
+import { Button } from '../ui/Button.tsx'
+import { VerificationBadge } from '../ui/StatusBadge.tsx'
 import { cn } from '../../lib/cn.ts'
 import { useAsync } from '../../lib/useAsync.ts'
 import { useSession } from '../../state/session.tsx'
@@ -32,13 +36,21 @@ const navItems = [
   { to: '/interviewer/reviews', label: 'Reviews', icon: Star },
   { to: '/interviewer/earnings', label: 'Earnings', icon: IndianRupee },
   { to: '/interviewer/profile', label: 'Profile', icon: UserRound },
+  { to: '/interviewer/verification', label: 'Verification', icon: Shield },
   { to: '/interviewer/settings', label: 'Settings', icon: Settings },
 ]
 
 export function AppShell() {
   const [open, setOpen] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
-  const interviewer = useSession()
+  const { account, signOut } = useSession()
+  const displayName = account?.profile.full_name ?? 'Interviewer'
+  const verifications = account?.verifications ?? []
+  const overallVerification = verifications.some((item) => item.status === 'rejected')
+    ? 'rejected'
+    : verifications.length > 0 && verifications.every((item) => item.status === 'verified')
+      ? 'verified'
+      : 'pending'
   const { toasts, dismissToast } = useToast()
   const notes = useAsync(() => listNotifications(), [])
   const unread = notes.status === 'success' ? notes.data.filter((item) => !item.read).length : 0
@@ -125,10 +137,17 @@ export function AppShell() {
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-navy-900 text-xs font-semibold text-white">
-                {initials(interviewer.name)}
+                {initials(displayName)}
               </span>
-              <span className="hidden text-sm font-medium text-navy-950 sm:block">{interviewer.name}</span>
+              <span className="hidden text-sm font-medium text-navy-950 sm:block">{displayName}</span>
             </Link>
+            <Link to="/interviewer/verification" className="hidden sm:inline-flex">
+              <VerificationBadge status={overallVerification} />
+            </Link>
+            <Button size="sm" variant="ghost" onClick={() => void signOut()}>
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
           </div>
         </header>
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">

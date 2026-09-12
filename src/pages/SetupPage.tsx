@@ -1,4 +1,4 @@
-import { type FormEvent } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { Stepper } from '../components/ui/dashboard.tsx'
@@ -14,7 +14,10 @@ import {
   type CandidateLevel,
   type InterviewType,
 } from '../data/catalogs.ts'
+import { updateInterviewerProfile, updateInterviewerRoles, updateInterviewerSkills } from '../services/interviewerProfile.ts'
 import { useOnboarding } from '../state/onboarding.tsx'
+import { useSession } from '../state/session.tsx'
+import { useToast } from '../state/toast.tsx'
 
 const stepIndex: Record<string, number> = {
   professional: 1,
@@ -34,18 +37,85 @@ export function SetupPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const { draft, update } = useOnboarding()
+  const { account, refreshAccount } = useSession()
+  const { pushToast } = useToast()
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [hydrated, setHydrated] = useState(false)
   const step = params.get('step') ?? 'professional'
   const current = stepIndex[step] ?? 1
+
+  useEffect(() => {
+    if (!account || hydrated) return
+    const [firstName, ...rest] = account.profile.full_name.split(' ')
+    update({
+      firstName: firstName || '',
+      lastName: rest.join(' '),
+      fullName: account.profile.full_name,
+      email: account.email,
+      company: account.interviewer.company === 'Pending' ? '' : account.interviewer.company,
+      role: account.interviewer.current_role === 'Pending' ? '' : account.interviewer.current_role,
+      experienceYears: String(account.interviewer.experience_years || ''),
+      professionalSummary: account.interviewer.bio || account.interviewer.headline || '',
+      timezone: account.profile.timezone,
+      languages: account.interviewer.languages.join(', '),
+      linkedin: account.linkedin,
+      skills: account.skills,
+      targetRoles: account.targetRoles,
+      candidateLevels: account.candidateLevels.filter((level): level is CandidateLevel =>
+        CANDIDATE_LEVELS.includes(level as CandidateLevel),
+      ),
+    })
+    setHydrated(true)
+  }, [account, hydrated, update])
 
   function go(next: (typeof order)[number]) {
     navigate(`/interviewer/setup?step=${next}`)
   }
 
-  function onSubmit(event: FormEvent) {
+  async function persistCurrentStep() {
+    if (step === 'professional') {
+      await updateInterviewerProfile({
+        fullName: `${draft.firstName} ${draft.lastName}`.trim() || draft.fullName,
+        timezone: draft.timezone,
+        headline: draft.role,
+        bio: draft.professionalSummary,
+        currentRole: draft.role,
+        company: draft.company,
+        experienceYears: Number(draft.experienceYears) || 0,
+        languages: draft.languages
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      })
+    }
+    if (step === 'expertise') {
+      await updateInterviewerSkills(draft.skills)
+      await updateInterviewerRoles({
+        targetRoles: draft.targetRoles,
+        candidateLevels: draft.candidateLevels,
+      })
+    }
+    await refreshAccount()
+  }
+
+  async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    const index = order.indexOf(step as (typeof order)[number])
-    if (index < order.length - 1) go(order[index + 1])
-    else navigate('/interviewer/verification')
+    setError(null)
+    setSaving(true)
+    try {
+      await persistCurrentStep()
+      if (step === 'professional' || step === 'expertise') {
+        pushToast('Saved successfully')
+      }
+      const index = order.indexOf(step as (typeof order)[number])
+      if (index < order.length - 1) go(order[index + 1])
+      else navigate('/interviewer/verification')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not save your profile.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -88,6 +158,15 @@ export function SetupPage() {
                   type="number"
                   value={draft.experienceYears}
                   onChange={(event) => update({ experienceYears: event.target.value })}
+                />
+              </div>
+              <div>
+                <FieldLabel htmlFor="languages">Languages</FieldLabel>
+                <TextInput
+                  id="languages"
+                  placeholder="English, Hindi"
+                  value={draft.languages}
+                  onChange={(event) => update({ languages: event.target.value })}
                 />
               </div>
               <div>
@@ -284,6 +363,7 @@ export function SetupPage() {
             </div>
           ) : null}
 
+          {error ? <p className="text-sm text-red-700">{error}</p> : null}
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
             <Button
               variant="outline"
@@ -295,7 +375,9 @@ export function SetupPage() {
             >
               Back
             </Button>
-            <Button type="submit">{step === 'review' ? 'Continue to verification' : 'Save & Continue'}</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Saving…' : step === 'review' ? 'Continue to verification' : 'Save & Continue'}
+            </Button>
           </div>
         </form>
       </Card>

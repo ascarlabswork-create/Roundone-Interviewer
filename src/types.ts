@@ -1,6 +1,6 @@
 import type { CandidateLevel, InterviewType } from './data/catalogs.ts'
 
-export type VerificationStatus = 'pending' | 'verified' | 'action_required'
+export type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'action_required'
 
 export type VerificationKey = 'identity' | 'linkedin' | 'employment' | 'professionalEmail'
 
@@ -248,6 +248,8 @@ export type AppNotification = {
 }
 
 export type OnboardingDraft = {
+  firstName: string
+  lastName: string
   fullName: string
   email: string
   password: string
@@ -276,6 +278,7 @@ export type OnboardingDraft = {
     cancellationPolicy: string
   }
   timezone: string
+  languages: string
   saturdayHours: string[]
 }
 

@@ -6,12 +6,12 @@ import { useToast } from '../state/toast.tsx'
 import type { SettingsDraft } from '../types.ts'
 
 export function SettingsPage() {
-  const interviewer = useSession()
+  const { account } = useSession()
   const { pushToast } = useToast()
   const [form, setForm] = useState<SettingsDraft>({
-    email: interviewer.email,
-    phone: interviewer.phone,
-    timezone: 'Asia/Kolkata',
+    email: account?.email ?? '',
+    phone: account?.phone ?? '',
+    timezone: account?.profile.timezone ?? 'Asia/Kolkata',
     notifyBookings: true,
     notifyReviews: true,
     notifyPayouts: true,

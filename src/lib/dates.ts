@@ -134,6 +134,45 @@ export function timezoneLabel(zone: string) {
   return zone
 }
 
+function formatDateInZone(iso: string, timeZone: string, options: Intl.DateTimeFormatOptions) {
+  const date = parseSlot(iso)
+  try {
+    return date.toLocaleDateString('en-IN', { ...options, timeZone })
+  } catch {
+    return date.toLocaleDateString('en-IN', options)
+  }
+}
+
+function formatTimeOnlyInZone(iso: string, timeZone: string) {
+  const date = parseSlot(iso)
+  try {
+    return date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone })
+  } catch {
+    return date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
+  }
+}
+
+export function formatDateLongInZone(iso: string, timeZone: string) {
+  return formatDateInZone(iso, timeZone, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+export function formatDateShortInZone(iso: string, timeZone: string) {
+  return formatDateInZone(iso, timeZone, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+export function formatTimeInZone(iso: string, timeZone: string) {
+  return formatTimeOnlyInZone(iso, timeZone)
+}
+
 export function isPastYmd(ymd: string) {
   return fromYMD(ymd) < startOfDay(new Date())
 }
