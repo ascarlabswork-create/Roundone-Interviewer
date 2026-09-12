@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { EntryRedirect } from '../components/auth/EntryRedirect.tsx'
+import { AuthLayout } from '../components/auth/AuthLayout.tsx'
 import { RequireInterviewerAuth } from '../components/auth/RequireInterviewerAuth.tsx'
+import { UnknownRoute } from '../components/auth/UnknownRoute.tsx'
 import { AppShell } from '../components/layout/AppShell.tsx'
 import { PublicLayout } from '../components/layout/PublicLayout.tsx'
 import { AuthCallbackPage } from '../pages/AuthCallbackPage.tsx'
@@ -13,7 +14,6 @@ import { EarningsPage } from '../pages/EarningsPage.tsx'
 import { FeedbackPage } from '../pages/FeedbackPage.tsx'
 import { InterviewRoomPage } from '../pages/InterviewRoomPage.tsx'
 import { LoginPage } from '../pages/LoginPage.tsx'
-import { NotFoundPage } from '../pages/NotFoundPage.tsx'
 import { ProfilePage } from '../pages/ProfilePage.tsx'
 import { RegisterPage } from '../pages/RegisterPage.tsx'
 import { ReviewsPage } from '../pages/ReviewsPage.tsx'
@@ -26,17 +26,17 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<PublicLayout />}>
-          <Route path="/" element={<EntryRedirect />} />
-          <Route path="/interviewer" element={<EntryRedirect />} />
+        <Route element={<AuthLayout />}>
+          <Route path="/" element={<LoginPage />} />
+          <Route path="/interviewer" element={<LoginPage />} />
           <Route path="/interviewer/login" element={<LoginPage />} />
           <Route path="/interviewer/register" element={<RegisterPage />} />
           <Route path="/interviewer/auth/callback" element={<AuthCallbackPage />} />
-          <Route element={<RequireInterviewerAuth />}>
-            <Route path="/interviewer/setup" element={<SetupPage />} />
-          </Route>
         </Route>
         <Route element={<RequireInterviewerAuth />}>
+          <Route element={<PublicLayout />}>
+            <Route path="/interviewer/setup" element={<SetupPage />} />
+          </Route>
           <Route element={<AppShell />}>
             <Route path="/interviewer/dashboard" element={<DashboardPage />} />
             <Route path="/interviewer/bookings" element={<BookingsPage />} />
@@ -53,7 +53,7 @@ export function AppRouter() {
           </Route>
           <Route path="/interviewer/interview/:id" element={<InterviewRoomPage />} />
         </Route>
-        <Route path="*" element={<NotFoundPage />} />
+        <Route path="*" element={<UnknownRoute />} />
       </Routes>
     </BrowserRouter>
   )
