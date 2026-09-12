@@ -1,4 +1,5 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { EntryRedirect } from '../components/auth/EntryRedirect.tsx'
 import { RequireInterviewerAuth } from '../components/auth/RequireInterviewerAuth.tsx'
 import { AppShell } from '../components/layout/AppShell.tsx'
 import { PublicLayout } from '../components/layout/PublicLayout.tsx'
@@ -11,7 +12,6 @@ import { DashboardPage } from '../pages/DashboardPage.tsx'
 import { EarningsPage } from '../pages/EarningsPage.tsx'
 import { FeedbackPage } from '../pages/FeedbackPage.tsx'
 import { InterviewRoomPage } from '../pages/InterviewRoomPage.tsx'
-import { LandingPage } from '../pages/LandingPage.tsx'
 import { LoginPage } from '../pages/LoginPage.tsx'
 import { NotFoundPage } from '../pages/NotFoundPage.tsx'
 import { ProfilePage } from '../pages/ProfilePage.tsx'
@@ -26,9 +26,9 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/interviewer" replace />} />
         <Route element={<PublicLayout />}>
-          <Route path="/interviewer" element={<LandingPage />} />
+          <Route path="/" element={<EntryRedirect />} />
+          <Route path="/interviewer" element={<EntryRedirect />} />
           <Route path="/interviewer/login" element={<LoginPage />} />
           <Route path="/interviewer/register" element={<RegisterPage />} />
           <Route path="/interviewer/auth/callback" element={<AuthCallbackPage />} />

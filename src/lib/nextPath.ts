@@ -5,6 +5,8 @@ export function safeNextPath(value: string | null, fallback = DEFAULT_NEXT) {
     return fallback
   }
   if (
+    value === '/interviewer' ||
+    value === '/interviewer/' ||
     value.startsWith('/interviewer/login') ||
     value.startsWith('/interviewer/register') ||
     value.startsWith('/interviewer/auth/callback')
