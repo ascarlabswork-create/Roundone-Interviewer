@@ -11,7 +11,7 @@ export function SettingsPage() {
   const [form, setForm] = useState<SettingsDraft>({
     email: account?.email ?? '',
     phone: account?.phone ?? '',
-    timezone: account?.profile.timezone ?? 'Asia/Kolkata',
+    timezone: account?.profile?.timezone ?? 'Asia/Kolkata',
     notifyBookings: true,
     notifyReviews: true,
     notifyPayouts: true,

@@ -11,10 +11,12 @@ import {
   SKILLS,
   TARGET_ROLES,
   TECHNOLOGIES,
+  TIMEZONES,
   type CandidateLevel,
   type InterviewType,
 } from '../data/catalogs.ts'
 import { updateInterviewerProfile, updateInterviewerRoles, updateInterviewerSkills } from '../services/interviewerProfile.ts'
+import { normalizeLinkedInUrl } from '../services/auth.ts'
 import { useOnboarding } from '../state/onboarding.tsx'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
@@ -60,6 +62,7 @@ export function SetupPage() {
       timezone: account.profile.timezone,
       languages: account.interviewer.languages.join(', '),
       linkedin: account.linkedin,
+      phone: account.phone,
       skills: account.skills,
       targetRoles: account.targetRoles,
       candidateLevels: account.candidateLevels.filter((level): level is CandidateLevel =>
@@ -83,6 +86,8 @@ export function SetupPage() {
         currentRole: draft.role,
         company: draft.company,
         experienceYears: Number(draft.experienceYears) || 0,
+        linkedin: normalizeLinkedInUrl(draft.linkedin),
+        phone: draft.phone,
         languages: draft.languages
           .split(',')
           .map((item) => item.trim())
@@ -128,6 +133,62 @@ export function SetupPage() {
         <form className="grid gap-5" onSubmit={onSubmit}>
           {step === 'professional' ? (
             <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel htmlFor="firstName">First name</FieldLabel>
+                  <TextInput
+                    id="firstName"
+                    required
+                    value={draft.firstName}
+                    onChange={(event) => update({ firstName: event.target.value })}
+                  />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="lastName">Last name</FieldLabel>
+                  <TextInput
+                    id="lastName"
+                    required
+                    value={draft.lastName}
+                    onChange={(event) => update({ lastName: event.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
+                  <SelectInput
+                    id="timezone"
+                    value={draft.timezone}
+                    onChange={(event) => update({ timezone: event.target.value })}
+                  >
+                    {TIMEZONES.map((zone) => (
+                      <option key={zone.id} value={zone.id}>
+                        {zone.label}
+                      </option>
+                    ))}
+                  </SelectInput>
+                </div>
+                <div>
+                  <FieldLabel htmlFor="phone">Phone (optional)</FieldLabel>
+                  <TextInput
+                    id="phone"
+                    type="tel"
+                    value={draft.phone}
+                    onChange={(event) => update({ phone: event.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <FieldLabel htmlFor="linkedin">LinkedIn profile URL</FieldLabel>
+                <TextInput
+                  id="linkedin"
+                  type="text"
+                  required
+                  placeholder="https://www.linkedin.com/in/your-name"
+                  value={draft.linkedin}
+                  onChange={(event) => update({ linkedin: event.target.value })}
+                />
+              </div>
               <div>
                 <FieldLabel htmlFor="summary">Professional Summary</FieldLabel>
                 <TextArea
@@ -369,7 +430,7 @@ export function SetupPage() {
               variant="outline"
               onClick={() => {
                 const index = order.indexOf(step as (typeof order)[number])
-                if (index <= 0) navigate('/interviewer/register')
+                if (index <= 0) navigate('/interviewer/dashboard')
                 else go(order[index - 1])
               }}
             >

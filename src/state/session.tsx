@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { User } from '@supabase/supabase-js'
 import { getCurrentUser, onAuthStateChange, signOut as signOutRequest } from '../services/auth.ts'
 import { getCurrentInterviewer, type InterviewerAccount } from '../services/interviewer.ts'
+import { hydrateInterviewerSignupFromMetadata } from '../services/interviewerProfile.ts'
 
 type SessionStatus = 'loading' | 'anonymous' | 'authenticated'
 
@@ -35,7 +36,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setStatus('authenticated')
     try {
       const nextAccount = await getCurrentInterviewer({ retries: 6 })
-      setAccount(nextAccount)
+      let hydrated = nextAccount
+      try {
+        hydrated = await hydrateInterviewerSignupFromMetadata(nextAccount)
+      } catch {
+        hydrated = nextAccount
+      }
+      setAccount(hydrated)
       setError(null)
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Could not load your profile.'

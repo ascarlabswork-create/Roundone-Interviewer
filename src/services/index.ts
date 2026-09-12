@@ -7,9 +7,12 @@ export {
   claimInterviewerPersona,
   fullNameFromParts,
   getCurrentUser,
+  isUnconfirmedEmailError,
+  normalizeLinkedInUrl,
   onAuthStateChange,
   requireUser,
   sendPasswordReset,
+  resendSignupEmail,
   signInInterviewer,
   signInWithGoogle,
   signOut,
@@ -21,10 +24,12 @@ export {
 } from './auth.ts'
 export { getCurrentInterviewer, type InterviewerAccount } from './interviewer.ts'
 export {
+  applySignupProfile,
   getInterviewerProfile,
   getInterviewerRoles,
   getInterviewerSkills,
   getVerificationStatus,
+  hydrateInterviewerSignupFromMetadata,
   isPlaceholderProfessional,
   profileCompleteness,
   updateInterviewerProfile,
