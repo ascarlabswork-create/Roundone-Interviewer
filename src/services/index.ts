@@ -2,11 +2,16 @@ export { ROUNDONE_PROJECT_REF, supabase } from '../lib/supabase.ts'
 export { verifySupabaseConnection, type ConnectionCheck } from './connection.ts'
 export { TABLES, type TableName } from './tables.ts'
 export {
+  OAUTH_CALLBACK_PATH,
+  authErrorMessage,
+  claimInterviewerPersona,
   fullNameFromParts,
   getCurrentUser,
   onAuthStateChange,
   requireUser,
+  sendPasswordReset,
   signInInterviewer,
+  signInWithGoogle,
   signOut,
   signUpInterviewer,
   type AppRole,
