@@ -114,7 +114,9 @@ export function BookingsPage() {
           >
             {rows.map((booking) => (
               <TableRow key={booking.id}>
-                <Td className="font-medium text-navy-950">{booking.candidate.name}</Td>
+                <Td>
+                  <CandidateSummary candidate={booking.candidate} />
+                </Td>
                 <Td>{booking.serviceName}</Td>
                 <Td>{booking.interviewType}</Td>
                 <Td>{formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)}</Td>
@@ -145,8 +147,8 @@ export function BookingsPage() {
               <Card key={booking.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-navy-950">{booking.candidate.name}</p>
-                    <p className="text-sm text-slate-600">{booking.serviceName}</p>
+                    <CandidateSummary candidate={booking.candidate} />
+                    <p className="mt-1 text-sm text-slate-600">{booking.serviceName}</p>
                   </div>
                   <LiveBookingStatusBadge status={booking.status} />
                 </div>
@@ -205,6 +207,19 @@ export function BookingsPage() {
   )
 }
 
+function CandidateSummary({ candidate }: { candidate: InterviewerBooking['candidate'] }) {
+  const roleLine = [candidate.targetRole, candidate.candidateLevel].filter(Boolean).join(' · ')
+  return (
+    <div>
+      <p className="font-medium text-navy-950">{candidate.name}</p>
+      {roleLine ? <p className="text-xs text-slate-500">{roleLine}</p> : null}
+      {candidate.skills.length > 0 ? (
+        <p className="mt-1 text-xs text-slate-500">{candidate.skills.join(', ')}</p>
+      ) : null}
+    </div>
+  )
+}
+
 function BookingDetails({ booking }: { booking: InterviewerBooking }) {
   return (
     <div className="space-y-3 text-sm">
@@ -213,13 +228,25 @@ function BookingDetails({ booking }: { booking: InterviewerBooking }) {
         <br />
         <span className="font-medium text-navy-950">{booking.candidate.name}</span>
       </p>
-      {booking.candidate.targetRole || booking.candidate.targetCompany ? (
+      {booking.candidate.targetRole ? (
         <p>
-          <span className="text-slate-500">Profile summary</span>
+          <span className="text-slate-500">Target role</span>
           <br />
-          <span className="font-medium text-navy-950">
-            {[booking.candidate.targetRole, booking.candidate.targetCompany].filter(Boolean).join(' · ')}
-          </span>
+          <span className="font-medium text-navy-950">{booking.candidate.targetRole}</span>
+        </p>
+      ) : null}
+      {booking.candidate.candidateLevel ? (
+        <p>
+          <span className="text-slate-500">Candidate level</span>
+          <br />
+          <span className="font-medium text-navy-950">{booking.candidate.candidateLevel}</span>
+        </p>
+      ) : null}
+      {booking.candidate.skills.length > 0 ? (
+        <p>
+          <span className="text-slate-500">Skills</span>
+          <br />
+          <span className="font-medium text-navy-950">{booking.candidate.skills.join(', ')}</span>
         </p>
       ) : null}
       <p>

@@ -10,6 +10,7 @@ export const TABLES = {
   interviewerBlockedTimes: 'interviewer_blocked_times',
   interviewerVerifications: 'interviewer_verifications',
   bookings: 'bookings',
+  bookingCandidateSummary: 'booking_candidate_summary',
   interviewSessions: 'interview_sessions',
   interviewerFeedback: 'interviewer_feedback',
   candidateReviews: 'candidate_reviews',
