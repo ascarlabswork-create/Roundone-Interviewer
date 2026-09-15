@@ -8,12 +8,12 @@ import {
   ErrorState,
   FieldLabel,
   PageHeader,
-  SelectInput,
   Skeleton,
   TextArea,
   TextInput,
 } from '../components/ui/primitives.tsx'
-import { INTERVIEW_TYPES, type InterviewType } from '../data/catalogs.ts'
+import { SuggestedSelect } from '../components/ui/suggestions.tsx'
+import { INTERVIEW_TYPES } from '../data/catalogs.ts'
 import { formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import {
@@ -32,7 +32,7 @@ import { useToast } from '../state/toast.tsx'
 type ServiceForm = {
   id: string | null
   name: string
-  interviewType: InterviewType
+  interviewType: string
   durationMin: number
   priceRupees: string
   description: string
@@ -50,13 +50,10 @@ const emptyForm = (): ServiceForm => ({
 })
 
 function toForm(service: InterviewerServiceRecord): ServiceForm {
-  const type = INTERVIEW_TYPES.includes(service.interview_type as InterviewType)
-    ? (service.interview_type as InterviewType)
-    : 'Coding'
   return {
     id: service.id,
     name: service.name,
-    interviewType: type,
+    interviewType: service.interview_type || 'Coding',
     durationMin: service.duration_min,
     priceRupees: String(paiseToRupees(service.price_paise)),
     description: service.description ?? '',
@@ -200,32 +197,33 @@ export function ServicesPage() {
             </div>
             <div>
               <FieldLabel htmlFor="type">Interview Type</FieldLabel>
-              <SelectInput
+              <SuggestedSelect
                 id="type"
+                options={INTERVIEW_TYPES.map((item) => ({ value: item, label: item }))}
                 value={form.interviewType}
-                onChange={(event) => setForm({ ...form, interviewType: event.target.value as InterviewType })}
-              >
-                {INTERVIEW_TYPES.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </SelectInput>
+                onChange={(interviewType) => setForm({ ...form, interviewType })}
+                customPlaceholder="Add an interview type"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <FieldLabel htmlFor="dur">Duration</FieldLabel>
-                <SelectInput
+                <SuggestedSelect
                   id="dur"
-                  value={String(form.durationMin)}
-                  onChange={(event) => setForm({ ...form, durationMin: Number(event.target.value) })}
-                >
-                  {SERVICE_DURATIONS.map((item) => (
-                    <option key={item} value={item}>
-                      {item} minutes
-                    </option>
-                  ))}
-                </SelectInput>
+                  options={SERVICE_DURATIONS.map((item) => ({
+                    value: String(item),
+                    label: `${item} minutes`,
+                  }))}
+                  value={String(form.durationMin || '')}
+                  onChange={(next) => {
+                    const minutes = Number(next)
+                    setForm({
+                      ...form,
+                      durationMin: Number.isInteger(minutes) && minutes > 0 ? minutes : 0,
+                    })
+                  }}
+                  customPlaceholder="Minutes, e.g. 75"
+                />
               </div>
               <div>
                 <FieldLabel htmlFor="price">Price (₹)</FieldLabel>

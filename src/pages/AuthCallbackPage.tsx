@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/primitives.tsx'
 import { safeNextPath } from '../lib/nextPath.ts'
+import { oauthRedirectErrorMessage } from '../services/auth.ts'
 import { useSession } from '../state/session.tsx'
 
 /**
@@ -15,7 +16,7 @@ export function AuthCallbackPage() {
   const { status, account, error } = useSession()
   const [params] = useSearchParams()
   const nextPath = safeNextPath(params.get('next'))
-  const oauthError = params.get('error_description') ?? params.get('error')
+  const oauthError = oauthRedirectErrorMessage(params)
   const [timedOut, setTimedOut] = useState(false)
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export function AuthCallbackPage() {
     const body = notInterviewer
       ? 'This Google account is registered as a candidate or admin. We\u2019ve signed it out. Use an interviewer account to continue.'
       : oauthError
-        ? 'Google sign-in was cancelled or failed. Please try again.'
+        ? oauthError
         : 'We couldn\u2019t confirm your session. Please try signing in again.'
 
     return (

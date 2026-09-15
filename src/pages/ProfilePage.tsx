@@ -4,7 +4,8 @@ import { listAvailability, listInterviewerReviews, listServices } from '../api/i
 import { Button } from '../components/ui/Button.tsx'
 import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
 import { Avatar, StarRating, VerifiedBadge } from '../components/ui/identity.tsx'
-import { Badge, Card, Chip, EmptyState, ErrorState, FieldLabel, PageHeader, SelectInput, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
+import { Badge, Card, EmptyState, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
+import { SuggestedSelect, SuggestionChips } from '../components/ui/suggestions.tsx'
 import { CANDIDATE_LEVELS, REVIEW_DIMENSIONS, SKILLS, TARGET_ROLES, TIMEZONES } from '../data/catalogs.ts'
 import { currentInterviewer } from '../data/interviewer.ts'
 import { formatReviewDate, formatTime, timezoneLabel } from '../lib/dates.ts'
@@ -18,10 +19,6 @@ import {
 } from '../services/interviewerProfile.ts'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
-
-function toggleValue<T extends string>(list: T[], value: T) {
-  return list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
-}
 
 export function ProfilePage() {
   const { account, error, refreshAccount, status } = useSession()
@@ -41,7 +38,6 @@ export function ProfilePage() {
     company: '',
     experienceYears: '',
     languages: '',
-    linkedin: '',
     skills: [] as string[],
     targetRoles: [] as string[],
     candidateLevels: [] as string[],
@@ -59,7 +55,6 @@ export function ProfilePage() {
       company: account.interviewer.company === 'Pending' ? '' : account.interviewer.company,
       experienceYears: String(account.interviewer.experience_years || ''),
       languages: account.interviewer.languages.join(', '),
-      linkedin: account.linkedin,
       skills: account.skills,
       targetRoles: account.targetRoles,
       candidateLevels: account.candidateLevels,
@@ -98,7 +93,6 @@ export function ProfilePage() {
           .split(',')
           .map((item) => item.trim())
           .filter(Boolean),
-        linkedin: form.linkedin,
       })
       await updateInterviewerSkills(form.skills)
       await updateInterviewerRoles({
@@ -150,13 +144,6 @@ export function ProfilePage() {
             <p className="mt-3 text-sm text-slate-600">
               {account.interviewer.experience_years}+ years experience · {timezoneLabel(account.profile.timezone)}
             </p>
-            {account.linkedin ? (
-              <p className="mt-2 text-sm">
-                <a className="font-medium text-blue-700" href={account.linkedin} target="_blank" rel="noreferrer">
-                  LinkedIn
-                </a>
-              </p>
-            ) : null}
             <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
               {account.interviewer.bio || account.interviewer.headline || 'Add a bio so candidates understand your practice.'}
             </p>
@@ -174,13 +161,13 @@ export function ProfilePage() {
           </div>
           <div>
             <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
-            <SelectInput id="timezone" value={form.timezone} onChange={(event) => setForm({ ...form, timezone: event.target.value })}>
-              {TIMEZONES.map((zone) => (
-                <option key={zone.id} value={zone.id}>
-                  {zone.label}
-                </option>
-              ))}
-            </SelectInput>
+            <SuggestedSelect
+              id="timezone"
+              options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
+              value={form.timezone}
+              onChange={(timezone) => setForm({ ...form, timezone })}
+              customPlaceholder="IANA timezone, e.g. Europe/Berlin"
+            />
           </div>
           <div className="sm:col-span-2">
             <FieldLabel htmlFor="avatar">Avatar URL</FieldLabel>
@@ -225,47 +212,35 @@ export function ProfilePage() {
             <FieldLabel htmlFor="bio">Bio</FieldLabel>
             <TextArea id="bio" value={form.bio} onChange={(event) => setForm({ ...form, bio: event.target.value })} />
           </div>
-          <div className="sm:col-span-2">
-            <FieldLabel htmlFor="linkedin">LinkedIn URL</FieldLabel>
-            <TextInput id="linkedin" value={form.linkedin} onChange={(event) => setForm({ ...form, linkedin: event.target.value })} />
-          </div>
           <fieldset className="sm:col-span-2">
             <legend className="mb-2 text-sm font-medium text-slate-800">Skills</legend>
-            <div className="flex flex-wrap gap-2">
-              {SKILLS.map((item) => (
-                <Chip key={item} active={form.skills.includes(item)} onClick={() => setForm({ ...form, skills: toggleValue(form.skills, item) })}>
-                  {item}
-                </Chip>
-              ))}
-            </div>
+            <SuggestionChips
+              id="custom-skill"
+              suggestions={SKILLS}
+              value={form.skills}
+              onChange={(skills) => setForm({ ...form, skills })}
+              placeholder="Add a skill"
+            />
           </fieldset>
           <fieldset className="sm:col-span-2">
             <legend className="mb-2 text-sm font-medium text-slate-800">Target roles</legend>
-            <div className="flex flex-wrap gap-2">
-              {TARGET_ROLES.map((item) => (
-                <Chip
-                  key={item}
-                  active={form.targetRoles.includes(item)}
-                  onClick={() => setForm({ ...form, targetRoles: toggleValue(form.targetRoles, item) })}
-                >
-                  {item}
-                </Chip>
-              ))}
-            </div>
+            <SuggestionChips
+              id="custom-role"
+              suggestions={TARGET_ROLES}
+              value={form.targetRoles}
+              onChange={(targetRoles) => setForm({ ...form, targetRoles })}
+              placeholder="Add a target role"
+            />
           </fieldset>
           <fieldset className="sm:col-span-2">
             <legend className="mb-2 text-sm font-medium text-slate-800">Candidate levels</legend>
-            <div className="flex flex-wrap gap-2">
-              {CANDIDATE_LEVELS.map((item) => (
-                <Chip
-                  key={item}
-                  active={form.candidateLevels.includes(item)}
-                  onClick={() => setForm({ ...form, candidateLevels: toggleValue(form.candidateLevels, item) })}
-                >
-                  {item}
-                </Chip>
-              ))}
-            </div>
+            <SuggestionChips
+              id="custom-level"
+              suggestions={CANDIDATE_LEVELS}
+              value={form.candidateLevels}
+              onChange={(candidateLevels) => setForm({ ...form, candidateLevels })}
+              placeholder="Add a candidate level"
+            />
           </fieldset>
           {saveError ? <p className="sm:col-span-2 text-sm text-red-700">{saveError}</p> : null}
           <div className="sm:col-span-2">

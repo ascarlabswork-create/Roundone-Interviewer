@@ -9,7 +9,6 @@ export {
   getCurrentUser,
   isUnconfirmedEmailError,
   oauthRedirectErrorMessage,
-  normalizeLinkedInUrl,
   onAuthStateChange,
   requireUser,
   sendPasswordReset,

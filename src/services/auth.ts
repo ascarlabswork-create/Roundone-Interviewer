@@ -13,7 +13,6 @@ export type SignUpInterviewerInput = {
   currentRole: string
   company: string
   experienceYears: number
-  linkedin: string
 }
 
 export type SignInInput = {
@@ -75,8 +74,8 @@ export function authErrorMessage(error: unknown): string {
   if (message.includes('provider is not enabled') || message.includes('unsupported provider')) {
     return 'Google sign-in is not enabled yet. Use email and password, or ask an admin to enable Google in Auth providers.'
   }
-  if (message.includes('exchange external code') || message.includes('unexpected_failure')) {
-    return 'Google sign-in did not finish. Use email and password for now, or try Google again after the live site URL is allowed in Supabase Auth.'
+  if (message.includes('exchange external code') || message.includes('unexpected_failure') || message.includes('invalid_client')) {
+    return 'Google Client ID or Client Secret in Supabase is wrong. Open Google Cloud credentials, copy the Client ID and Client Secret, paste them into Supabase Authentication → Providers → Google, and add this Authorized redirect URI: https://fhcrxjrqtojixgqemofp.supabase.co/auth/v1/callback. Until then, sign in with email and password.'
   }
   return raw || 'Something went wrong. Please try again.'
 }
@@ -93,31 +92,24 @@ function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message)
 }
 
+function appOrigin() {
+  const configured = import.meta.env.VITE_PUBLIC_APP_URL?.trim().replace(/\/$/, '')
+  if (configured) return configured
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app')) {
+    return window.location.origin
+  }
+  if (import.meta.env.PROD) return 'https://roundone-interviewer.vercel.app'
+  return window.location.origin
+}
+
 function buildOAuthRedirect(nextPath?: string): string {
-  const url = new URL(OAUTH_CALLBACK_PATH, window.location.origin)
+  const url = new URL(OAUTH_CALLBACK_PATH, `${appOrigin()}/`)
   if (nextPath) url.searchParams.set('next', nextPath)
   return url.toString()
 }
 
 export function fullNameFromParts(firstName: string, lastName: string) {
   return `${firstName.trim()} ${lastName.trim()}`.trim()
-}
-
-export function normalizeLinkedInUrl(value: string) {
-  const trimmed = value.trim()
-  if (!trimmed) throw new Error('Enter your LinkedIn profile URL.')
-  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
-  let parsed: URL
-  try {
-    parsed = new URL(withProtocol)
-  } catch {
-    throw new Error('Enter a valid LinkedIn URL, such as https://www.linkedin.com/in/your-name.')
-  }
-  const host = parsed.hostname.replace(/^www\./, '').toLowerCase()
-  if (host !== 'linkedin.com' && !host.endsWith('.linkedin.com')) {
-    throw new Error('Enter a LinkedIn profile URL.')
-  }
-  return parsed.toString()
 }
 
 export async function getCurrentUser(): Promise<User | null> {
@@ -143,7 +135,6 @@ export async function signUpInterviewer(input: SignUpInterviewerInput): Promise<
   if (!fullName) throw new Error('Enter your first and last name.')
   if (!input.company.trim()) throw new Error('Enter your current company.')
   if (!input.currentRole.trim()) throw new Error('Enter your current role.')
-  const linkedin = normalizeLinkedInUrl(input.linkedin)
   const experienceYears = Math.max(0, Math.round(input.experienceYears))
   if (!Number.isFinite(experienceYears) || experienceYears > 60) {
     throw new Error('Enter years of experience between 0 and 60.')
@@ -160,7 +151,6 @@ export async function signUpInterviewer(input: SignUpInterviewerInput): Promise<
         last_name: lastName,
         role: 'interviewer',
         timezone: input.timezone?.trim() || 'Asia/Kolkata',
-        linkedin,
         phone: input.phone?.trim() || '',
         current_role: input.currentRole.trim(),
         company: input.company.trim(),
@@ -209,7 +199,7 @@ export async function sendPasswordReset(email: string) {
   const trimmed = email.trim()
   if (!trimmed) throw new Error('Enter your email above first, then choose “Forgot password?”.')
   const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
-    redirectTo: new URL('/interviewer/login', window.location.origin).toString(),
+    redirectTo: new URL('/interviewer/login', `${appOrigin()}/`).toString(),
   })
   if (error) throw new Error(authErrorMessage(error))
 }

@@ -2,14 +2,14 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { GoogleIcon } from '../components/ui/GoogleIcon.tsx'
-import { Card, FieldLabel, SelectInput, TextInput } from '../components/ui/primitives.tsx'
+import { Card, FieldLabel, TextInput } from '../components/ui/primitives.tsx'
+import { SuggestedSelect } from '../components/ui/suggestions.tsx'
 import { TIMEZONES } from '../data/catalogs.ts'
 import { cn } from '../lib/cn.ts'
 import { safeNextPath } from '../lib/nextPath.ts'
 import {
   authErrorMessage,
   isUnconfirmedEmailError,
-  normalizeLinkedInUrl,
   oauthRedirectErrorMessage,
   resendSignupEmail,
   sendPasswordReset,
@@ -39,7 +39,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [company, setCompany] = useState('')
   const [currentRole, setCurrentRole] = useState('')
   const [experienceYears, setExperienceYears] = useState('')
-  const [linkedin, setLinkedin] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [googleSubmitting, setGoogleSubmitting] = useState(false)
   const [resending, setResending] = useState(false)
@@ -88,7 +87,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           currentRole,
           company,
           experienceYears: years,
-          linkedin,
         })
         if (result.needsEmailConfirmation) {
           setAwaitingConfirmation(true)
@@ -101,7 +99,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           currentRole,
           company,
           experienceYears: years,
-          linkedin: normalizeLinkedInUrl(linkedin),
           phone,
           headline: currentRole.trim(),
         })
@@ -279,13 +276,13 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             </div>
             <div>
               <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
-              <SelectInput id="timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)}>
-                {TIMEZONES.map((zone) => (
-                  <option key={zone.id} value={zone.id}>
-                    {zone.label}
-                  </option>
-                ))}
-              </SelectInput>
+              <SuggestedSelect
+                id="timezone"
+                options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
+                value={timezone}
+                onChange={setTimezone}
+                customPlaceholder="IANA timezone, e.g. Europe/Berlin"
+              />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -320,18 +317,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 step={1}
                 value={experienceYears}
                 onChange={(event) => setExperienceYears(event.target.value)}
-              />
-            </div>
-            <div>
-              <FieldLabel htmlFor="linkedin">LinkedIn profile URL</FieldLabel>
-              <TextInput
-                id="linkedin"
-                type="text"
-                required
-                placeholder="https://www.linkedin.com/in/your-name"
-                autoComplete="url"
-                value={linkedin}
-                onChange={(event) => setLinkedin(event.target.value)}
               />
             </div>
           </>
