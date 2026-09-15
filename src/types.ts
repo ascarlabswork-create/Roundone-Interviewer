@@ -264,14 +264,14 @@ export type OnboardingDraft = {
   skills: string[]
   technologies: string[]
   industries: string[]
-  interviewTypes: InterviewType[]
-  candidateLevels: CandidateLevel[]
+  interviewTypes: string[]
+  candidateLevels: string[]
   targetRoles: string[]
   firstService: {
     name: string
-    interviewType: InterviewType | ''
+    interviewType: string
     durationMin: string
-    candidateLevels: CandidateLevel[]
+    candidateLevels: string[]
     targetRoles: string[]
     description: string
     price: string

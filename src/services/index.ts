@@ -8,7 +8,7 @@ export {
   fullNameFromParts,
   getCurrentUser,
   isUnconfirmedEmailError,
-  normalizeLinkedInUrl,
+  oauthRedirectErrorMessage,
   onAuthStateChange,
   requireUser,
   sendPasswordReset,

@@ -1,6 +1,8 @@
 import { type FormEvent, useState } from 'react'
 import { Button } from '../components/ui/Button.tsx'
 import { Card, FieldLabel, PageHeader, SelectInput, TextInput } from '../components/ui/primitives.tsx'
+import { SuggestedSelect } from '../components/ui/suggestions.tsx'
+import { TIMEZONES } from '../data/catalogs.ts'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
 import type { SettingsDraft } from '../types.ts'
@@ -40,11 +42,13 @@ export function SettingsPage() {
           </div>
           <div>
             <FieldLabel htmlFor="tz">Timezone</FieldLabel>
-            <SelectInput id="tz" value={form.timezone} onChange={(event) => setForm({ ...form, timezone: event.target.value })}>
-              <option value="Asia/Kolkata">India Standard Time</option>
-              <option value="America/Los_Angeles">Pacific Time</option>
-              <option value="America/New_York">Eastern Time</option>
-            </SelectInput>
+            <SuggestedSelect
+              id="tz"
+              options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
+              value={form.timezone}
+              onChange={(timezone) => setForm({ ...form, timezone })}
+              customPlaceholder="IANA timezone, e.g. Europe/Berlin"
+            />
           </div>
           <fieldset className="space-y-2 text-sm">
             <legend className="font-medium text-slate-800">Notifications</legend>
