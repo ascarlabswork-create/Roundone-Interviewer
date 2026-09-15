@@ -281,7 +281,8 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
                 value={timezone}
                 onChange={setTimezone}
-                customPlaceholder="IANA timezone, e.g. Europe/Berlin"
+                customPlaceholder="Type a timezone, e.g. Europe/Berlin"
+                required
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">

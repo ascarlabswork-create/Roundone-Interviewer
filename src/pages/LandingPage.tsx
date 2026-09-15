@@ -11,7 +11,7 @@ import { Card } from '../components/ui/primitives.tsx'
 import { useSession } from '../state/session.tsx'
 
 const benefits = [
-  { title: 'Verified Professional Profile', body: 'Show candidates a trusted identity, employment, and LinkedIn check.', icon: BadgeCheck },
+  { title: 'Verified Professional Profile', body: 'Show candidates a trusted identity and employment check.', icon: BadgeCheck },
   { title: 'Flexible Availability', body: 'Open evening and weekend slots that fit around your day job.', icon: CalendarClock },
   { title: 'Set Your Own Pricing', body: 'Price each mock independently — coding, design, behavioral, or a full loop.', icon: CircleDollarSign },
   { title: 'Reach Relevant Candidates', body: 'Get requests from people targeting the roles and levels you actually coach.', icon: Users },

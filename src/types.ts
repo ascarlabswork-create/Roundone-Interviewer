@@ -2,7 +2,7 @@ import type { CandidateLevel, InterviewType } from './data/catalogs.ts'
 
 export type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'action_required'
 
-export type VerificationKey = 'identity' | 'linkedin' | 'employment' | 'professionalEmail'
+export type VerificationKey = 'identity' | 'employment' | 'professionalEmail'
 
 export type Verification = Record<VerificationKey, VerificationStatus>
 

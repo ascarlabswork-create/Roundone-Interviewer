@@ -202,7 +202,8 @@ export function ServicesPage() {
                 options={INTERVIEW_TYPES.map((item) => ({ value: item, label: item }))}
                 value={form.interviewType}
                 onChange={(interviewType) => setForm({ ...form, interviewType })}
-                customPlaceholder="Add an interview type"
+                customPlaceholder="Type an interview type"
+                required
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -222,7 +223,8 @@ export function ServicesPage() {
                       durationMin: Number.isInteger(minutes) && minutes > 0 ? minutes : 0,
                     })
                   }}
-                  customPlaceholder="Minutes, e.g. 75"
+                  customPlaceholder="Type minutes, e.g. 75"
+                  required
                 />
               </div>
               <div>

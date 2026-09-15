@@ -128,7 +128,6 @@ export async function submitVerification() {
   const current = await getProfile()
   const verification: Verification = {
     identity: 'verified',
-    linkedin: 'verified',
     employment: 'verified',
     professionalEmail: current.verification.professionalEmail === 'action_required' ? 'pending' : 'verified',
   }

@@ -145,7 +145,7 @@ export function FeedbackPage() {
                 suggestions={STRENGTH_TAGS}
                 value={strengths}
                 onChange={setStrengths}
-                placeholder="Add a strength"
+                placeholder="Type to add a strength"
               />
             </fieldset>
             <fieldset>
@@ -155,7 +155,7 @@ export function FeedbackPage() {
                 suggestions={IMPROVEMENT_TAGS}
                 value={improvements}
                 onChange={setImprovements}
-                placeholder="Add an area to improve"
+                placeholder="Type to add an area to improve"
               />
             </fieldset>
             <div>
