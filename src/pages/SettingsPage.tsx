@@ -47,7 +47,8 @@ export function SettingsPage() {
               options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
               value={form.timezone}
               onChange={(timezone) => setForm({ ...form, timezone })}
-              customPlaceholder="IANA timezone, e.g. Europe/Berlin"
+              customPlaceholder="Type a timezone, e.g. Europe/Berlin"
+              required
             />
           </div>
           <fieldset className="space-y-2 text-sm">

@@ -166,7 +166,8 @@ export function ProfilePage() {
               options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
               value={form.timezone}
               onChange={(timezone) => setForm({ ...form, timezone })}
-              customPlaceholder="IANA timezone, e.g. Europe/Berlin"
+              customPlaceholder="Type a timezone, e.g. Europe/Berlin"
+              required
             />
           </div>
           <div className="sm:col-span-2">
@@ -219,7 +220,7 @@ export function ProfilePage() {
               suggestions={SKILLS}
               value={form.skills}
               onChange={(skills) => setForm({ ...form, skills })}
-              placeholder="Add a skill"
+              placeholder="Type to add a skill"
             />
           </fieldset>
           <fieldset className="sm:col-span-2">
@@ -229,7 +230,7 @@ export function ProfilePage() {
               suggestions={TARGET_ROLES}
               value={form.targetRoles}
               onChange={(targetRoles) => setForm({ ...form, targetRoles })}
-              placeholder="Add a target role"
+              placeholder="Type to add a target role"
             />
           </fieldset>
           <fieldset className="sm:col-span-2">
@@ -239,7 +240,7 @@ export function ProfilePage() {
               suggestions={CANDIDATE_LEVELS}
               value={form.candidateLevels}
               onChange={(candidateLevels) => setForm({ ...form, candidateLevels })}
-              placeholder="Add a candidate level"
+              placeholder="Type to add a candidate level"
             />
           </fieldset>
           {saveError ? <p className="sm:col-span-2 text-sm text-red-700">{saveError}</p> : null}

@@ -32,7 +32,6 @@ export const currentInterviewer: InterviewerProfile = {
   previousCompanies: ['Amazon', 'Microsoft'],
   verification: {
     identity: 'verified',
-    linkedin: 'verified',
     employment: 'verified',
     professionalEmail: 'pending',
   },

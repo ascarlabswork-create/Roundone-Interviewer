@@ -155,7 +155,8 @@ export function SetupPage() {
                     options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
                     value={draft.timezone}
                     onChange={(timezone) => update({ timezone })}
-                    customPlaceholder="IANA timezone, e.g. Europe/Berlin"
+                    customPlaceholder="Type a timezone, e.g. Europe/Berlin"
+                    required
                   />
                 </div>
                 <div>
@@ -229,7 +230,7 @@ export function SetupPage() {
                   suggestions={SKILLS}
                   value={draft.skills}
                   onChange={(skills) => update({ skills })}
-                  placeholder="Add a skill"
+                  placeholder="Type to add a skill"
                 />
               </fieldset>
               <fieldset>
@@ -239,7 +240,7 @@ export function SetupPage() {
                   suggestions={TECHNOLOGIES}
                   value={draft.technologies}
                   onChange={(technologies) => update({ technologies })}
-                  placeholder="Add a technology"
+                  placeholder="Type to add a technology"
                 />
               </fieldset>
               <fieldset>
@@ -249,7 +250,7 @@ export function SetupPage() {
                   suggestions={INDUSTRIES}
                   value={draft.industries}
                   onChange={(industries) => update({ industries })}
-                  placeholder="Add an industry"
+                  placeholder="Type to add an industry"
                 />
               </fieldset>
               <fieldset>
@@ -259,7 +260,7 @@ export function SetupPage() {
                   suggestions={INTERVIEW_TYPES}
                   value={draft.interviewTypes}
                   onChange={(interviewTypes) => update({ interviewTypes })}
-                  placeholder="Add an interview type"
+                  placeholder="Type to add an interview type"
                 />
               </fieldset>
               <fieldset>
@@ -269,7 +270,7 @@ export function SetupPage() {
                   suggestions={CANDIDATE_LEVELS}
                   value={draft.candidateLevels}
                   onChange={(candidateLevels) => update({ candidateLevels })}
-                  placeholder="Add a candidate level"
+                  placeholder="Type to add a candidate level"
                 />
               </fieldset>
               <fieldset>
@@ -279,7 +280,7 @@ export function SetupPage() {
                   suggestions={TARGET_ROLES}
                   value={draft.targetRoles}
                   onChange={(targetRoles) => update({ targetRoles })}
-                  placeholder="Add a target role"
+                  placeholder="Type to add a target role"
                 />
               </fieldset>
             </>
@@ -291,6 +292,8 @@ export function SetupPage() {
                 <FieldLabel htmlFor="sname">Service Name</FieldLabel>
                 <TextInput
                   id="sname"
+                  required
+                  placeholder="Enter a service name"
                   value={draft.firstService.name}
                   onChange={(event) => update({ firstService: { ...draft.firstService, name: event.target.value } })}
                 />
@@ -305,7 +308,8 @@ export function SetupPage() {
                     onChange={(interviewType) =>
                       update({ firstService: { ...draft.firstService, interviewType } })
                     }
-                    customPlaceholder="Add an interview type"
+                    customPlaceholder="Type an interview type"
+                    required
                   />
                 </div>
                 <div>
@@ -329,6 +333,8 @@ export function SetupPage() {
                 <FieldLabel htmlFor="sdesc">Description</FieldLabel>
                 <TextArea
                   id="sdesc"
+                  required
+                  placeholder="Describe this service"
                   value={draft.firstService.description}
                   onChange={(event) => update({ firstService: { ...draft.firstService, description: event.target.value } })}
                 />
@@ -337,6 +343,8 @@ export function SetupPage() {
                 <FieldLabel htmlFor="spolicy">Cancellation Policy</FieldLabel>
                 <TextArea
                   id="spolicy"
+                  required
+                  placeholder="Describe your cancellation policy"
                   value={draft.firstService.cancellationPolicy}
                   onChange={(event) =>
                     update({ firstService: { ...draft.firstService, cancellationPolicy: event.target.value } })

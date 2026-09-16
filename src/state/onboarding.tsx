@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { readSessionJson, writeSessionJson } from '../lib/storage.ts'
 import type { OnboardingDraft } from '../types.ts'
 
-const KEY = 'roundone.interviewer.onboarding.v2'
+const KEY = 'roundone.interviewer.onboarding.v3'
 
 export const emptyDraft = (): OnboardingDraft => ({
   firstName: '',
@@ -25,14 +25,14 @@ export const emptyDraft = (): OnboardingDraft => ({
   candidateLevels: [],
   targetRoles: [],
   firstService: {
-    name: 'Coding Mock',
-    interviewType: 'Coding',
+    name: '',
+    interviewType: '',
     durationMin: '60',
-    candidateLevels: ['SDE 2', 'Senior'],
-    targetRoles: ['Software Engineer'],
-    description: 'DSA round with follow-ups on complexity and trade-offs.',
+    candidateLevels: [],
+    targetRoles: [],
+    description: '',
     price: '1000',
-    cancellationPolicy: 'Full refund if cancelled 24 hours before the session.',
+    cancellationPolicy: '',
   },
   timezone: 'Asia/Kolkata',
   languages: '',

@@ -1,4 +1,4 @@
-import { BadgeCheck, Briefcase, Link2, Mail, Shield } from 'lucide-react'
+import { BadgeCheck, Briefcase, Mail, Shield } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
@@ -11,13 +11,12 @@ import type { DisplayVerificationStatus } from '../services/interviewerProfile.t
 import type { VerificationStatus } from '../types.ts'
 
 const cards: Array<{
-  key: 'identity' | 'linkedin' | 'employment' | 'professionalEmail'
+  key: 'identity' | 'employment' | 'professionalEmail'
   title: string
   body: string
   icon: typeof Shield
 }> = [
   { key: 'identity', title: 'Identity', body: 'Government ID check. Document upload is not connected yet.', icon: Shield },
-  { key: 'linkedin', title: 'LinkedIn', body: 'Confirm the public profile that candidates will see.', icon: Link2 },
   { key: 'employment', title: 'Employment', body: 'Current company and role, used for the verified badge.', icon: Briefcase },
   { key: 'professionalEmail', title: 'Professional Email', body: 'Work email is not in the current verification table. Status stays pending until that workflow exists.', icon: Mail },
 ]
