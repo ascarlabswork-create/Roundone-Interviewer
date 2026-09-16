@@ -292,6 +292,8 @@ export function SetupPage() {
                 <FieldLabel htmlFor="sname">Service Name</FieldLabel>
                 <TextInput
                   id="sname"
+                  required
+                  placeholder="Enter a service name"
                   value={draft.firstService.name}
                   onChange={(event) => update({ firstService: { ...draft.firstService, name: event.target.value } })}
                 />
@@ -331,6 +333,8 @@ export function SetupPage() {
                 <FieldLabel htmlFor="sdesc">Description</FieldLabel>
                 <TextArea
                   id="sdesc"
+                  required
+                  placeholder="Describe this service"
                   value={draft.firstService.description}
                   onChange={(event) => update({ firstService: { ...draft.firstService, description: event.target.value } })}
                 />
@@ -339,6 +343,8 @@ export function SetupPage() {
                 <FieldLabel htmlFor="spolicy">Cancellation Policy</FieldLabel>
                 <TextArea
                   id="spolicy"
+                  required
+                  placeholder="Describe your cancellation policy"
                   value={draft.firstService.cancellationPolicy}
                   onChange={(event) =>
                     update({ firstService: { ...draft.firstService, cancellationPolicy: event.target.value } })

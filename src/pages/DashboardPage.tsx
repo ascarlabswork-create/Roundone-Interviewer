@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CalendarCheck, IndianRupee, Star, Video } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getAvailabilitySummary, listBookings, listInterviewerReviews } from '../api/index.ts'
+import { JoinInterviewControls } from '../components/interview/JoinInterviewControls.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
@@ -19,16 +20,16 @@ import { useAsync } from '../lib/useAsync.ts'
 import {
   BOOKING_ALREADY_UPDATED,
   confirmBooking,
-  getMyBookings,
   rejectBooking,
 } from '../services/interviewerBookings.ts'
+import { loadMyInterviewBoard } from '../services/interviewSessions.ts'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
 
 export function DashboardPage() {
   const { account } = useSession()
   const { pushToast } = useToast()
-  const liveBookings = useAsync(() => getMyBookings(), [])
+  const liveBookings = useAsync(() => loadMyInterviewBoard(), [])
   const mockBookings = useAsync(() => listBookings(), [])
   const reviews = useAsync(() => listInterviewerReviews(currentInterviewer.id), [])
   const availability = useAsync(() => getAvailabilitySummary(), [])
@@ -36,12 +37,13 @@ export function DashboardPage() {
 
   const upcoming =
     liveBookings.status === 'success'
-      ? liveBookings.data.filter((item) => item.status === 'confirmed')
+      ? liveBookings.data.bookings.filter((item) => item.status === 'confirmed' || item.status === 'in_progress')
       : []
   const pending =
     liveBookings.status === 'success'
-      ? liveBookings.data.filter((item) => item.status === 'requested')
+      ? liveBookings.data.bookings.filter((item) => item.status === 'requested')
       : []
+  const sessions = liveBookings.status === 'success' ? liveBookings.data.sessions : undefined
   const feedbackQueue =
     mockBookings.status === 'success'
       ? mockBookings.data.filter((item) => {
@@ -157,6 +159,11 @@ export function DashboardPage() {
                   </Td>
                   <Td>
                     <div className="flex justify-end gap-2">
+                      <JoinInterviewControls
+                        booking={booking}
+                        session={sessions?.get(booking.id)}
+                        showWaiting={false}
+                      />
                       <Link to="/interviewer/bookings">
                         <Button size="sm" variant="outline">
                           View
@@ -184,6 +191,11 @@ export function DashboardPage() {
                     {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)}
                   </p>
                   <div className="mt-3 flex gap-2">
+                    <JoinInterviewControls
+                      booking={booking}
+                      session={sessions?.get(booking.id)}
+                      showWaiting={false}
+                    />
                     <Link to="/interviewer/bookings" className="flex-1">
                       <Button size="sm" variant="outline" fullWidth>
                         View

@@ -42,7 +42,7 @@ type ServiceForm = {
 const emptyForm = (): ServiceForm => ({
   id: null,
   name: '',
-  interviewType: 'Coding',
+  interviewType: '',
   durationMin: 60,
   priceRupees: '1000',
   description: '',
@@ -53,7 +53,7 @@ function toForm(service: InterviewerServiceRecord): ServiceForm {
   return {
     id: service.id,
     name: service.name,
-    interviewType: service.interview_type || 'Coding',
+    interviewType: service.interview_type || '',
     durationMin: service.duration_min,
     priceRupees: String(paiseToRupees(service.price_paise)),
     description: service.description ?? '',
@@ -193,7 +193,13 @@ export function ServicesPage() {
           <div className="grid gap-4">
             <div>
               <FieldLabel htmlFor="name">Service Name</FieldLabel>
-              <TextInput id="name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+              <TextInput
+                id="name"
+                required
+                placeholder="Enter a service name"
+                value={form.name}
+                onChange={(event) => setForm({ ...form, name: event.target.value })}
+              />
             </div>
             <div>
               <FieldLabel htmlFor="type">Interview Type</FieldLabel>
