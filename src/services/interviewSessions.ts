@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase.ts'
+import { getFeedbackBookingIds } from './interviewerFeedback.ts'
 import { getMyBooking, getMyBookings, type InterviewerBooking } from './interviewerBookings.ts'
 import { TABLES } from './tables.ts'
 
@@ -120,10 +121,15 @@ export async function getInterviewSessionByBooking(
 export async function loadMyInterviewBoard(): Promise<{
   bookings: InterviewerBooking[]
   sessions: Map<string, InterviewSessionRecord>
+  feedbackBookingIds: Set<string>
 }> {
   const bookings = await getMyBookings()
-  const sessions = await getInterviewSessionsByBookingIds(bookings.map((item) => item.id))
-  return { bookings, sessions }
+  const bookingIds = bookings.map((item) => item.id)
+  const [sessions, feedbackBookingIds] = await Promise.all([
+    getInterviewSessionsByBookingIds(bookingIds),
+    getFeedbackBookingIds(bookingIds),
+  ])
+  return { bookings, sessions, feedbackBookingIds }
 }
 
 export async function startInterviewSession(bookingId: string): Promise<InterviewSessionBundle> {

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { CalendarCheck, IndianRupee, Star, Video } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { getAvailabilitySummary, listBookings, listInterviewerReviews } from '../api/index.ts'
+import { getAvailabilitySummary, listInterviewerReviews } from '../api/index.ts'
+import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
 import { JoinInterviewControls } from '../components/interview/JoinInterviewControls.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
@@ -10,10 +11,8 @@ import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
 import { MetricCard } from '../components/ui/dashboard.tsx'
 import { Avatar, StarRating } from '../components/ui/identity.tsx'
 import { Card, ErrorState, Skeleton } from '../components/ui/primitives.tsx'
-import { getCandidateById } from '../data/candidates.ts'
 import { currentInterviewer } from '../data/interviewer.ts'
-import { completedWhenLabel, formatDateShortInZone, formatTimeInZone, sameDay } from '../lib/dates.ts'
-import { isPrivateFeedbackPending, isPrivateFeedbackSubmitted } from '../lib/feedback.ts'
+import { completedWhenLabel, formatDateShortInZone, formatTimeInZone } from '../lib/dates.ts'
 import { nextAvailableLabel, weeklyAvailableHours } from '../lib/slots.ts'
 import { formatCount, formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
@@ -30,7 +29,6 @@ export function DashboardPage() {
   const { account } = useSession()
   const { pushToast } = useToast()
   const liveBookings = useAsync(() => loadMyInterviewBoard(), [])
-  const mockBookings = useAsync(() => listBookings(), [])
   const reviews = useAsync(() => listInterviewerReviews(currentInterviewer.id), [])
   const availability = useAsync(() => getAvailabilitySummary(), [])
   const [actingId, setActingId] = useState<string | null>(null)
@@ -45,11 +43,10 @@ export function DashboardPage() {
       : []
   const sessions = liveBookings.status === 'success' ? liveBookings.data.sessions : undefined
   const feedbackQueue =
-    mockBookings.status === 'success'
-      ? mockBookings.data.filter((item) => {
-          if (isPrivateFeedbackPending(item)) return true
-          return isPrivateFeedbackSubmitted(item) && sameDay(new Date(item.start), new Date())
-        })
+    liveBookings.status === 'success'
+      ? liveBookings.data.bookings.filter(
+          (item) => item.status === 'completed' && !liveBookings.data.feedbackBookingIds.has(item.id),
+        )
       : []
   const recent = reviews.status === 'success' ? reviews.data.slice(0, 3) : []
 
@@ -218,35 +215,25 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
-        {feedbackQueue.length === 0 && mockBookings.status === 'success' ? (
+        {liveBookings.status === 'loading' ? <Skeleton className="h-24" /> : null}
+        {liveBookings.status === 'error' ? <ErrorState body={liveBookings.error} onRetry={liveBookings.reload} /> : null}
+        {liveBookings.status === 'success' && feedbackQueue.length === 0 ? (
           <p className="text-sm text-slate-500">No private candidate feedback waiting.</p>
         ) : null}
         <div className="grid gap-3">
-          {feedbackQueue.map((booking) => {
-            const candidate = getCandidateById(booking.candidateId)
-            const submitted = isPrivateFeedbackSubmitted(booking)
-            return (
-              <Card key={booking.id} className="p-4 sm:flex sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-semibold text-navy-950">{candidate?.name}</p>
-                  <p className="mt-1 text-sm text-slate-600">{booking.serviceName}</p>
-                  <p className="mt-1 text-xs text-slate-500">{completedWhenLabel(booking.start)}</p>
-                  {submitted ? (
-                    <p className="mt-2 text-sm font-medium text-emerald-800">Feedback Submitted ✓</p>
-                  ) : (
-                    <p className="mt-2 text-sm font-medium text-amber-800">Candidate Feedback: Pending</p>
-                  )}
-                </div>
-                <div className="mt-3 sm:mt-0">
-                  <Link to={`/interviewer/feedback/${booking.id}`}>
-                    <Button size="sm" variant={submitted ? 'outline' : 'primary'}>
-                      {submitted ? 'View Submitted Feedback' : 'Give Feedback'}
-                    </Button>
-                  </Link>
-                </div>
-              </Card>
-            )
-          })}
+          {feedbackQueue.map((booking) => (
+            <Card key={booking.id} className="p-4 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="font-semibold text-navy-950">{booking.candidate.name}</p>
+                <p className="mt-1 text-sm text-slate-600">{booking.serviceName}</p>
+                <p className="mt-1 text-xs text-slate-500">{completedWhenLabel(booking.startsAtUtc)}</p>
+                <p className="mt-2 text-sm font-medium text-amber-800">Candidate Feedback: Pending</p>
+              </div>
+              <div className="mt-3 sm:mt-0">
+                <FeedbackAction booking={booking} hasFeedback={false} />
+              </div>
+            </Card>
+          ))}
         </div>
       </section>
 
