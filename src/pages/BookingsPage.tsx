@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
+import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
 import { JoinInterviewControls } from '../components/interview/JoinInterviewControls.tsx'
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
@@ -62,6 +63,7 @@ export function BookingsPage() {
   const rows = grouped[tab]
   const detail = state.status === 'success' ? state.data.bookings.find((item) => item.id === detailId) : undefined
   const sessions = state.status === 'success' ? state.data.sessions : new Map<string, InterviewSessionRecord>()
+  const feedbackBookingIds = state.status === 'success' ? state.data.feedbackBookingIds : new Set<string>()
 
   async function runAction(id: string, action: () => Promise<unknown>, successMessage: string) {
     setActingId(id)
@@ -139,6 +141,7 @@ export function BookingsPage() {
                     }}
                     onDetails={() => setDetailId(booking.id)}
                     session={sessions.get(booking.id) ?? null}
+                    hasFeedback={feedbackBookingIds.has(booking.id)}
                   />
                 </Td>
               </TableRow>
@@ -172,6 +175,7 @@ export function BookingsPage() {
                     }}
                     onDetails={() => setDetailId(booking.id)}
                     session={sessions.get(booking.id) ?? null}
+                    hasFeedback={feedbackBookingIds.has(booking.id)}
                   />
                 </div>
               </Card>
@@ -181,7 +185,13 @@ export function BookingsPage() {
       ) : null}
 
       <SlideOver title="Booking details" open={Boolean(detail)} onClose={() => setDetailId(null)}>
-        {detail ? <BookingDetails booking={detail} session={sessions.get(detail.id) ?? null} /> : null}
+        {detail ? (
+          <BookingDetails
+            booking={detail}
+            session={sessions.get(detail.id) ?? null}
+            hasFeedback={feedbackBookingIds.has(detail.id)}
+          />
+        ) : null}
       </SlideOver>
 
       <SlideOver
@@ -227,9 +237,11 @@ function CandidateSummary({ candidate }: { candidate: InterviewerBooking['candid
 function BookingDetails({
   booking,
   session,
+  hasFeedback,
 }: {
   booking: InterviewerBooking
   session: InterviewSessionRecord | null
+  hasFeedback: boolean
 }) {
   return (
     <div className="space-y-3 text-sm">
@@ -274,8 +286,9 @@ function BookingDetails({
           <span className="font-medium text-navy-950">{booking.rejectionReason}</span>
         </p>
       ) : null}
-      <div className="pt-2">
+      <div className="flex flex-col gap-2 pt-2">
         <JoinInterviewControls booking={booking} session={session} size="md" />
+        <FeedbackAction booking={booking} hasFeedback={hasFeedback} size="md" />
       </div>
     </div>
   )
@@ -286,6 +299,7 @@ function BookingActions({
   stacked,
   actingId,
   session,
+  hasFeedback,
   onAccept,
   onReject,
   onDetails,
@@ -294,6 +308,7 @@ function BookingActions({
   stacked?: boolean
   actingId: string | null
   session: InterviewSessionRecord | null
+  hasFeedback: boolean
   onAccept: (id: string) => void
   onReject: () => void
   onDetails: () => void
@@ -318,6 +333,7 @@ function BookingActions({
       ) : (
         <JoinInterviewControls booking={booking} session={session} showWaiting={false} />
       )}
+      <FeedbackAction booking={booking} hasFeedback={hasFeedback} disabled={locked} />
     </div>
   )
 }

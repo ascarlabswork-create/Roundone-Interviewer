@@ -3,6 +3,7 @@ import { listBookings, listServices } from '../api/index.ts'
 import { Button } from '../components/ui/Button.tsx'
 import { SlotBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
+import { ClockTimeInput } from '../components/ui/ClockTimeInput.tsx'
 import {
   Card,
   ErrorState,
@@ -278,7 +279,9 @@ export function CalendarPage() {
           <section className="space-y-3">
             <div>
               <h2 className="text-lg font-semibold text-navy-950">Weekly Availability</h2>
-              <p className="text-sm text-slate-500">Enable a day and add one or more time ranges. Times use your timezone.</p>
+              <p className="text-sm text-slate-500">
+                Enable a day and add one or more time ranges. Use the clock to set start and end times in your timezone.
+              </p>
             </div>
             {board.availability.length === 0 ? (
               <p className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
@@ -307,28 +310,18 @@ export function CalendarPage() {
                       <div className="mt-3 space-y-2">
                         {ranges.map((range) => (
                           <div key={range.id} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
-                            <SelectInput
+                            <ClockTimeInput
                               value={range.start_time}
                               disabled={saving}
-                              onChange={(event) => void onUpdateRange(range.id, { startTime: event.target.value })}
-                            >
-                              {TIME_OPTIONS.map((time) => (
-                                <option key={time} value={time}>
-                                  {formatClock(time)}
-                                </option>
-                              ))}
-                            </SelectInput>
-                            <SelectInput
+                              aria-label={`${WEEKDAY_LABELS[day]} start time`}
+                              onChange={(startTime) => void onUpdateRange(range.id, { startTime })}
+                            />
+                            <ClockTimeInput
                               value={range.end_time}
                               disabled={saving}
-                              onChange={(event) => void onUpdateRange(range.id, { endTime: event.target.value })}
-                            >
-                              {TIME_OPTIONS.map((time) => (
-                                <option key={time} value={time}>
-                                  {formatClock(time)}
-                                </option>
-                              ))}
-                            </SelectInput>
+                              aria-label={`${WEEKDAY_LABELS[day]} end time`}
+                              onChange={(endTime) => void onUpdateRange(range.id, { endTime })}
+                            />
                             <Button size="sm" variant="ghost" disabled={saving} onClick={() => void onRemoveRange(range.id)}>
                               Remove
                             </Button>
@@ -598,31 +591,19 @@ export function CalendarPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <FieldLabel htmlFor="custom-start">Start</FieldLabel>
-                <SelectInput
+                <ClockTimeInput
                   id="custom-start"
                   value={customForm.startTime}
-                  onChange={(event) => setCustomForm({ ...customForm, startTime: event.target.value })}
-                >
-                  {TIME_OPTIONS.map((time) => (
-                    <option key={time} value={time}>
-                      {formatClock(time)}
-                    </option>
-                  ))}
-                </SelectInput>
+                  onChange={(startTime) => setCustomForm({ ...customForm, startTime })}
+                />
               </div>
               <div>
                 <FieldLabel htmlFor="custom-end">End</FieldLabel>
-                <SelectInput
+                <ClockTimeInput
                   id="custom-end"
                   value={customForm.endTime}
-                  onChange={(event) => setCustomForm({ ...customForm, endTime: event.target.value })}
-                >
-                  {TIME_OPTIONS.map((time) => (
-                    <option key={time} value={time}>
-                      {formatClock(time)}
-                    </option>
-                  ))}
-                </SelectInput>
+                  onChange={(endTime) => setCustomForm({ ...customForm, endTime })}
+                />
               </div>
             </div>
             <Button onClick={() => void onSaveCustom()} disabled={saving}>
@@ -658,26 +639,16 @@ export function CalendarPage() {
             </label>
             {blockForm.allDay ? null : (
               <div className="grid grid-cols-2 gap-3">
-                <SelectInput
+                <ClockTimeInput
+                  aria-label="Blocked start time"
                   value={blockForm.startTime}
-                  onChange={(event) => setBlockForm({ ...blockForm, startTime: event.target.value })}
-                >
-                  {TIME_OPTIONS.map((time) => (
-                    <option key={time} value={time}>
-                      {formatClock(time)}
-                    </option>
-                  ))}
-                </SelectInput>
-                <SelectInput
+                  onChange={(startTime) => setBlockForm({ ...blockForm, startTime })}
+                />
+                <ClockTimeInput
+                  aria-label="Blocked end time"
                   value={blockForm.endTime}
-                  onChange={(event) => setBlockForm({ ...blockForm, endTime: event.target.value })}
-                >
-                  {TIME_OPTIONS.map((time) => (
-                    <option key={time} value={time}>
-                      {formatClock(time)}
-                    </option>
-                  ))}
-                </SelectInput>
+                  onChange={(endTime) => setBlockForm({ ...blockForm, endTime })}
+                />
               </div>
             )}
             <div>
@@ -698,8 +669,6 @@ export function CalendarPage() {
     </div>
   )
 }
-
-const TIME_OPTIONS = Array.from({ length: 29 }, (_, index) => minutesToTime(8 * 60 + index * 30))
 
 function combineIso(ymd: string) {
   return `${ymd}T00:00:00`
