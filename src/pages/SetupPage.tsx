@@ -1,8 +1,9 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { AvailabilityStep, validateOnboardingAvailability } from '../components/setup/AvailabilityStep.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Stepper } from '../components/ui/dashboard.tsx'
-import { Card, Chip, FieldLabel, TextArea, TextInput } from '../components/ui/primitives.tsx'
+import { Card, FieldLabel, TextArea, TextInput } from '../components/ui/primitives.tsx'
 import { SuggestedSelect, SuggestionChips } from '../components/ui/suggestions.tsx'
 import {
   CANDIDATE_LEVELS,
@@ -13,7 +14,14 @@ import {
   TARGET_ROLES,
   TECHNOLOGIES,
   TIMEZONES,
+  WEEKDAY_LABELS,
 } from '../data/catalogs.ts'
+import { formatClockRange, formatReviewDate } from '../lib/dates.ts'
+import {
+  loadMyAvailabilityBoard,
+  replaceMyCustomSlots,
+  replaceMyWeeklyAvailability,
+} from '../services/interviewerAvailability.ts'
 import { updateInterviewerProfile, updateInterviewerRoles, updateInterviewerSkills } from '../services/interviewerProfile.ts'
 import { useOnboarding } from '../state/onboarding.tsx'
 import { useSession } from '../state/session.tsx'
@@ -29,10 +37,6 @@ const stepIndex: Record<string, number> = {
 
 const order = ['professional', 'expertise', 'services', 'availability', 'review'] as const
 
-function toggleValue<T extends string>(list: T[], value: T) {
-  return list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
-}
-
 export function SetupPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -42,6 +46,7 @@ export function SetupPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(false)
+  const [availabilityHydrated, setAvailabilityHydrated] = useState(false)
   const step = params.get('step') ?? 'professional'
   const current = stepIndex[step] ?? 1
 
@@ -66,6 +71,42 @@ export function SetupPage() {
     })
     setHydrated(true)
   }, [account, hydrated, update])
+
+  useEffect(() => {
+    if (step !== 'availability' || availabilityHydrated) return
+    const keepLocal = draft.weeklyAvailability.length > 0 || draft.customAvailability.length > 0
+    let cancelled = false
+    void loadMyAvailabilityBoard()
+      .then((board) => {
+        if (cancelled || keepLocal) return
+        update({
+          weeklyAvailability: board.availability.map((row) => ({
+            id: row.id,
+            weekday: row.weekday,
+            startTime: row.start_time,
+            endTime: row.end_time,
+          })),
+          customAvailability: board.customSlots.map((row) => ({
+            id: row.id,
+            date: row.on_date,
+            startTime: row.start_time,
+            endTime: row.end_time,
+          })),
+        })
+      })
+      .finally(() => {
+        if (!cancelled) setAvailabilityHydrated(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [
+    availabilityHydrated,
+    draft.customAvailability.length,
+    draft.weeklyAvailability.length,
+    step,
+    update,
+  ])
 
   function go(next: (typeof order)[number]) {
     navigate(`/interviewer/setup?step=${next}`)
@@ -95,6 +136,23 @@ export function SetupPage() {
         candidateLevels: draft.candidateLevels,
       })
     }
+    if (step === 'availability') {
+      validateOnboardingAvailability(draft.weeklyAvailability, draft.customAvailability)
+      await replaceMyWeeklyAvailability(
+        draft.weeklyAvailability.map((range) => ({
+          weekday: range.weekday,
+          startTime: range.startTime,
+          endTime: range.endTime,
+        })),
+      )
+      await replaceMyCustomSlots(
+        draft.customAvailability.map((slot) => ({
+          onDate: slot.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        })),
+      )
+    }
     await refreshAccount()
   }
 
@@ -104,7 +162,7 @@ export function SetupPage() {
     setSaving(true)
     try {
       await persistCurrentStep()
-      if (step === 'professional' || step === 'expertise') {
+      if (step === 'professional' || step === 'expertise' || step === 'availability') {
         pushToast('Saved successfully')
       }
       const index = order.indexOf(step as (typeof order)[number])
@@ -355,22 +413,13 @@ export function SetupPage() {
           ) : null}
 
           {step === 'availability' ? (
-            <>
-              <p className="text-sm text-slate-600">Timezone: India Standard Time</p>
-              <p className="text-sm font-medium text-navy-950">Saturday evening example</p>
-              <div className="flex flex-wrap gap-2">
-                {['18:00', '19:00', '20:00'].map((hour) => (
-                  <Chip
-                    key={hour}
-                    active={draft.saturdayHours.includes(hour)}
-                    onClick={() => update({ saturdayHours: toggleValue(draft.saturdayHours, hour) })}
-                  >
-                    Saturday {hour === '18:00' ? '6 PM' : hour === '19:00' ? '7 PM' : '8 PM'}
-                  </Chip>
-                ))}
-              </div>
-              <p className="text-xs text-slate-500">You can refine week and month views after you join the dashboard.</p>
-            </>
+            <AvailabilityStep
+              timezone={draft.timezone}
+              weekly={draft.weeklyAvailability}
+              custom={draft.customAvailability}
+              onWeeklyChange={(weeklyAvailability) => update({ weeklyAvailability })}
+              onCustomChange={(customAvailability) => update({ customAvailability })}
+            />
           ) : null}
 
           {step === 'review' ? (
@@ -384,7 +433,22 @@ export function SetupPage() {
                 First service: {draft.firstService.name} · {draft.firstService.durationMin} min · ₹
                 {draft.firstService.price}
               </p>
-              <p>Saturday slots: {draft.saturdayHours.join(', ') || 'None selected'}</p>
+              <p>
+                Weekly hours:{' '}
+                {draft.weeklyAvailability.length
+                  ? draft.weeklyAvailability
+                      .map((range) => `${WEEKDAY_LABELS[range.weekday]} ${formatClockRange(range.startTime, range.endTime)}`)
+                      .join(' · ')
+                  : 'None selected'}
+              </p>
+              <p>
+                Specific dates:{' '}
+                {draft.customAvailability.length
+                  ? draft.customAvailability
+                      .map((slot) => `${formatReviewDate(slot.date)} ${formatClockRange(slot.startTime, slot.endTime)}`)
+                      .join(' · ')
+                  : 'None selected'}
+              </p>
             </div>
           ) : null}
 

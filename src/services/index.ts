@@ -67,6 +67,8 @@ export {
   getMyCustomSlots,
   getMyTimezone,
   loadMyAvailabilityBoard,
+  replaceMyCustomSlots,
+  replaceMyWeeklyAvailability,
   updateAvailability,
   updateBlockedTime,
   updateCustomSlot,

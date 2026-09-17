@@ -247,6 +247,20 @@ export type AppNotification = {
   to: string
 }
 
+export type OnboardingWeeklyRange = {
+  id: string
+  weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6
+  startTime: string
+  endTime: string
+}
+
+export type OnboardingCustomSlot = {
+  id: string
+  date: string
+  startTime: string
+  endTime: string
+}
+
 export type OnboardingDraft = {
   firstName: string
   lastName: string
@@ -279,7 +293,8 @@ export type OnboardingDraft = {
   }
   timezone: string
   languages: string
-  saturdayHours: string[]
+  weeklyAvailability: OnboardingWeeklyRange[]
+  customAvailability: OnboardingCustomSlot[]
 }
 
 export type SettingsDraft = {

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { readSessionJson, writeSessionJson } from '../lib/storage.ts'
 import type { OnboardingDraft } from '../types.ts'
 
-const KEY = 'roundone.interviewer.onboarding.v3'
+const KEY = 'roundone.interviewer.onboarding.v4'
 
 export const emptyDraft = (): OnboardingDraft => ({
   firstName: '',
@@ -36,7 +36,8 @@ export const emptyDraft = (): OnboardingDraft => ({
   },
   timezone: 'Asia/Kolkata',
   languages: '',
-  saturdayHours: ['18:00', '19:00', '20:00'],
+  weeklyAvailability: [],
+  customAvailability: [],
 })
 
 type OnboardingContextValue = {
@@ -48,7 +49,15 @@ type OnboardingContextValue = {
 const OnboardingContext = createContext<OnboardingContextValue | null>(null)
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
-  const [draft, setDraft] = useState<OnboardingDraft>(() => readSessionJson(KEY, emptyDraft()))
+  const [draft, setDraft] = useState<OnboardingDraft>(() => {
+    const stored = readSessionJson(KEY, emptyDraft())
+    return {
+      ...emptyDraft(),
+      ...stored,
+      weeklyAvailability: stored.weeklyAvailability ?? [],
+      customAvailability: stored.customAvailability ?? [],
+    }
+  })
 
   const update = useCallback((patch: Partial<OnboardingDraft>) => {
     setDraft((current) => {

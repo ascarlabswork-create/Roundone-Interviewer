@@ -644,6 +644,26 @@ export async function updateMyBookingBuffer(bufferMin: BookingBufferMinutes): Pr
   return readBuffer(data.booking_buffer_min)
 }
 
+export async function replaceMyWeeklyAvailability(windows: AvailabilityWindowInput[]): Promise<void> {
+  const existing = await getMyAvailability()
+  for (const row of existing) {
+    await deleteAvailability(row.id)
+  }
+  for (const window of windows) {
+    await createAvailability(window)
+  }
+}
+
+export async function replaceMyCustomSlots(slots: CustomSlotInput[]): Promise<void> {
+  const existing = await getMyCustomSlots()
+  for (const row of existing) {
+    await deleteCustomSlot(row.id)
+  }
+  for (const slot of slots) {
+    await createCustomSlot(slot)
+  }
+}
+
 export async function loadMyAvailabilityBoard(): Promise<AvailabilityBoard> {
   const [availability, customSlots, blockedTimes, settings] = await Promise.all([
     getMyAvailability(),
