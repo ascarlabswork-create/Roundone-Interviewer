@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
+import { JoinInterviewControls } from '../components/interview/JoinInterviewControls.tsx'
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
 import { Card, EmptyState, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea } from '../components/ui/primitives.tsx'
@@ -10,12 +11,12 @@ import {
   BOOKING_ALREADY_UPDATED,
   bookingsForTab,
   confirmBooking,
-  getMyBookings,
   isActionableBookingRequest,
   rejectBooking,
   type InterviewerBooking,
   type InterviewerBookingTab,
 } from '../services/interviewerBookings.ts'
+import { loadMyInterviewBoard, type InterviewSessionRecord } from '../services/interviewSessions.ts'
 import { useToast } from '../state/toast.tsx'
 
 const tabs: InterviewerBookingTab[] = ['pending', 'upcoming', 'completed', 'cancelled']
@@ -46,10 +47,10 @@ export function BookingsPage() {
   const [rejectReason, setRejectReason] = useState('')
   const [actingId, setActingId] = useState<string | null>(null)
   const { pushToast } = useToast()
-  const state = useAsync(() => getMyBookings(), [])
+  const state = useAsync(() => loadMyInterviewBoard(), [])
 
   const grouped = useMemo(() => {
-    const items = state.status === 'success' ? state.data : []
+    const items = state.status === 'success' ? state.data.bookings : []
     return {
       pending: bookingsForTab(items, 'pending'),
       upcoming: bookingsForTab(items, 'upcoming'),
@@ -59,7 +60,8 @@ export function BookingsPage() {
   }, [state])
 
   const rows = grouped[tab]
-  const detail = state.status === 'success' ? state.data.find((item) => item.id === detailId) : undefined
+  const detail = state.status === 'success' ? state.data.bookings.find((item) => item.id === detailId) : undefined
+  const sessions = state.status === 'success' ? state.data.sessions : new Map<string, InterviewSessionRecord>()
 
   async function runAction(id: string, action: () => Promise<unknown>, successMessage: string) {
     setActingId(id)
@@ -114,7 +116,9 @@ export function BookingsPage() {
           >
             {rows.map((booking) => (
               <TableRow key={booking.id}>
-                <Td className="font-medium text-navy-950">{booking.candidate.name}</Td>
+                <Td>
+                  <CandidateSummary candidate={booking.candidate} />
+                </Td>
                 <Td>{booking.serviceName}</Td>
                 <Td>{booking.interviewType}</Td>
                 <Td>{formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)}</Td>
@@ -134,6 +138,7 @@ export function BookingsPage() {
                       setRejectReason('')
                     }}
                     onDetails={() => setDetailId(booking.id)}
+                    session={sessions.get(booking.id) ?? null}
                   />
                 </Td>
               </TableRow>
@@ -145,8 +150,8 @@ export function BookingsPage() {
               <Card key={booking.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-navy-950">{booking.candidate.name}</p>
-                    <p className="text-sm text-slate-600">{booking.serviceName}</p>
+                    <CandidateSummary candidate={booking.candidate} />
+                    <p className="mt-1 text-sm text-slate-600">{booking.serviceName}</p>
                   </div>
                   <LiveBookingStatusBadge status={booking.status} />
                 </div>
@@ -166,6 +171,7 @@ export function BookingsPage() {
                       setRejectReason('')
                     }}
                     onDetails={() => setDetailId(booking.id)}
+                    session={sessions.get(booking.id) ?? null}
                   />
                 </div>
               </Card>
@@ -175,7 +181,7 @@ export function BookingsPage() {
       ) : null}
 
       <SlideOver title="Booking details" open={Boolean(detail)} onClose={() => setDetailId(null)}>
-        {detail ? <BookingDetails booking={detail} /> : null}
+        {detail ? <BookingDetails booking={detail} session={sessions.get(detail.id) ?? null} /> : null}
       </SlideOver>
 
       <SlideOver
@@ -205,61 +211,61 @@ export function BookingsPage() {
   )
 }
 
-function BookingDetails({ booking }: { booking: InterviewerBooking }) {
+function CandidateSummary({ candidate }: { candidate: InterviewerBooking['candidate'] }) {
+  const roleLine = [candidate.targetRole, candidate.candidateLevel].filter(Boolean).join(' · ')
+  return (
+    <div>
+      <p className="font-medium text-navy-950">{candidate.name}</p>
+      {roleLine ? <p className="text-xs text-slate-500">{roleLine}</p> : null}
+      {candidate.skills.length > 0 ? (
+        <p className="mt-1 text-xs text-slate-500">{candidate.skills.join(', ')}</p>
+      ) : null}
+    </div>
+  )
+}
+
+function BookingDetails({
+  booking,
+  session,
+}: {
+  booking: InterviewerBooking
+  session: InterviewSessionRecord | null
+}) {
   return (
     <div className="space-y-3 text-sm">
       <p>
+        <span className="text-slate-500">Status</span>
+        <br />
+        <LiveBookingStatusBadge status={booking.status} />
+      </p>
+      <p>
         <span className="text-slate-500">Candidate</span>
         <br />
-        <span className="font-medium text-navy-950">{booking.candidate.name}</span>
+        <CandidateSummary candidate={booking.candidate} />
       </p>
-      {booking.candidate.targetRole || booking.candidate.targetCompany ? (
-        <p>
-          <span className="text-slate-500">Profile summary</span>
-          <br />
-          <span className="font-medium text-navy-950">
-            {[booking.candidate.targetRole, booking.candidate.targetCompany].filter(Boolean).join(' · ')}
-          </span>
-        </p>
-      ) : null}
       <p>
         <span className="text-slate-500">Service</span>
         <br />
         <span className="font-medium text-navy-950">{booking.serviceName}</span>
       </p>
       <p>
-        <span className="text-slate-500">Interview type</span>
-        <br />
-        <span className="font-medium text-navy-950">{booking.interviewType}</span>
-      </p>
-      <p>
         <span className="text-slate-500">Date</span>
         <br />
         <span className="font-medium text-navy-950">
-          {formatDateLongInZone(booking.startsAtUtc, booking.displayTimezone)}
+          {formatDateLongInZone(booking.startsAtUtc, booking.displayTimezone)} ({timezoneLabel(booking.displayTimezone)})
         </span>
       </p>
       <p>
         <span className="text-slate-500">Time</span>
         <br />
         <span className="font-medium text-navy-950">
-          {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)}
+          {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)} ({timezoneLabel(booking.displayTimezone)})
         </span>
       </p>
       <p>
         <span className="text-slate-500">Duration</span>
         <br />
         <span className="font-medium text-navy-950">{booking.durationMin} minutes</span>
-      </p>
-      <p>
-        <span className="text-slate-500">Timezone</span>
-        <br />
-        <span className="font-medium text-navy-950">{timezoneLabel(booking.displayTimezone)}</span>
-      </p>
-      <p>
-        <span className="text-slate-500">Status</span>
-        <br />
-        <LiveBookingStatusBadge status={booking.status} />
       </p>
       {booking.status === 'rejected' && booking.rejectionReason ? (
         <p>
@@ -268,6 +274,9 @@ function BookingDetails({ booking }: { booking: InterviewerBooking }) {
           <span className="font-medium text-navy-950">{booking.rejectionReason}</span>
         </p>
       ) : null}
+      <div className="pt-2">
+        <JoinInterviewControls booking={booking} session={session} size="md" />
+      </div>
     </div>
   )
 }
@@ -276,6 +285,7 @@ function BookingActions({
   booking,
   stacked,
   actingId,
+  session,
   onAccept,
   onReject,
   onDetails,
@@ -283,6 +293,7 @@ function BookingActions({
   booking: InterviewerBooking
   stacked?: boolean
   actingId: string | null
+  session: InterviewSessionRecord | null
   onAccept: (id: string) => void
   onReject: () => void
   onDetails: () => void
@@ -304,7 +315,9 @@ function BookingActions({
             Reject
           </Button>
         </>
-      ) : null}
+      ) : (
+        <JoinInterviewControls booking={booking} session={session} showWaiting={false} />
+      )}
     </div>
   )
 }

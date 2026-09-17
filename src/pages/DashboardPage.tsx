@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CalendarCheck, IndianRupee, Star, Video } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getAvailabilitySummary, listBookings, listInterviewerReviews } from '../api/index.ts'
+import { JoinInterviewControls } from '../components/interview/JoinInterviewControls.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
@@ -19,16 +20,16 @@ import { useAsync } from '../lib/useAsync.ts'
 import {
   BOOKING_ALREADY_UPDATED,
   confirmBooking,
-  getMyBookings,
   rejectBooking,
 } from '../services/interviewerBookings.ts'
+import { loadMyInterviewBoard } from '../services/interviewSessions.ts'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
 
 export function DashboardPage() {
   const { account } = useSession()
   const { pushToast } = useToast()
-  const liveBookings = useAsync(() => getMyBookings(), [])
+  const liveBookings = useAsync(() => loadMyInterviewBoard(), [])
   const mockBookings = useAsync(() => listBookings(), [])
   const reviews = useAsync(() => listInterviewerReviews(currentInterviewer.id), [])
   const availability = useAsync(() => getAvailabilitySummary(), [])
@@ -36,12 +37,13 @@ export function DashboardPage() {
 
   const upcoming =
     liveBookings.status === 'success'
-      ? liveBookings.data.filter((item) => item.status === 'confirmed')
+      ? liveBookings.data.bookings.filter((item) => item.status === 'confirmed' || item.status === 'in_progress')
       : []
   const pending =
     liveBookings.status === 'success'
-      ? liveBookings.data.filter((item) => item.status === 'requested')
+      ? liveBookings.data.bookings.filter((item) => item.status === 'requested')
       : []
+  const sessions = liveBookings.status === 'success' ? liveBookings.data.sessions : undefined
   const feedbackQueue =
     mockBookings.status === 'success'
       ? mockBookings.data.filter((item) => {
@@ -78,7 +80,7 @@ export function DashboardPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold text-navy-950">
-          Welcome back, {account?.profile.full_name.split(' ')[0] ?? 'there'}!
+          Welcome back, {account?.profile?.full_name?.split(' ')[0] ?? 'there'}!
         </h1>
         <p className="mt-1 text-sm text-slate-600">Here’s what needs attention in your interview practice today.</p>
       </div>
@@ -137,7 +139,17 @@ export function DashboardPage() {
             <DataTable headers={['Candidate', 'Interview Type', 'Service', 'Date', 'Time', 'Status', '']}>
               {upcoming.map((booking) => (
                 <TableRow key={booking.id}>
-                  <Td className="font-medium text-navy-950">{booking.candidate.name}</Td>
+                  <Td>
+                    <p className="font-medium text-navy-950">{booking.candidate.name}</p>
+                    {booking.candidate.targetRole || booking.candidate.candidateLevel ? (
+                      <p className="text-xs text-slate-500">
+                        {[booking.candidate.targetRole, booking.candidate.candidateLevel].filter(Boolean).join(' · ')}
+                      </p>
+                    ) : null}
+                    {booking.candidate.skills.length > 0 ? (
+                      <p className="text-xs text-slate-500">{booking.candidate.skills.join(', ')}</p>
+                    ) : null}
+                  </Td>
                   <Td>{booking.interviewType}</Td>
                   <Td>{booking.serviceName}</Td>
                   <Td>{formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)}</Td>
@@ -147,6 +159,11 @@ export function DashboardPage() {
                   </Td>
                   <Td>
                     <div className="flex justify-end gap-2">
+                      <JoinInterviewControls
+                        booking={booking}
+                        session={sessions?.get(booking.id)}
+                        showWaiting={false}
+                      />
                       <Link to="/interviewer/bookings">
                         <Button size="sm" variant="outline">
                           View
@@ -161,11 +178,24 @@ export function DashboardPage() {
               {upcoming.map((booking) => (
                 <Card key={booking.id} className="p-4">
                   <p className="font-semibold text-navy-950">{booking.candidate.name}</p>
+                  {booking.candidate.targetRole || booking.candidate.candidateLevel ? (
+                    <p className="text-xs text-slate-500">
+                      {[booking.candidate.targetRole, booking.candidate.candidateLevel].filter(Boolean).join(' · ')}
+                    </p>
+                  ) : null}
+                  {booking.candidate.skills.length > 0 ? (
+                    <p className="text-xs text-slate-500">{booking.candidate.skills.join(', ')}</p>
+                  ) : null}
                   <p className="mt-1 text-sm text-slate-600">
                     {booking.serviceName} · {formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)} ·{' '}
                     {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)}
                   </p>
                   <div className="mt-3 flex gap-2">
+                    <JoinInterviewControls
+                      booking={booking}
+                      session={sessions?.get(booking.id)}
+                      showWaiting={false}
+                    />
                     <Link to="/interviewer/bookings" className="flex-1">
                       <Button size="sm" variant="outline" fullWidth>
                         View
@@ -234,9 +264,17 @@ export function DashboardPage() {
           {pending.map((booking) => (
             <Card key={booking.id} className="p-4 sm:flex sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
-                <Avatar src={booking.candidate.photoUrl ?? ''} name={booking.candidate.name} size="sm" />
+                <Avatar src="" name={booking.candidate.name} size="sm" />
                 <div>
                   <p className="font-medium text-navy-950">{booking.candidate.name}</p>
+                  {booking.candidate.targetRole || booking.candidate.candidateLevel ? (
+                    <p className="text-xs text-slate-500">
+                      {[booking.candidate.targetRole, booking.candidate.candidateLevel].filter(Boolean).join(' · ')}
+                    </p>
+                  ) : null}
+                  {booking.candidate.skills.length > 0 ? (
+                    <p className="text-xs text-slate-500">{booking.candidate.skills.join(', ')}</p>
+                  ) : null}
                   <p className="text-sm text-slate-600">
                     {booking.serviceName} · {formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)}{' '}
                     {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)}

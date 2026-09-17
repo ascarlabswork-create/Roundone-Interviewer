@@ -7,9 +7,12 @@ export {
   claimInterviewerPersona,
   fullNameFromParts,
   getCurrentUser,
+  isUnconfirmedEmailError,
+  oauthRedirectErrorMessage,
   onAuthStateChange,
   requireUser,
   sendPasswordReset,
+  resendSignupEmail,
   signInInterviewer,
   signInWithGoogle,
   signOut,
@@ -21,10 +24,12 @@ export {
 } from './auth.ts'
 export { getCurrentInterviewer, type InterviewerAccount } from './interviewer.ts'
 export {
+  applySignupProfile,
   getInterviewerProfile,
   getInterviewerRoles,
   getInterviewerSkills,
   getVerificationStatus,
+  hydrateInterviewerSignupFromMetadata,
   isPlaceholderProfessional,
   profileCompleteness,
   updateInterviewerProfile,
@@ -98,3 +103,14 @@ export {
   type InterviewerBookingCandidate,
   type InterviewerBookingTab,
 } from './interviewerBookings.ts'
+export {
+  endInterviewSession,
+  getInterviewSessionByBooking,
+  getInterviewSessionsByBookingIds,
+  interviewJoinState,
+  loadMyInterviewBoard,
+  startInterviewSession,
+  type InterviewJoinState,
+  type InterviewSessionBundle,
+  type InterviewSessionRecord,
+} from './interviewSessions.ts'

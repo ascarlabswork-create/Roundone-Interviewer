@@ -10,13 +10,12 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { completeBooking, getBooking } from '../api/index.ts'
 import { Logo } from '../components/layout/Logo.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { ErrorState, Skeleton } from '../components/ui/primitives.tsx'
-import { getCandidateById } from '../data/candidates.ts'
-import { formatDateShort, formatTime, timezoneLabel } from '../lib/dates.ts'
+import { formatDateShortInZone, formatTimeInZone, timezoneLabel } from '../lib/dates.ts'
 import { useAsync } from '../lib/useAsync.ts'
+import { startInterviewSession, endInterviewSession } from '../services/interviewSessions.ts'
 
 const codingProblem = {
   title: 'Design an LRU Cache',
@@ -51,7 +50,7 @@ const designPrompt = {
 export function InterviewRoomPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
-  const bookingState = useAsync(() => getBooking(id), [id])
+  const sessionState = useAsync(() => startInterviewSession(id), [id])
   const [seconds, setSeconds] = useState(60 * 60)
   const [muted, setMuted] = useState(false)
   const [cameraOff, setCameraOff] = useState(false)
@@ -71,32 +70,32 @@ export function InterviewRoomPage() {
     return `${mm}:${ss}`
   }, [seconds])
 
-  if (bookingState.status === 'loading') {
+  if (sessionState.status === 'loading') {
     return (
       <div className="p-8">
         <Skeleton className="h-96" />
       </div>
     )
   }
-  if (bookingState.status === 'error') {
+  if (sessionState.status === 'error') {
     return (
       <div className="p-8">
-        <ErrorState body={bookingState.error} />
+        <ErrorState body={sessionState.error} />
       </div>
     )
   }
 
-  const booking = bookingState.data
-  const candidate = getCandidateById(booking.candidateId)
+  const { booking } = sessionState.data
+  const candidateName = booking.candidate.name
   const isCoding = booking.interviewType === 'Coding'
 
   async function endSession() {
     try {
-      await completeBooking(booking.id)
+      await endInterviewSession(booking.id)
     } catch {
-      // Prototype: still route to the feedback gate, which blocks if not allowed.
+      // No end-session RPC exists yet; still leave the mock workspace.
     }
-    navigate(`/interviewer/feedback/${booking.id}`)
+    navigate('/interviewer/bookings')
   }
 
   return (
@@ -105,11 +104,14 @@ export function InterviewRoomPage() {
         <div className="flex items-center gap-3">
           <Logo inverted to="/interviewer/dashboard" />
           <div className="hidden text-sm sm:block">
-            <p className="font-medium">{candidate?.name}</p>
+            <p className="font-medium">{candidateName}</p>
             <p className="text-white/70">{booking.serviceName}</p>
             <p className="text-xs text-white/50">
-              {formatDateShort(booking.start)} · {formatTime(booking.start)} · {timezoneLabel(booking.timezone)}
+              {formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)} ·{' '}
+              {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)} ·{' '}
+              {timezoneLabel(booking.displayTimezone)}
             </p>
+            <p className="text-xs text-white/40">Booking ID {booking.id}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -138,7 +140,7 @@ export function InterviewRoomPage() {
           <div className={`grid gap-3 ${mobileTab === 'work' ? 'hidden md:grid' : 'grid'} md:grid-cols-3`}>
             <div className="relative min-h-48 rounded-xl bg-navy-800 md:col-span-2">
               <div className="flex h-full items-center justify-center text-sm text-white/80">
-                {cameraOff ? 'Camera off' : `${candidate?.name} · candidate video`}
+                {cameraOff ? 'Camera off' : `${candidateName} · candidate video`}
               </div>
             </div>
             <div className="relative min-h-32 rounded-xl bg-navy-800">

@@ -32,7 +32,7 @@ export type InterviewerRoleRecord = {
   candidate_level: string | null
 }
 
-export type DbVerificationKind = 'identity' | 'employment' | 'linkedin'
+export type DbVerificationKind = 'identity' | 'employment'
 export type DbVerificationStatus = 'pending' | 'verified' | 'rejected'
 export type DisplayVerificationStatus = DbVerificationStatus | 'action_required'
 
@@ -72,7 +72,7 @@ const WRONG_APP_ROLE = 'This Interviewer app only supports interviewer accounts.
 const PROFILE_SELECT = 'id, role, full_name, avatar_url, timezone, is_active'
 const INTERVIEWER_SELECT =
   'id, profile_id, headline, bio, current_role, company, experience_years, timezone, languages'
-const VERIFICATION_KINDS: DbVerificationKind[] = ['identity', 'employment', 'linkedin']
+const VERIFICATION_KINDS: DbVerificationKind[] = ['identity', 'employment']
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message)
@@ -94,7 +94,7 @@ function asVerificationStatus(value: string): DisplayVerificationStatus {
 }
 
 function asVerificationKind(value: string): DbVerificationKind | null {
-  if (value === 'identity' || value === 'employment' || value === 'linkedin') return value
+  if (value === 'identity' || value === 'employment') return value
   return null
 }
 
@@ -147,6 +147,56 @@ function mapInterviewer(row: {
 
 export function isPlaceholderProfessional(interviewer: InterviewerProfileRecord) {
   return interviewer.current_role === 'Pending' && interviewer.company === 'Pending'
+}
+
+function metadataNumber(user: { user_metadata?: Record<string, unknown> }, key: string) {
+  const value = user.user_metadata?.[key]
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return undefined
+}
+
+/** Copy company/role/LinkedIn from signup metadata onto the live interviewer row. */
+export async function hydrateInterviewerSignupFromMetadata(
+  account?: InterviewerAccount,
+): Promise<InterviewerAccount> {
+  const user = await requireUser()
+  const current = account ?? (await getInterviewerProfile())
+  const updates: InterviewerProfileUpdates = {}
+  const fullName = metadataString(user, 'full_name')
+  const currentRole = metadataString(user, 'current_role')
+  const company = metadataString(user, 'company')
+  const linkedin = metadataString(user, 'linkedin')
+  const phone = metadataString(user, 'phone')
+  const years = metadataNumber(user, 'experience_years')
+  const emailLocal = (user.email ?? '').split('@')[0]
+
+  if (fullName && (!current.profile.full_name.trim() || current.profile.full_name === emailLocal)) {
+    updates.fullName = fullName
+  }
+  if (isPlaceholderProfessional(current.interviewer)) {
+    if (currentRole) {
+      updates.currentRole = currentRole
+      updates.headline = currentRole
+    }
+    if (company) updates.company = company
+  }
+  if (years !== undefined && current.interviewer.experience_years === 0) {
+    updates.experienceYears = Math.max(0, Math.round(years))
+  }
+  if (linkedin && !current.linkedin) updates.linkedin = linkedin
+  if (phone && !current.phone) updates.phone = phone
+
+  if (Object.keys(updates).length === 0) return current
+  return updateInterviewerProfile(updates)
+}
+
+export async function applySignupProfile(updates: InterviewerProfileUpdates): Promise<InterviewerAccount> {
+  await getInterviewerProfile({ retries: 6 })
+  return updateInterviewerProfile(updates)
 }
 
 export function profileCompleteness(account: InterviewerAccount) {

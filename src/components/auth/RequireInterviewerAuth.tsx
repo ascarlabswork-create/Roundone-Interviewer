@@ -3,7 +3,7 @@ import { useSession } from '../../state/session.tsx'
 import { ErrorState, Skeleton } from '../ui/primitives.tsx'
 
 export function RequireInterviewerAuth() {
-  const { status, user, error } = useSession()
+  const { status, user, account, error, refreshAccount } = useSession()
   const location = useLocation()
 
   if (status === 'loading') {
@@ -24,6 +24,26 @@ export function RequireInterviewerAuth() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <ErrorState title="Interviewer account required" body={error} />
+      </div>
+    )
+  }
+
+  if (!account) {
+    if (error) {
+      return (
+        <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+          <ErrorState
+            title="Could not load your interviewer profile"
+            body={error}
+            onRetry={() => void refreshAccount()}
+          />
+        </div>
+      )
+    }
+    return (
+      <div className="mx-auto max-w-3xl space-y-4 px-4 py-10 sm:px-6">
+        <Skeleton className="h-12" />
+        <Skeleton className="h-64" />
       </div>
     )
   }

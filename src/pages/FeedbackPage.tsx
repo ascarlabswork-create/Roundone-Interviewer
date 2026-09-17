@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getBooking, getBookingFeedback, submitBookingFeedback } from '../api/index.ts'
 import { Button } from '../components/ui/Button.tsx'
 import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
-import { Card, Chip, ErrorState, FieldLabel, Skeleton, TextArea } from '../components/ui/primitives.tsx'
+import { Card, ErrorState, FieldLabel, Skeleton, TextArea } from '../components/ui/primitives.tsx'
+import { SuggestionChips } from '../components/ui/suggestions.tsx'
 import { IMPROVEMENT_TAGS, STRENGTH_TAGS } from '../data/catalogs.ts'
 import { getCandidateById } from '../data/candidates.ts'
 import { canSubmitPrivateFeedback } from '../lib/feedback.ts'
@@ -139,27 +140,23 @@ export function FeedbackPage() {
           <Card className="grid gap-5 p-5">
             <fieldset>
               <legend className="mb-2 text-sm font-medium text-slate-800">Strengths</legend>
-              <div className="flex flex-wrap gap-2">
-                {STRENGTH_TAGS.map((tag) => (
-                  <Chip key={tag} active={strengths.includes(tag)} onClick={() => setStrengths(toggle(strengths, tag))}>
-                    {tag}
-                  </Chip>
-                ))}
-              </div>
+              <SuggestionChips
+                id="custom-strength"
+                suggestions={STRENGTH_TAGS}
+                value={strengths}
+                onChange={setStrengths}
+                placeholder="Type to add a strength"
+              />
             </fieldset>
             <fieldset>
               <legend className="mb-2 text-sm font-medium text-slate-800">Areas to Improve</legend>
-              <div className="flex flex-wrap gap-2">
-                {IMPROVEMENT_TAGS.map((tag) => (
-                  <Chip
-                    key={tag}
-                    active={improvements.includes(tag)}
-                    onClick={() => setImprovements(toggle(improvements, tag))}
-                  >
-                    {tag}
-                  </Chip>
-                ))}
-              </div>
+              <SuggestionChips
+                id="custom-improvement"
+                suggestions={IMPROVEMENT_TAGS}
+                value={improvements}
+                onChange={setImprovements}
+                placeholder="Type to add an area to improve"
+              />
             </fieldset>
             <div>
               <FieldLabel htmlFor="detail">Detailed Feedback</FieldLabel>
@@ -230,8 +227,4 @@ function SubmittedFeedback({ report }: { report: InterviewerFeedback }) {
       </Link>
     </Card>
   )
-}
-
-function toggle(list: string[], value: string) {
-  return list.includes(value) ? list.filter((item) => item !== value) : [...list, value]
 }

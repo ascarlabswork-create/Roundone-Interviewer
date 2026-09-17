@@ -1,4 +1,3 @@
-import { INTERVIEW_TYPES, type InterviewType } from '../data/catalogs.ts'
 import { getCurrentInterviewer } from './interviewer.ts'
 import { TABLES } from './tables.ts'
 import { supabase } from '../lib/supabase.ts'
@@ -6,8 +5,6 @@ import { supabase } from '../lib/supabase.ts'
 export const SERVICE_CURRENCY = 'INR'
 export const PAISE_PER_RUPEE = 100
 export const SERVICE_DURATIONS = [30, 45, 60, 90, 120] as const
-
-export type ServiceDuration = (typeof SERVICE_DURATIONS)[number]
 
 export type InterviewerServiceRecord = {
   id: string
@@ -24,7 +21,7 @@ export type InterviewerServiceRecord = {
 
 export type CreateServiceInput = {
   name: string
-  interviewType: InterviewType
+  interviewType: string
   durationMin: number
   priceRupees: number
   description?: string
@@ -33,7 +30,7 @@ export type CreateServiceInput = {
 
 export type UpdateServiceInput = {
   name?: string
-  interviewType?: InterviewType
+  interviewType?: string
   durationMin?: number
   priceRupees?: number
   description?: string | null
@@ -59,14 +56,6 @@ export function paiseToRupees(paise: number) {
     throw new Error('Stored price is invalid.')
   }
   return (paise - (paise % PAISE_PER_RUPEE)) / PAISE_PER_RUPEE
-}
-
-function isInterviewType(value: string): value is InterviewType {
-  return (INTERVIEW_TYPES as readonly string[]).includes(value)
-}
-
-function isServiceDuration(value: number): value is ServiceDuration {
-  return (SERVICE_DURATIONS as readonly number[]).includes(value)
 }
 
 function mapService(row: {
@@ -104,15 +93,12 @@ function validateWritable(input: {
   if (input.name !== undefined && !input.name.trim()) {
     throw new Error('Service name is required.')
   }
-  if (input.interviewType !== undefined && !isInterviewType(input.interviewType)) {
-    throw new Error('Choose a valid interview type.')
+  if (input.interviewType !== undefined && !input.interviewType.trim()) {
+    throw new Error('Enter an interview type.')
   }
   if (input.durationMin !== undefined) {
     if (!Number.isInteger(input.durationMin) || input.durationMin <= 0) {
       throw new Error('Duration must be greater than 0 minutes.')
-    }
-    if (!isServiceDuration(input.durationMin)) {
-      throw new Error('Duration must be 30, 45, 60, 90, or 120 minutes.')
     }
   }
   if (input.priceRupees !== undefined) {
@@ -161,7 +147,7 @@ export async function createService(input: CreateServiceInput): Promise<Intervie
     .insert({
       interviewer_profile_id: interviewerProfileId,
       name: input.name.trim(),
-      interview_type: input.interviewType,
+      interview_type: input.interviewType.trim(),
       duration_min: input.durationMin,
       price_paise: rupeesToPaise(input.priceRupees),
       currency: SERVICE_CURRENCY,
@@ -187,7 +173,7 @@ export async function updateService(id: string, input: UpdateServiceInput): Prom
 
   const patch: Record<string, string | number | boolean | null> = {}
   if (input.name !== undefined) patch.name = input.name.trim()
-  if (input.interviewType !== undefined) patch.interview_type = input.interviewType
+  if (input.interviewType !== undefined) patch.interview_type = input.interviewType.trim()
   if (input.durationMin !== undefined) patch.duration_min = input.durationMin
   if (input.priceRupees !== undefined) patch.price_paise = rupeesToPaise(input.priceRupees)
   if (input.description !== undefined) patch.description = input.description?.trim() || null

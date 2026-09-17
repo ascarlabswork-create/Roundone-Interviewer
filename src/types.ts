@@ -2,7 +2,7 @@ import type { CandidateLevel, InterviewType } from './data/catalogs.ts'
 
 export type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'action_required'
 
-export type VerificationKey = 'identity' | 'linkedin' | 'employment' | 'professionalEmail'
+export type VerificationKey = 'identity' | 'employment' | 'professionalEmail'
 
 export type Verification = Record<VerificationKey, VerificationStatus>
 
@@ -264,14 +264,14 @@ export type OnboardingDraft = {
   skills: string[]
   technologies: string[]
   industries: string[]
-  interviewTypes: InterviewType[]
-  candidateLevels: CandidateLevel[]
+  interviewTypes: string[]
+  candidateLevels: string[]
   targetRoles: string[]
   firstService: {
     name: string
-    interviewType: InterviewType | ''
+    interviewType: string
     durationMin: string
-    candidateLevels: CandidateLevel[]
+    candidateLevels: string[]
     targetRoles: string[]
     description: string
     price: string

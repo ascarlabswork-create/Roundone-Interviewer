@@ -2,7 +2,8 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { Stepper } from '../components/ui/dashboard.tsx'
-import { Card, Chip, FieldLabel, SelectInput, TextArea, TextInput } from '../components/ui/primitives.tsx'
+import { Card, Chip, FieldLabel, TextArea, TextInput } from '../components/ui/primitives.tsx'
+import { SuggestedSelect, SuggestionChips } from '../components/ui/suggestions.tsx'
 import {
   CANDIDATE_LEVELS,
   INDUSTRIES,
@@ -11,8 +12,7 @@ import {
   SKILLS,
   TARGET_ROLES,
   TECHNOLOGIES,
-  type CandidateLevel,
-  type InterviewType,
+  TIMEZONES,
 } from '../data/catalogs.ts'
 import { updateInterviewerProfile, updateInterviewerRoles, updateInterviewerSkills } from '../services/interviewerProfile.ts'
 import { useOnboarding } from '../state/onboarding.tsx'
@@ -59,12 +59,10 @@ export function SetupPage() {
       professionalSummary: account.interviewer.bio || account.interviewer.headline || '',
       timezone: account.profile.timezone,
       languages: account.interviewer.languages.join(', '),
-      linkedin: account.linkedin,
+      phone: account.phone,
       skills: account.skills,
       targetRoles: account.targetRoles,
-      candidateLevels: account.candidateLevels.filter((level): level is CandidateLevel =>
-        CANDIDATE_LEVELS.includes(level as CandidateLevel),
-      ),
+      candidateLevels: account.candidateLevels,
     })
     setHydrated(true)
   }, [account, hydrated, update])
@@ -83,6 +81,7 @@ export function SetupPage() {
         currentRole: draft.role,
         company: draft.company,
         experienceYears: Number(draft.experienceYears) || 0,
+        phone: draft.phone,
         languages: draft.languages
           .split(',')
           .map((item) => item.trim())
@@ -128,6 +127,48 @@ export function SetupPage() {
         <form className="grid gap-5" onSubmit={onSubmit}>
           {step === 'professional' ? (
             <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel htmlFor="firstName">First name</FieldLabel>
+                  <TextInput
+                    id="firstName"
+                    required
+                    value={draft.firstName}
+                    onChange={(event) => update({ firstName: event.target.value })}
+                  />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="lastName">Last name</FieldLabel>
+                  <TextInput
+                    id="lastName"
+                    required
+                    value={draft.lastName}
+                    onChange={(event) => update({ lastName: event.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
+                  <SuggestedSelect
+                    id="timezone"
+                    options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
+                    value={draft.timezone}
+                    onChange={(timezone) => update({ timezone })}
+                    customPlaceholder="Type a timezone, e.g. Europe/Berlin"
+                    required
+                  />
+                </div>
+                <div>
+                  <FieldLabel htmlFor="phone">Phone (optional)</FieldLabel>
+                  <TextInput
+                    id="phone"
+                    type="tel"
+                    value={draft.phone}
+                    onChange={(event) => update({ phone: event.target.value })}
+                  />
+                </div>
+              </div>
               <div>
                 <FieldLabel htmlFor="summary">Professional Summary</FieldLabel>
                 <TextArea
@@ -184,83 +225,63 @@ export function SetupPage() {
             <>
               <fieldset>
                 <legend className="mb-2 text-sm font-medium text-slate-800">Skills</legend>
-                <div className="flex flex-wrap gap-2">
-                  {SKILLS.map((item) => (
-                    <Chip key={item} active={draft.skills.includes(item)} onClick={() => update({ skills: toggleValue(draft.skills, item) })}>
-                      {item}
-                    </Chip>
-                  ))}
-                </div>
+                <SuggestionChips
+                  id="setup-skill"
+                  suggestions={SKILLS}
+                  value={draft.skills}
+                  onChange={(skills) => update({ skills })}
+                  placeholder="Type to add a skill"
+                />
               </fieldset>
               <fieldset>
                 <legend className="mb-2 text-sm font-medium text-slate-800">Technologies</legend>
-                <div className="flex flex-wrap gap-2">
-                  {TECHNOLOGIES.map((item) => (
-                    <Chip
-                      key={item}
-                      active={draft.technologies.includes(item)}
-                      onClick={() => update({ technologies: toggleValue(draft.technologies, item) })}
-                    >
-                      {item}
-                    </Chip>
-                  ))}
-                </div>
+                <SuggestionChips
+                  id="setup-tech"
+                  suggestions={TECHNOLOGIES}
+                  value={draft.technologies}
+                  onChange={(technologies) => update({ technologies })}
+                  placeholder="Type to add a technology"
+                />
               </fieldset>
               <fieldset>
                 <legend className="mb-2 text-sm font-medium text-slate-800">Industries</legend>
-                <div className="flex flex-wrap gap-2">
-                  {INDUSTRIES.map((item) => (
-                    <Chip
-                      key={item}
-                      active={draft.industries.includes(item)}
-                      onClick={() => update({ industries: toggleValue(draft.industries, item) })}
-                    >
-                      {item}
-                    </Chip>
-                  ))}
-                </div>
+                <SuggestionChips
+                  id="setup-industry"
+                  suggestions={INDUSTRIES}
+                  value={draft.industries}
+                  onChange={(industries) => update({ industries })}
+                  placeholder="Type to add an industry"
+                />
               </fieldset>
               <fieldset>
                 <legend className="mb-2 text-sm font-medium text-slate-800">Interview expertise</legend>
-                <div className="flex flex-wrap gap-2">
-                  {INTERVIEW_TYPES.map((item) => (
-                    <Chip
-                      key={item}
-                      active={draft.interviewTypes.includes(item)}
-                      onClick={() => update({ interviewTypes: toggleValue(draft.interviewTypes, item as InterviewType) })}
-                    >
-                      {item}
-                    </Chip>
-                  ))}
-                </div>
+                <SuggestionChips
+                  id="setup-interview-type"
+                  suggestions={INTERVIEW_TYPES}
+                  value={draft.interviewTypes}
+                  onChange={(interviewTypes) => update({ interviewTypes })}
+                  placeholder="Type to add an interview type"
+                />
               </fieldset>
               <fieldset>
                 <legend className="mb-2 text-sm font-medium text-slate-800">Candidate levels</legend>
-                <div className="flex flex-wrap gap-2">
-                  {CANDIDATE_LEVELS.map((item) => (
-                    <Chip
-                      key={item}
-                      active={draft.candidateLevels.includes(item)}
-                      onClick={() => update({ candidateLevels: toggleValue(draft.candidateLevels, item as CandidateLevel) })}
-                    >
-                      {item}
-                    </Chip>
-                  ))}
-                </div>
+                <SuggestionChips
+                  id="setup-level"
+                  suggestions={CANDIDATE_LEVELS}
+                  value={draft.candidateLevels}
+                  onChange={(candidateLevels) => update({ candidateLevels })}
+                  placeholder="Type to add a candidate level"
+                />
               </fieldset>
               <fieldset>
                 <legend className="mb-2 text-sm font-medium text-slate-800">Target roles</legend>
-                <div className="flex flex-wrap gap-2">
-                  {TARGET_ROLES.map((item) => (
-                    <Chip
-                      key={item}
-                      active={draft.targetRoles.includes(item)}
-                      onClick={() => update({ targetRoles: toggleValue(draft.targetRoles, item) })}
-                    >
-                      {item}
-                    </Chip>
-                  ))}
-                </div>
+                <SuggestionChips
+                  id="setup-role"
+                  suggestions={TARGET_ROLES}
+                  value={draft.targetRoles}
+                  onChange={(targetRoles) => update({ targetRoles })}
+                  placeholder="Type to add a target role"
+                />
               </fieldset>
             </>
           ) : null}
@@ -271,6 +292,8 @@ export function SetupPage() {
                 <FieldLabel htmlFor="sname">Service Name</FieldLabel>
                 <TextInput
                   id="sname"
+                  required
+                  placeholder="Enter a service name"
                   value={draft.firstService.name}
                   onChange={(event) => update({ firstService: { ...draft.firstService, name: event.target.value } })}
                 />
@@ -278,18 +301,16 @@ export function SetupPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <FieldLabel htmlFor="stype">Interview Type</FieldLabel>
-                  <SelectInput
+                  <SuggestedSelect
                     id="stype"
+                    options={INTERVIEW_TYPES.map((item) => ({ value: item, label: item }))}
                     value={draft.firstService.interviewType}
-                    onChange={(event) =>
-                      update({ firstService: { ...draft.firstService, interviewType: event.target.value as InterviewType } })
+                    onChange={(interviewType) =>
+                      update({ firstService: { ...draft.firstService, interviewType } })
                     }
-                  >
-                    <option value="">Select type</option>
-                    {INTERVIEW_TYPES.map((item) => (
-                      <option key={item}>{item}</option>
-                    ))}
-                  </SelectInput>
+                    customPlaceholder="Type an interview type"
+                    required
+                  />
                 </div>
                 <div>
                   <FieldLabel htmlFor="sdur">Duration (minutes)</FieldLabel>
@@ -312,6 +333,8 @@ export function SetupPage() {
                 <FieldLabel htmlFor="sdesc">Description</FieldLabel>
                 <TextArea
                   id="sdesc"
+                  required
+                  placeholder="Describe this service"
                   value={draft.firstService.description}
                   onChange={(event) => update({ firstService: { ...draft.firstService, description: event.target.value } })}
                 />
@@ -320,6 +343,8 @@ export function SetupPage() {
                 <FieldLabel htmlFor="spolicy">Cancellation Policy</FieldLabel>
                 <TextArea
                   id="spolicy"
+                  required
+                  placeholder="Describe your cancellation policy"
                   value={draft.firstService.cancellationPolicy}
                   onChange={(event) =>
                     update({ firstService: { ...draft.firstService, cancellationPolicy: event.target.value } })
@@ -369,7 +394,7 @@ export function SetupPage() {
               variant="outline"
               onClick={() => {
                 const index = order.indexOf(step as (typeof order)[number])
-                if (index <= 0) navigate('/interviewer/register')
+                if (index <= 0) navigate('/interviewer/dashboard')
                 else go(order[index - 1])
               }}
             >
