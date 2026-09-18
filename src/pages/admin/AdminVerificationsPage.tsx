@@ -180,6 +180,19 @@ export function AdminVerificationsPage() {
                       Reject
                     </Button>
                   ) : null}
+                  {row.status !== 'pending' ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={actingId !== null}
+                      onClick={() => {
+                        setNotesFor({ id: row.id, next: 'pending' })
+                        setNotes(row.notes ?? '')
+                      }}
+                    >
+                      Request changes
+                    </Button>
+                  ) : null}
                 </div>
               </Card>
             ))}
