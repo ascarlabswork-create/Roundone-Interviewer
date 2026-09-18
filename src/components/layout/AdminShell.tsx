@@ -1,9 +1,11 @@
 import {
+  Briefcase,
   CalendarDays,
   ClipboardCheck,
   LayoutDashboard,
   LogOut,
   Menu,
+  ScrollText,
   Shield,
   Star,
   X,
@@ -22,6 +24,8 @@ const navItems = [
   { to: '/admin/verifications', label: 'Verifications', icon: Shield },
   { to: '/admin/reviews', label: 'Reviews', icon: Star },
   { to: '/admin/bookings', label: 'Bookings', icon: CalendarDays },
+  { to: '/admin/services', label: 'Services', icon: Briefcase },
+  { to: '/admin/audit', label: 'Audit Log', icon: ScrollText },
 ]
 
 export function AdminShell() {

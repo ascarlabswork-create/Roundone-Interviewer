@@ -23,9 +23,11 @@ import { ServicesPage } from '../pages/ServicesPage.tsx'
 import { SettingsPage } from '../pages/SettingsPage.tsx'
 import { SetupPage } from '../pages/SetupPage.tsx'
 import { VerificationPage } from '../pages/VerificationPage.tsx'
+import { AdminAuditPage } from '../pages/admin/AdminAuditPage.tsx'
 import { AdminBookingsPage } from '../pages/admin/AdminBookingsPage.tsx'
 import { AdminDashboardPage } from '../pages/admin/AdminDashboardPage.tsx'
 import { AdminReviewsPage } from '../pages/admin/AdminReviewsPage.tsx'
+import { AdminServicesPage } from '../pages/admin/AdminServicesPage.tsx'
 import { AdminVerificationsPage } from '../pages/admin/AdminVerificationsPage.tsx'
 
 export function AppRouter() {
@@ -46,6 +48,8 @@ export function AppRouter() {
             <Route path="/admin/verifications" element={<AdminVerificationsPage />} />
             <Route path="/admin/reviews" element={<AdminReviewsPage />} />
             <Route path="/admin/bookings" element={<AdminBookingsPage />} />
+            <Route path="/admin/services" element={<AdminServicesPage />} />
+            <Route path="/admin/audit" element={<AdminAuditPage />} />
           </Route>
         </Route>
         <Route element={<RequireInterviewerAuth />}>

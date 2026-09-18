@@ -20,6 +20,7 @@ export const TABLES = {
   notifications: 'notifications',
   notificationPreferences: 'notification_preferences',
   payments: 'payments',
+  auditLogs: 'audit_logs',
 } as const
 
 export type TableName = (typeof TABLES)[keyof typeof TABLES]
