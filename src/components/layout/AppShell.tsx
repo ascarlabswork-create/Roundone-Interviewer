@@ -1,5 +1,4 @@
 import {
-  Bell,
   CalendarDays,
   ClipboardList,
   IndianRupee,
@@ -16,15 +15,14 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import { listNotifications } from '../../api/index.ts'
 import { Button } from '../ui/Button.tsx'
 import { VerificationBadge } from '../ui/StatusBadge.tsx'
 import { cn } from '../../lib/cn.ts'
-import { useAsync } from '../../lib/useAsync.ts'
 import { useSession } from '../../state/session.tsx'
 import { useToast } from '../../state/toast.tsx'
 import { initials } from '../../lib/format.ts'
 import { Logo } from './Logo.tsx'
+import { NotificationBell } from './NotificationBell.tsx'
 import { ToastStack } from './PublicLayout.tsx'
 
 const navItems = [
@@ -42,7 +40,6 @@ const navItems = [
 
 export function AppShell() {
   const [open, setOpen] = useState(false)
-  const [notesOpen, setNotesOpen] = useState(false)
   const { account, signOut } = useSession()
   const displayName = account?.profile?.full_name ?? 'Interviewer'
   const verifications = account?.verifications ?? []
@@ -52,8 +49,6 @@ export function AppShell() {
       ? 'verified'
       : 'pending'
   const { toasts, dismissToast } = useToast()
-  const notes = useAsync(() => listNotifications(), [])
-  const unread = notes.status === 'success' ? notes.data.filter((item) => !item.read).length : 0
 
   return (
     <div className="min-h-svh bg-slate-50 lg:flex">
@@ -105,33 +100,7 @@ export function AppShell() {
           </button>
           <p className="hidden text-sm font-medium text-slate-500 sm:block">Interviewer practice</p>
           <div className="ml-auto flex items-center gap-1">
-            <div className="relative">
-              <button
-                type="button"
-                className="relative rounded-lg p-2 text-slate-700 hover:bg-slate-50"
-                aria-label="Notifications"
-                onClick={() => setNotesOpen((value) => !value)}
-              >
-                <Bell className="h-5 w-5" />
-                {unread ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-600" /> : null}
-              </button>
-              {notesOpen && notes.status === 'success' ? (
-                <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
-                  {notes.data.map((item) => (
-                    <Link
-                      key={item.id}
-                      to={item.to}
-                      onClick={() => setNotesOpen(false)}
-                      className="block rounded-lg px-3 py-2 hover:bg-slate-50"
-                    >
-                      <p className="text-sm font-medium text-navy-950">{item.title}</p>
-                      <p className="text-xs text-slate-600">{item.body}</p>
-                      <p className="mt-1 text-[11px] text-slate-400">{item.time}</p>
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+            <NotificationBell />
             <Link
               to="/interviewer/profile"
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
