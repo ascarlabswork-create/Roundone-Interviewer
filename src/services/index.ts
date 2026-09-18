@@ -147,3 +147,9 @@ export {
   type InterviewerNotification,
   type NotificationBoard,
 } from './interviewerNotifications.ts'
+export {
+  getMyNotificationPreferences,
+  updateMyNotificationPreference,
+  type NotificationPreferenceKey,
+  type NotificationPreferences,
+} from './interviewerNotificationPreferences.ts'
