@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
 import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
@@ -22,6 +23,10 @@ import { useToast } from '../state/toast.tsx'
 
 const tabs: InterviewerBookingTab[] = ['pending', 'upcoming', 'completed', 'cancelled']
 
+function isBookingTab(value: string | null): value is InterviewerBookingTab {
+  return value === 'pending' || value === 'upcoming' || value === 'completed' || value === 'cancelled'
+}
+
 const emptyCopy: Record<InterviewerBookingTab, { title: string; body: string }> = {
   pending: {
     title: 'No pending booking requests',
@@ -42,7 +47,9 @@ const emptyCopy: Record<InterviewerBookingTab, { title: string; body: string }> 
 }
 
 export function BookingsPage() {
-  const [tab, setTab] = useState<InterviewerBookingTab>('pending')
+  const [params, setParams] = useSearchParams()
+  const requestedTab = params.get('tab')
+  const tab: InterviewerBookingTab = isBookingTab(requestedTab) ? requestedTab : 'pending'
   const [detailId, setDetailId] = useState<string | null>(null)
   const [rejectId, setRejectId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
@@ -97,7 +104,12 @@ export function BookingsPage() {
       <PageHeader title="Bookings" subtitle="Accept requests, join upcoming sessions, and close the loop with feedback." />
       <Tabs
         value={tab}
-        onChange={(id) => setTab(id as InterviewerBookingTab)}
+        onChange={(id) => {
+          const next = new URLSearchParams(params)
+          if (id === 'pending') next.delete('tab')
+          else next.set('tab', id)
+          setParams(next, { replace: true })
+        }}
         items={tabs.map((item) => ({
           id: item,
           label: item[0].toUpperCase() + item.slice(1),

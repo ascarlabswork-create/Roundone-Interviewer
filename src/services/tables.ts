@@ -1,4 +1,4 @@
-/** Future Supabase table names for the Interviewer app. Do not query from UI yet. */
+/** Shared Roundone tables used by the Interviewer app. */
 export const TABLES = {
   profiles: 'profiles',
   interviewerProfiles: 'interviewer_profiles',
@@ -16,6 +16,7 @@ export const TABLES = {
   interviewerFeedback: 'interviewer_feedback',
   candidateReviews: 'candidate_reviews',
   notifications: 'notifications',
+  notificationPreferences: 'notification_preferences',
   payments: 'payments',
 } as const
 

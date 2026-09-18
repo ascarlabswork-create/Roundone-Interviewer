@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react'
+import { NotificationPreferencesSection } from '../components/settings/NotificationPreferencesSection.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Card, FieldLabel, PageHeader, SelectInput, TextInput } from '../components/ui/primitives.tsx'
 import { SuggestedSelect } from '../components/ui/suggestions.tsx'
@@ -29,7 +30,8 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <PageHeader title="Settings" subtitle="Account, notifications, and payout preferences for this prototype." />
+      <PageHeader title="Settings" subtitle="Account, notifications, and payout preferences." />
+      <NotificationPreferencesSection />
       <Card className="p-6">
         <form className="grid gap-4" onSubmit={onSubmit}>
           <div>
@@ -51,33 +53,6 @@ export function SettingsPage() {
               required
             />
           </div>
-          <fieldset className="space-y-2 text-sm">
-            <legend className="font-medium text-slate-800">Notifications</legend>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.notifyBookings}
-                onChange={(event) => setForm({ ...form, notifyBookings: event.target.checked })}
-              />
-              Booking requests
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.notifyReviews}
-                onChange={(event) => setForm({ ...form, notifyReviews: event.target.checked })}
-              />
-              New reviews
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.notifyPayouts}
-                onChange={(event) => setForm({ ...form, notifyPayouts: event.target.checked })}
-              />
-              Payout updates
-            </label>
-          </fieldset>
           <div>
             <FieldLabel htmlFor="payout">Payout method</FieldLabel>
             <SelectInput
