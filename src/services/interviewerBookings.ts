@@ -316,6 +316,36 @@ async function selectMyBookings(interviewerProfileId: string, select: string) {
     .order('starts_at', { ascending: true })
 }
 
+export async function listMyBookingsWithStatuses(
+  statuses: readonly DbBookingStatus[],
+  range?: { fromIso?: string; toExclusiveIso?: string },
+): Promise<InterviewerBooking[]> {
+  if (statuses.length === 0) return []
+  const interviewerProfileId = await myInterviewerProfileId()
+  let lastError: { message: string; code?: string; details?: string } | null = null
+  for (const select of BOOKING_SELECTS) {
+    let query = supabase
+      .from(TABLES.bookings)
+      .select(select)
+      .eq('interviewer_profile_id', interviewerProfileId)
+      .in('status', statuses)
+      .order('starts_at', { ascending: false })
+    if (range?.fromIso) query = query.gte('starts_at', range.fromIso)
+    if (range?.toExclusiveIso) query = query.lt('starts_at', range.toExclusiveIso)
+    const result = await query
+    if (!result.error) {
+      const bookings = (result.data ?? [])
+        .map(parseBooking)
+        .filter((item): item is InterviewerBooking => item !== null)
+      const summaries = await getSummariesByBookingId(bookings.map((item) => item.id))
+      return mergeSummaries(bookings, summaries)
+    }
+    lastError = result.error
+  }
+  fail(lastError)
+  return []
+}
+
 async function selectMyBooking(bookingId: string, interviewerProfileId: string, select: string) {
   return supabase
     .from(TABLES.bookings)
