@@ -32,7 +32,7 @@ export type InterviewerRoleRecord = {
   candidate_level: string | null
 }
 
-export type DbVerificationKind = 'identity' | 'employment'
+export type DbVerificationKind = 'identity' | 'employment' | 'linkedin'
 export type DbVerificationStatus = 'pending' | 'verified' | 'rejected'
 export type DisplayVerificationStatus = DbVerificationStatus | 'action_required'
 
@@ -94,8 +94,24 @@ function asVerificationStatus(value: string): DisplayVerificationStatus {
 }
 
 function asVerificationKind(value: string): DbVerificationKind | null {
-  if (value === 'identity' || value === 'employment') return value
+  if (value === 'identity' || value === 'employment' || value === 'linkedin') return value
   return null
+}
+
+export async function getMyProfile(): Promise<{ id: string; role: ProfileRole; full_name: string }> {
+  const user = await requireUser()
+  const { data, error } = await supabase
+    .from(TABLES.profiles)
+    .select('id, role, full_name')
+    .eq('id', user.id)
+    .maybeSingle()
+  fail(error)
+  if (!data) throw new Error('Your account profile is not ready yet. Try again in a moment.')
+  return {
+    id: data.id,
+    role: asRole(data.role),
+    full_name: data.full_name,
+  }
 }
 
 function metadataString(user: { user_metadata?: Record<string, unknown> }, key: string) {

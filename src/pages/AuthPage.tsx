@@ -6,7 +6,7 @@ import { Card, FieldLabel, TextInput } from '../components/ui/primitives.tsx'
 import { SuggestedSelect } from '../components/ui/suggestions.tsx'
 import { TIMEZONES } from '../data/catalogs.ts'
 import { cn } from '../lib/cn.ts'
-import { safeNextPath } from '../lib/nextPath.ts'
+import { defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
 import {
   authErrorMessage,
   isUnconfirmedEmailError,
@@ -21,12 +21,12 @@ import { applySignupProfile } from '../services/interviewerProfile.ts'
 import { useSession } from '../state/session.tsx'
 
 export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
-  const { status, user, account, error: sessionError, refreshAccount } = useSession()
+  const { status, user, profile, account, error: sessionError, refreshAccount } = useSession()
   const [params] = useSearchParams()
   const isRegister = mode === 'register'
   const nextPath = safeNextPath(
     params.get('next'),
-    isRegister ? '/interviewer/setup?step=professional' : '/interviewer/dashboard',
+    isRegister ? '/interviewer/setup?step=professional' : defaultHomePath(profile?.role),
   )
   const nextQuery = `?next=${encodeURIComponent(nextPath)}`
   const [firstName, setFirstName] = useState('')
@@ -46,15 +46,15 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [info, setInfo] = useState<string | null>(null)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
 
-  if (status === 'authenticated' && user && account) {
-    return <Navigate to={nextPath} replace />
+  if (status === 'authenticated' && user && (account || profile?.role === 'admin')) {
+    return <Navigate to={destinationForRole(profile?.role, nextPath)} replace />
   }
 
   if (status === 'authenticated' && user && !sessionError) {
     return (
       <Card className="p-6 sm:p-8">
         <h1 className="text-xl font-semibold text-navy-950">Signing you in\u2026</h1>
-        <p className="mt-1 text-sm text-slate-600">Loading your interviewer pages.</p>
+        <p className="mt-1 text-sm text-slate-600">Loading your account.</p>
       </Card>
     )
   }

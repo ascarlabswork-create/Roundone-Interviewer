@@ -14,6 +14,7 @@ export const TABLES = {
   interviewSessions: 'interview_sessions',
   sessionEvents: 'session_events',
   interviewerFeedback: 'interviewer_feedback',
+  candidateProfiles: 'candidate_profiles',
   candidateReviews: 'candidate_reviews',
   candidateReviewsPublic: 'candidate_reviews_public',
   notifications: 'notifications',

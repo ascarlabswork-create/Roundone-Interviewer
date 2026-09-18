@@ -1,7 +1,9 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthLayout } from '../components/auth/AuthLayout.tsx'
+import { RequireAdminAuth } from '../components/auth/RequireAdminAuth.tsx'
 import { RequireInterviewerAuth } from '../components/auth/RequireInterviewerAuth.tsx'
 import { UnknownRoute } from '../components/auth/UnknownRoute.tsx'
+import { AdminShell } from '../components/layout/AdminShell.tsx'
 import { AppShell } from '../components/layout/AppShell.tsx'
 import { PublicLayout } from '../components/layout/PublicLayout.tsx'
 import { AuthCallbackPage } from '../pages/AuthCallbackPage.tsx'
@@ -21,6 +23,10 @@ import { ServicesPage } from '../pages/ServicesPage.tsx'
 import { SettingsPage } from '../pages/SettingsPage.tsx'
 import { SetupPage } from '../pages/SetupPage.tsx'
 import { VerificationPage } from '../pages/VerificationPage.tsx'
+import { AdminBookingsPage } from '../pages/admin/AdminBookingsPage.tsx'
+import { AdminDashboardPage } from '../pages/admin/AdminDashboardPage.tsx'
+import { AdminReviewsPage } from '../pages/admin/AdminReviewsPage.tsx'
+import { AdminVerificationsPage } from '../pages/admin/AdminVerificationsPage.tsx'
 
 export function AppRouter() {
   return (
@@ -32,6 +38,15 @@ export function AppRouter() {
           <Route path="/interviewer/login" element={<LoginPage />} />
           <Route path="/interviewer/register" element={<RegisterPage />} />
           <Route path="/interviewer/auth/callback" element={<AuthCallbackPage />} />
+        </Route>
+        <Route element={<RequireAdminAuth />}>
+          <Route element={<AdminShell />}>
+            <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+            <Route path="/admin/verifications" element={<AdminVerificationsPage />} />
+            <Route path="/admin/reviews" element={<AdminReviewsPage />} />
+            <Route path="/admin/bookings" element={<AdminBookingsPage />} />
+          </Route>
         </Route>
         <Route element={<RequireInterviewerAuth />}>
           <Route element={<PublicLayout />}>

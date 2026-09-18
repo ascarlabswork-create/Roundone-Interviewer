@@ -29,6 +29,7 @@ export {
   getInterviewerRoles,
   getInterviewerSkills,
   getVerificationStatus,
+  getMyProfile,
   hydrateInterviewerSignupFromMetadata,
   isPlaceholderProfessional,
   isProfileSetupComplete,
@@ -161,6 +162,17 @@ export {
   type EarningsBoard,
   type EarningsPeriod,
 } from './interviewerEarnings.ts'
+export {
+  loadAdminDashboardMetrics,
+  listAdminBookings,
+  listAdminReviews,
+  listAdminVerifications,
+  moderateAdminReview,
+  updateAdminVerification,
+  type AdminBookingFilter,
+  type AdminModerationStatus,
+  type AdminVerificationStatus,
+} from './adminOperations.ts'
 export {
   loadMyPublicReviewSummary,
   type PublicReviewPreview,

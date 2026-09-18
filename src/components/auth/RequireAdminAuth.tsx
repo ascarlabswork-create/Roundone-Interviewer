@@ -1,10 +1,10 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { ADMIN_HOME } from '../../lib/nextPath.ts'
+import { INTERVIEWER_HOME } from '../../lib/nextPath.ts'
 import { useSession } from '../../state/session.tsx'
 import { ErrorState, Skeleton } from '../ui/primitives.tsx'
 
-export function RequireInterviewerAuth() {
-  const { status, user, profile, account, error, refreshAccount } = useSession()
+export function RequireAdminAuth() {
+  const { status, user, profile, error, refreshAccount } = useSession()
   const location = useLocation()
 
   if (status === 'loading') {
@@ -21,27 +21,11 @@ export function RequireInterviewerAuth() {
     return <Navigate to={`/interviewer/login?next=${encodeURIComponent(next)}`} replace />
   }
 
-  if (profile?.role === 'admin') {
-    return <Navigate to={ADMIN_HOME} replace />
-  }
-
-  if (error && error.includes('only supports interviewer')) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-        <ErrorState title="Interviewer account required" body={error} />
-      </div>
-    )
-  }
-
-  if (!account) {
+  if (!profile) {
     if (error) {
       return (
         <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-          <ErrorState
-            title="Could not load your interviewer profile"
-            body={error}
-            onRetry={() => void refreshAccount()}
-          />
+          <ErrorState body={error} onRetry={() => void refreshAccount()} />
         </div>
       )
     }
@@ -51,6 +35,10 @@ export function RequireInterviewerAuth() {
         <Skeleton className="h-64" />
       </div>
     )
+  }
+
+  if (profile.role !== 'admin') {
+    return <Navigate to={profile.role === 'interviewer' ? INTERVIEWER_HOME : '/interviewer/login'} replace />
   }
 
   return <Outlet />
