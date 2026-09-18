@@ -6,11 +6,13 @@ export function MetricCard({
   value,
   hint,
   icon,
+  loading,
 }: {
   label: string
   value: string
   hint?: string
   icon?: ReactNode
+  loading?: boolean
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -18,8 +20,17 @@ export function MetricCard({
         <p className="text-sm font-medium text-slate-500">{label}</p>
         {icon ? <span className="text-navy-700">{icon}</span> : null}
       </div>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-navy-950">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+      {loading ? (
+        <>
+          <div className="mt-2 h-8 w-24 animate-pulse rounded-md bg-slate-200" />
+          <div className="mt-1 h-3 w-20 animate-pulse rounded bg-slate-200" />
+        </>
+      ) : (
+        <>
+          <p className="mt-2 text-2xl font-semibold tracking-tight text-navy-950">{value}</p>
+          {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+        </>
+      )}
     </div>
   )
 }

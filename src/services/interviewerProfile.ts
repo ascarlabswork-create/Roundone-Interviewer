@@ -199,8 +199,8 @@ export async function applySignupProfile(updates: InterviewerProfileUpdates): Pr
   return updateInterviewerProfile(updates)
 }
 
-export function profileCompleteness(account: InterviewerAccount) {
-  const checks = [
+function profileSetupChecks(account: InterviewerAccount) {
+  return [
     Boolean(account.profile.full_name.trim()),
     Boolean(account.profile.timezone.trim()),
     Boolean(account.interviewer.headline?.trim()),
@@ -212,6 +212,14 @@ export function profileCompleteness(account: InterviewerAccount) {
     account.targetRoles.length > 0,
     account.candidateLevels.length > 0,
   ]
+}
+
+export function isProfileSetupComplete(account: InterviewerAccount) {
+  return profileSetupChecks(account).every(Boolean)
+}
+
+export function profileCompleteness(account: InterviewerAccount) {
+  const checks = profileSetupChecks(account)
   const filled = checks.filter(Boolean).length
   return Math.round((filled / checks.length) * 100)
 }

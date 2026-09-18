@@ -31,6 +31,7 @@ export {
   getVerificationStatus,
   hydrateInterviewerSignupFromMetadata,
   isPlaceholderProfessional,
+  isProfileSetupComplete,
   profileCompleteness,
   updateInterviewerProfile,
   updateInterviewerRoles,
@@ -160,3 +161,21 @@ export {
   type EarningsBoard,
   type EarningsPeriod,
 } from './interviewerEarnings.ts'
+export {
+  loadMyPublicReviewSummary,
+  type PublicReviewPreview,
+  type PublicReviewSummary,
+} from './interviewerReviews.ts'
+export {
+  activeServiceCount,
+  buildDashboardAttentionItems,
+  completedInterviewCount,
+  interviewSessionStatusLabel,
+  isAvailabilityConfigured,
+  pendingBookingRequests,
+  recentCompletedInterviews,
+  upcomingInterviewCount,
+  upcomingInterviews,
+  verificationSummary,
+  type DashboardAttentionItem,
+} from './interviewerDashboard.ts'

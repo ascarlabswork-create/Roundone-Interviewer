@@ -15,6 +15,7 @@ export const TABLES = {
   sessionEvents: 'session_events',
   interviewerFeedback: 'interviewer_feedback',
   candidateReviews: 'candidate_reviews',
+  candidateReviewsPublic: 'candidate_reviews_public',
   notifications: 'notifications',
   notificationPreferences: 'notification_preferences',
   payments: 'payments',
