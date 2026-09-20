@@ -6,15 +6,21 @@ import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
 import { JoinInterviewControls } from '../components/interview/JoinInterviewControls.tsx'
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
-import { Card, EmptyState, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea } from '../components/ui/primitives.tsx'
+import { Card, EmptyState, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
 import { formatDateLongInZone, formatDateShortInZone, formatTimeInZone, timezoneLabel } from '../lib/dates.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import {
   BOOKING_ALREADY_UPDATED,
   bookingsForTab,
+  canCancelBooking,
+  canRescheduleBooking,
+  cancelMyBooking,
   confirmBooking,
   isActionableBookingRequest,
+  listMyBookableSlots,
   rejectBooking,
+  rescheduleMyBooking,
+  type BookableSlotRow,
   type InterviewerBooking,
   type InterviewerBookingTab,
 } from '../services/interviewerBookings.ts'
@@ -53,6 +59,11 @@ export function BookingsPage() {
   const [detailId, setDetailId] = useState<string | null>(null)
   const [rejectId, setRejectId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [cancelId, setCancelId] = useState<string | null>(null)
+  const [rescheduleFor, setRescheduleFor] = useState<InterviewerBooking | null>(null)
+  const [rescheduleDate, setRescheduleDate] = useState('')
+  const [rescheduleSlots, setRescheduleSlots] = useState<BookableSlotRow[]>([])
+  const [rescheduleLoading, setRescheduleLoading] = useState(false)
   const [actingId, setActingId] = useState<string | null>(null)
   const { pushToast } = useToast()
   const state = useAsync(() => loadMyInterviewBoard(), [])
@@ -91,6 +102,36 @@ export function BookingsPage() {
 
   async function onAccept(id: string) {
     await runAction(id, () => confirmBooking(id), 'Booking confirmed')
+  }
+
+  async function onCancelConfirm() {
+    if (!cancelId) return
+    const id = cancelId
+    await runAction(id, () => cancelMyBooking(id), 'Booking cancelled')
+    setCancelId(null)
+  }
+
+  async function loadRescheduleSlots(booking: InterviewerBooking, date: string) {
+    setRescheduleLoading(true)
+    try {
+      const slots = await listMyBookableSlots(booking.serviceId, `${date}T00:00:00.000Z`, `${date}T23:59:59.999Z`)
+      setRescheduleSlots(slots)
+    } catch {
+      setRescheduleSlots([])
+    } finally {
+      setRescheduleLoading(false)
+    }
+  }
+
+  async function onReschedulePick(startsAtUtc: string) {
+    if (!rescheduleFor) return
+    const booking = rescheduleFor
+    await runAction(
+      booking.id,
+      () => rescheduleMyBooking(booking.id, startsAtUtc, booking.displayTimezone),
+      'Booking rescheduled',
+    )
+    setRescheduleFor(null)
   }
 
   async function onRejectConfirm() {
@@ -151,6 +192,13 @@ export function BookingsPage() {
                       setRejectId(booking.id)
                       setRejectReason('')
                     }}
+                    onCancel={() => setCancelId(booking.id)}
+                    onReschedule={() => {
+                      const date = booking.startsAtUtc.slice(0, 10)
+                      setRescheduleFor(booking)
+                      setRescheduleDate(date)
+                      void loadRescheduleSlots(booking, date)
+                    }}
                     onDetails={() => setDetailId(booking.id)}
                     session={sessions.get(booking.id) ?? null}
                     hasFeedback={feedbackBookingIds.has(booking.id)}
@@ -184,6 +232,13 @@ export function BookingsPage() {
                     onReject={() => {
                       setRejectId(booking.id)
                       setRejectReason('')
+                    }}
+                    onCancel={() => setCancelId(booking.id)}
+                    onReschedule={() => {
+                      const date = booking.startsAtUtc.slice(0, 10)
+                      setRescheduleFor(booking)
+                      setRescheduleDate(date)
+                      void loadRescheduleSlots(booking, date)
                     }}
                     onDetails={() => setDetailId(booking.id)}
                     session={sessions.get(booking.id) ?? null}
@@ -228,6 +283,68 @@ export function BookingsPage() {
         <Button className="mt-6" fullWidth onClick={() => void onRejectConfirm()} disabled={Boolean(actingId)}>
           {actingId ? 'Rejecting…' : 'Reject booking'}
         </Button>
+      </SlideOver>
+
+      <SlideOver
+        title="Cancel booking"
+        open={Boolean(cancelId)}
+        onClose={() => {
+          if (actingId) return
+          setCancelId(null)
+        }}
+      >
+        <p className="text-sm text-slate-600">
+          This cancels the booking. Refunds and payouts are not processed here.
+        </p>
+        <Button className="mt-6" fullWidth variant="danger" onClick={() => void onCancelConfirm()} disabled={Boolean(actingId)}>
+          {actingId ? 'Cancelling…' : 'Cancel booking'}
+        </Button>
+      </SlideOver>
+
+      <SlideOver
+        title="Reschedule booking"
+        open={Boolean(rescheduleFor)}
+        onClose={() => {
+          if (actingId) return
+          setRescheduleFor(null)
+        }}
+      >
+        <p className="text-sm text-slate-600">
+          Choose an open slot. The previous booking becomes rescheduled and is no longer actionable.
+        </p>
+        <div className="mt-4">
+          <FieldLabel htmlFor="reschedule-date">Date</FieldLabel>
+          <TextInput
+            id="reschedule-date"
+            type="date"
+            value={rescheduleDate}
+            onChange={(event) => {
+              const next = event.target.value
+              setRescheduleDate(next)
+              if (rescheduleFor && next) void loadRescheduleSlots(rescheduleFor, next)
+            }}
+          />
+        </div>
+        <div className="mt-4 space-y-2">
+          {rescheduleLoading ? <p className="text-sm text-slate-500">Loading open slots…</p> : null}
+          {!rescheduleLoading && rescheduleSlots.length === 0 ? (
+            <p className="text-sm text-slate-500">No open slots on this date.</p>
+          ) : null}
+          {rescheduleSlots.map((slot) => (
+            <Button
+              key={slot.startsAtUtc}
+              size="sm"
+              variant="outline"
+              fullWidth
+              disabled={Boolean(actingId)}
+              onClick={() => void onReschedulePick(slot.startsAtUtc)}
+            >
+              {rescheduleFor
+                ? `${formatTimeInZone(slot.startsAtUtc, rescheduleFor.displayTimezone)} – ${formatTimeInZone(slot.endsAtUtc, rescheduleFor.displayTimezone)}`
+                : slot.startsAtUtc}
+            </Button>
+          ))}
+        </div>
       </SlideOver>
     </div>
   )
@@ -314,6 +431,8 @@ function BookingActions({
   hasFeedback,
   onAccept,
   onReject,
+  onCancel,
+  onReschedule,
   onDetails,
 }: {
   booking: InterviewerBooking
@@ -323,6 +442,8 @@ function BookingActions({
   hasFeedback: boolean
   onAccept: (id: string) => void
   onReject: () => void
+  onCancel: () => void
+  onReschedule: () => void
   onDetails: () => void
 }) {
   const wrap = stacked ? 'flex flex-col gap-2' : 'flex flex-wrap justify-end gap-2'
@@ -345,6 +466,16 @@ function BookingActions({
       ) : (
         <JoinInterviewControls booking={booking} session={session} showWaiting={false} />
       )}
+      {canRescheduleBooking(booking) ? (
+        <Button size="sm" variant="ghost" onClick={onReschedule} disabled={locked}>
+          Reschedule
+        </Button>
+      ) : null}
+      {canCancelBooking(booking) ? (
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={locked}>
+          Cancel
+        </Button>
+      ) : null}
       <FeedbackAction booking={booking} hasFeedback={hasFeedback} disabled={locked} />
     </div>
   )

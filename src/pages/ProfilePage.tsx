@@ -1,31 +1,35 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { listAvailability, listInterviewerReviews, listServices } from '../api/index.ts'
 import { Button } from '../components/ui/Button.tsx'
 import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
 import { Avatar, StarRating, VerifiedBadge } from '../components/ui/identity.tsx'
 import { Badge, Card, EmptyState, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
 import { SuggestedSelect, SuggestionChips } from '../components/ui/suggestions.tsx'
 import { CANDIDATE_LEVELS, REVIEW_DIMENSIONS, SKILLS, TARGET_ROLES, TIMEZONES } from '../data/catalogs.ts'
-import { currentInterviewer } from '../data/interviewer.ts'
-import { formatReviewDate, formatTime, timezoneLabel } from '../lib/dates.ts'
+import { formatReviewDate, timezoneLabel } from '../lib/dates.ts'
 import { formatCount, formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
+import { loadMyAvailabilityBoard } from '../services/interviewerAvailability.ts'
+import { getMyBookings } from '../services/interviewerBookings.ts'
 import {
   profileCompleteness,
   updateInterviewerProfile,
   updateInterviewerRoles,
   updateInterviewerSkills,
 } from '../services/interviewerProfile.ts'
+import { loadMyPublicReviewSummary, listMyPublicReviews } from '../services/interviewerReviews.ts'
+import { getMyServices, paiseToRupees } from '../services/interviewerServices.ts'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
 
 export function ProfilePage() {
   const { account, error, refreshAccount, status } = useSession()
   const { pushToast } = useToast()
-  const reviewsState = useAsync(() => listInterviewerReviews(currentInterviewer.id), [])
-  const availState = useAsync(() => listAvailability(), [])
-  const servicesState = useAsync(() => listServices(), [])
+  const reviewsState = useAsync(() => listMyPublicReviews(), [])
+  const summaryState = useAsync(() => loadMyPublicReviewSummary(), [])
+  const availState = useAsync(() => loadMyAvailabilityBoard(), [])
+  const servicesState = useAsync(() => getMyServices(), [])
+  const bookingsState = useAsync(() => getMyBookings(), [])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -66,10 +70,20 @@ export function ProfilePage() {
     return <ErrorState title="Could not load profile" body={error ?? 'Your interviewer profile is not ready yet.'} onRetry={() => void refreshAccount()} />
   }
 
-  const slots = availState.status === 'success' ? availState.data.filter((item) => item.state === 'available').slice(0, 6) : []
+  const slots =
+    availState.status === 'success' && availState.data.availability.length > 0
+      ? availState.data.availability.slice(0, 6).map((item) => ({
+          id: item.id,
+          label: `${item.start_time.slice(0, 5)}–${item.end_time.slice(0, 5)}`,
+        }))
+      : []
   const allReviews = reviewsState.status === 'success' ? reviewsState.data : []
   const reviews = allReviews.slice(0, 3)
-  const services = servicesState.status === 'success' ? servicesState.data.filter((item) => item.isActive) : []
+  const services = servicesState.status === 'success' ? servicesState.data.filter((item) => item.is_active) : []
+  const completedCount =
+    bookingsState.status === 'success'
+      ? bookingsState.data.filter((item) => item.status === 'completed').length
+      : 0
   const identityVerified = account.verifications.some((item) => item.kind === 'identity' && item.status === 'verified')
   const employmentVerified = account.verifications.some((item) => item.kind === 'employment' && item.status === 'verified')
   const verified = identityVerified && employmentVerified
@@ -289,12 +303,12 @@ export function ProfilePage() {
             Generated from your availability. Candidates cannot pick a time outside these slots.
           </p>
           {slots.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-500">No upcoming bookable slots.</p>
+            <p className="mt-3 text-sm text-slate-500">No weekly availability windows yet.</p>
           ) : (
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
               {slots.map((slot) => (
                 <li key={slot.id}>
-                  {formatTime(slot.start)} {timezoneLabel(account.profile.timezone)}
+                  {slot.label} {timezoneLabel(account.profile.timezone)}
                 </li>
               ))}
             </ul>
@@ -305,17 +319,21 @@ export function ProfilePage() {
       <Card className="p-5">
         <h3 className="font-semibold text-navy-950">Services & pricing</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {services.map((service) => (
-            <div key={service.id} className="rounded-lg border border-slate-200 p-4">
-              <div className="flex items-start justify-between">
-                <p className="font-medium text-navy-950">{service.name}</p>
-                <p className="font-semibold text-navy-950">{formatINR(service.price)}</p>
+          {services.length === 0 ? (
+            <p className="text-sm text-slate-500">No active services yet.</p>
+          ) : (
+            services.map((service) => (
+              <div key={service.id} className="rounded-lg border border-slate-200 p-4">
+                <div className="flex items-start justify-between">
+                  <p className="font-medium text-navy-950">{service.name}</p>
+                  <p className="font-semibold text-navy-950">{formatINR(paiseToRupees(service.price_paise))}</p>
+                </div>
+                <p className="mt-1 text-sm text-slate-600">
+                  {service.duration_min} minutes · {service.interview_type}
+                </p>
               </div>
-              <p className="mt-1 text-sm text-slate-600">
-                {service.durationMin} minutes · {service.interviewType}
-              </p>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </Card>
 
@@ -328,16 +346,19 @@ export function ProfilePage() {
           Only public candidate reviews appear here. Private performance scores are never shown on this profile.
         </p>
         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-600">
-          <span>{currentInterviewer.rating} / 5 overall</span>
-          <span>{formatCount(currentInterviewer.reviewCount)} reviews</span>
-          <span>{formatCount(currentInterviewer.completedInterviews)} interviews completed</span>
+          <span>
+            {summaryState.status === 'success' && summaryState.data.averageRating
+              ? `${summaryState.data.averageRating.toFixed(1)} / 5 overall`
+              : 'No public rating yet'}
+          </span>
+          <span>
+            {formatCount(summaryState.status === 'success' ? summaryState.data.count : 0)} public reviews
+          </span>
+          <span>{formatCount(completedCount)} interviews completed</span>
         </div>
         <div className="mt-5 space-y-3">
           {REVIEW_DIMENSIONS.map((item) => {
-            const value =
-              allReviews.length > 0
-                ? allReviews.reduce((sum, review) => sum + review.dimensions[item.key], 0) / allReviews.length
-                : 0
+            const value = summaryState.status === 'success' ? summaryState.data.dimensionAverages?.[item.key] ?? 0 : 0
             return (
               <div key={item.key}>
                 <div className="flex justify-between text-sm">
@@ -352,16 +373,20 @@ export function ProfilePage() {
           })}
         </div>
         <div className="mt-6 space-y-4">
-          {reviews.map((review) => (
-            <div key={review.id} className="border-t border-slate-100 pt-4 first:border-0 first:pt-0">
-              <div className="flex items-center justify-between">
-                <p className="font-medium text-navy-950">{review.publicDisplayName}</p>
-                <StarRating value={review.rating} />
+          {reviews.length === 0 ? (
+            <p className="text-sm text-slate-500">Approved public reviews will appear here.</p>
+          ) : (
+            reviews.map((review) => (
+              <div key={review.id} className="border-t border-slate-100 pt-4 first:border-0 first:pt-0">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-navy-950">{review.displayName}</p>
+                  <StarRating value={review.overallRating} />
+                </div>
+                {review.writtenReview ? <p className="mt-2 text-sm text-slate-600">“{review.writtenReview}”</p> : null}
+                <p className="mt-2 text-xs text-slate-500">{formatReviewDate(review.createdAt)}</p>
               </div>
-              <p className="mt-2 text-sm text-slate-600">“{review.text}”</p>
-              <p className="mt-2 text-xs text-slate-500">{formatReviewDate(review.date)}</p>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </Card>
     </div>

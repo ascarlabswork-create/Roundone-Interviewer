@@ -1,4 +1,6 @@
 import {
+  Bell,
+  Briefcase,
   CalendarDays,
   ClipboardList,
   IndianRupee,
@@ -11,7 +13,6 @@ import {
   UserRound,
   Users,
   X,
-  Briefcase,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
@@ -33,6 +34,7 @@ const navItems = [
   { to: '/interviewer/candidates', label: 'Candidates', icon: Users },
   { to: '/interviewer/reviews', label: 'Reviews', icon: Star },
   { to: '/interviewer/earnings', label: 'Earnings', icon: IndianRupee },
+  { to: '/interviewer/notifications', label: 'Notifications', icon: Bell },
   { to: '/interviewer/profile', label: 'Profile', icon: UserRound },
   { to: '/interviewer/verification', label: 'Verification', icon: Shield },
   { to: '/interviewer/settings', label: 'Settings', icon: Settings },

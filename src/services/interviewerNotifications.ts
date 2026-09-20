@@ -107,8 +107,9 @@ export function notificationHref(item: Pick<InterviewerNotification, 'kind' | 'p
     case 'booking_confirmed':
       return '/interviewer/bookings?tab=upcoming'
     case 'interview_reminder':
-    case 'interview_completed':
       return bookingId ? `/interviewer/interview/${bookingId}` : '/interviewer/bookings?tab=upcoming'
+    case 'interview_completed':
+      return bookingId ? `/interviewer/feedback/${bookingId}` : '/interviewer/bookings?tab=completed'
     case 'feedback_ready':
       return '/interviewer/reviews'
     default:

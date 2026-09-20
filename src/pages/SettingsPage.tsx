@@ -1,86 +1,82 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { NotificationPreferencesSection } from '../components/settings/NotificationPreferencesSection.tsx'
 import { Button } from '../components/ui/Button.tsx'
-import { Card, FieldLabel, PageHeader, SelectInput, TextInput } from '../components/ui/primitives.tsx'
+import { Card, ErrorState, FieldLabel, PageHeader, Skeleton, TextInput } from '../components/ui/primitives.tsx'
 import { SuggestedSelect } from '../components/ui/suggestions.tsx'
 import { TIMEZONES } from '../data/catalogs.ts'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
-import type { SettingsDraft } from '../types.ts'
+import { updateInterviewerProfile } from '../services/interviewerProfile.ts'
 
 export function SettingsPage() {
-  const { account } = useSession()
+  const { account, error, refreshAccount, status } = useSession()
   const { pushToast } = useToast()
-  const [form, setForm] = useState<SettingsDraft>({
-    email: account?.email ?? '',
-    phone: account?.phone ?? '',
-    timezone: account?.profile?.timezone ?? 'Asia/Kolkata',
-    notifyBookings: true,
-    notifyReviews: true,
-    notifyPayouts: true,
-    payoutMethod: 'upi',
-    payoutDetail: 'rahul@upi',
-    publicProfile: true,
-  })
+  const [timezone, setTimezone] = useState(account?.profile.timezone ?? 'Asia/Kolkata')
+  const [phone, setPhone] = useState(account?.phone ?? '')
+  const [isListed, setIsListed] = useState(account?.interviewer.is_listed ?? false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
-  function onSubmit(event: FormEvent) {
+  useEffect(() => {
+    if (!account) return
+    setTimezone(account.profile.timezone)
+    setPhone(account.phone)
+    setIsListed(account.interviewer.is_listed)
+  }, [account])
+
+  if (status === 'loading') return <Skeleton className="h-64" />
+  if (!account) {
+    return <ErrorState title="Could not load settings" body={error ?? 'Your interviewer profile is not ready yet.'} />
+  }
+
+  async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    pushToast('Settings saved locally')
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await updateInterviewerProfile({ timezone, phone, isListed })
+      await refreshAccount()
+      pushToast('Settings saved')
+    } catch (caught) {
+      setSaveError(caught instanceof Error ? caught.message : 'Could not save settings.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <PageHeader title="Settings" subtitle="Account, notifications, and payout preferences." />
+      <PageHeader title="Settings" subtitle="Account and optional notification preferences. Payouts are not managed here." />
       <NotificationPreferencesSection />
       <Card className="p-6">
         <form className="grid gap-4" onSubmit={onSubmit}>
           <div>
             <FieldLabel htmlFor="email">Email</FieldLabel>
-            <TextInput id="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+            <TextInput id="email" value={account.email} disabled />
           </div>
           <div>
             <FieldLabel htmlFor="phone">Phone</FieldLabel>
-            <TextInput id="phone" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+            <TextInput id="phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
           </div>
           <div>
             <FieldLabel htmlFor="tz">Timezone</FieldLabel>
             <SuggestedSelect
               id="tz"
               options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
-              value={form.timezone}
-              onChange={(timezone) => setForm({ ...form, timezone })}
+              value={timezone}
+              onChange={setTimezone}
               customPlaceholder="Type a timezone, e.g. Europe/Berlin"
               required
             />
           </div>
-          <div>
-            <FieldLabel htmlFor="payout">Payout method</FieldLabel>
-            <SelectInput
-              id="payout"
-              value={form.payoutMethod}
-              onChange={(event) => setForm({ ...form, payoutMethod: event.target.value as SettingsDraft['payoutMethod'] })}
-            >
-              <option value="upi">UPI</option>
-              <option value="bank">Bank transfer</option>
-            </SelectInput>
-          </div>
-          <div>
-            <FieldLabel htmlFor="detail">Payout detail</FieldLabel>
-            <TextInput
-              id="detail"
-              value={form.payoutDetail}
-              onChange={(event) => setForm({ ...form, payoutDetail: event.target.value })}
-            />
-          </div>
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.publicProfile}
-              onChange={(event) => setForm({ ...form, publicProfile: event.target.checked })}
-            />
-            Show public profile to candidates
+            <input type="checkbox" checked={isListed} onChange={(event) => setIsListed(event.target.checked)} />
+            List my profile to candidates
           </label>
-          <Button type="submit">Save settings</Button>
+          {saveError ? <p className="text-sm text-red-700">{saveError}</p> : null}
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save settings'}
+          </Button>
         </form>
       </Card>
     </div>

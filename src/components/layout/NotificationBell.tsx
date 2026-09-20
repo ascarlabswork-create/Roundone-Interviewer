@@ -7,7 +7,7 @@ import {
   Star,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '../../lib/cn.ts'
 import {
   formatNotificationTime,
@@ -199,6 +199,15 @@ export function NotificationBell() {
               ))}
             </ul>
           ) : null}
+          <div className="border-t border-slate-100 px-3 py-2">
+            <Link
+              to="/interviewer/notifications"
+              className="block text-center text-sm font-medium text-navy-950 hover:underline"
+              onClick={() => setOpen(false)}
+            >
+              View all notifications
+            </Link>
+          </div>
         </div>
       ) : null}
     </div>

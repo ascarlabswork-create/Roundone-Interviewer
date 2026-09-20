@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listBookings, listServices } from '../api/index.ts'
 import { Button } from '../components/ui/Button.tsx'
 import { SlotBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
@@ -13,7 +12,8 @@ import {
   Skeleton,
   TextInput,
 } from '../components/ui/primitives.tsx'
-import { BUFFER_OPTIONS, TIMEZONES, WEEKDAY_LABELS, WEEKDAY_ORDER } from '../data/catalogs.ts'
+import { BUFFER_OPTIONS, INTERVIEW_TYPES, TIMEZONES, WEEKDAY_LABELS, WEEKDAY_ORDER } from '../data/catalogs.ts'
+import type { InterviewType } from '../data/catalogs.ts'
 import { cn } from '../lib/cn.ts'
 import {
   addDays,
@@ -50,9 +50,11 @@ import {
   type CustomSlotRecord,
   type Weekday,
 } from '../services/interviewerAvailability.ts'
+import { getMyBookings, type InterviewerBooking } from '../services/interviewerBookings.ts'
+import { getMyServices } from '../services/interviewerServices.ts'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
-import type { AvailabilitySchedule, CalendarPeriod } from '../types.ts'
+import type { AvailabilitySchedule, Booking, CalendarPeriod } from '../types.ts'
 
 type CustomForm = {
   id: string | null
@@ -89,15 +91,15 @@ const emptyBlockForm = (): BlockForm => ({
 export function CalendarPage() {
   const { refreshAccount } = useSession()
   const boardState = useAsync(() => loadMyAvailabilityBoard(), [])
-  const bookingsState = useAsync(() => listBookings(), [])
-  const servicesState = useAsync(() => listServices(), [])
+  const bookingsState = useAsync(() => getMyBookings(), [])
+  const servicesState = useAsync(() => getMyServices(), [])
   const { pushToast } = useToast()
   const [board, setBoard] = useState<AvailabilityBoard | null>(null)
   const [view, setView] = useState<'week' | 'month'>('week')
   const [weekOffset, setWeekOffset] = useState(0)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewDate, setPreviewDate] = useState(nextDateWithWeekday(6))
-  const [previewServiceId, setPreviewServiceId] = useState('rahul-coding')
+  const [previewServiceId, setPreviewServiceId] = useState('')
   const [customForm, setCustomForm] = useState<CustomForm | null>(null)
   const [blockForm, setBlockForm] = useState<BlockForm | null>(null)
   const [errors, setErrors] = useState<string[]>([])
@@ -107,8 +109,13 @@ export function CalendarPage() {
     if (boardState.status === 'success') setBoard(boardState.data)
   }, [boardState.status, boardState.data])
 
-  const bookings = bookingsState.status === 'success' ? bookingsState.data : []
-  const services = servicesState.status === 'success' ? servicesState.data.filter((item) => item.isActive) : []
+  const bookings = bookingsState.status === 'success' ? toSlotBookings(bookingsState.data) : []
+  const services =
+    servicesState.status === 'success'
+      ? servicesState.data
+          .filter((item) => item.is_active)
+          .map((item) => ({ id: item.id, name: item.name, durationMin: item.duration_min }))
+      : []
   const previewService = services.find((item) => item.id === previewServiceId) ?? services[0]
   const weekStart = addDays(startOfWeek(new Date()), weekOffset * 7)
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
@@ -485,8 +492,8 @@ export function CalendarPage() {
           <Card className="p-5">
             <h2 className="text-lg font-semibold text-navy-950">Preview what candidates will see</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Local preview from your live windows, blocked times, and mock bookings. Candidate-visible slots will later
-              come from the slot-generation RPC. This preview is not stored.
+              Preview from your live availability, blocked times, and current bookings. Candidate-visible slots are
+              generated at booking time. This preview is not stored.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
@@ -694,6 +701,30 @@ function toBlockForm(item: BlockedTimeRecord): BlockForm {
   }
 }
 
+function toSlotBookings(bookings: InterviewerBooking[]): Booking[] {
+  return bookings
+    .filter((item) => item.status === 'requested' || item.status === 'confirmed' || item.status === 'in_progress')
+    .map((item) => ({
+      id: item.id,
+      interviewerId: item.interviewerProfileId,
+      candidateId: item.candidateProfileId,
+      serviceId: item.serviceId,
+      serviceName: item.serviceName,
+      interviewType: (INTERVIEW_TYPES as readonly string[]).includes(item.interviewType)
+        ? (item.interviewType as InterviewType)
+        : 'Coding',
+      durationMin: item.durationMin,
+      sessionFee: 0,
+      platformFee: 0,
+      netEarnings: 0,
+      start: item.startsAtUtc,
+      timezone: item.displayTimezone,
+      status: 'upcoming',
+      privateFeedbackStatus: 'none',
+      createdAt: item.createdAt,
+    }))
+}
+
 function toSchedule(board: AvailabilityBoard, defaultDurationMin: number): AvailabilitySchedule {
   return {
     settings: {
@@ -760,7 +791,7 @@ function WeekView({
 }: {
   days: Date[]
   schedule: AvailabilitySchedule
-  bookings: Awaited<ReturnType<typeof listBookings>>
+  bookings: Booking[]
   onSelectDate: (ymd: string) => void
 }) {
   return (
@@ -849,7 +880,7 @@ function MonthView({
   onSelectDate,
 }: {
   schedule: AvailabilitySchedule
-  bookings: Awaited<ReturnType<typeof listBookings>>
+  bookings: Booking[]
   onSelectDate: (ymd: string) => void
 }) {
   const start = startOfWeek(new Date(new Date().getFullYear(), new Date().getMonth(), 1))

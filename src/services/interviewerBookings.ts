@@ -438,3 +438,71 @@ export async function rejectBooking(bookingId: string, reason?: string): Promise
   fail(error)
   return getMyBooking(bookingId)
 }
+
+export function canCancelBooking(booking: InterviewerBooking) {
+  return booking.status === 'requested' || booking.status === 'confirmed'
+}
+
+export function canRescheduleBooking(booking: InterviewerBooking) {
+  return booking.status === 'requested' || booking.status === 'confirmed'
+}
+
+export async function cancelMyBooking(bookingId: string, note?: string): Promise<InterviewerBooking> {
+  if (!isUuid(bookingId)) throw new Error('Booking not found.')
+  const current = await getMyBooking(bookingId)
+  if (!canCancelBooking(current)) throw new Error(BOOKING_ALREADY_UPDATED)
+  const { error } = await supabase.rpc('cancel_booking', {
+    p_booking_id: bookingId,
+    p_note: note?.trim() || null,
+  })
+  fail(error)
+  return getMyBooking(bookingId)
+}
+
+export async function rescheduleMyBooking(
+  bookingId: string,
+  startsAtUtc: string,
+  displayTimezone?: string,
+): Promise<InterviewerBooking> {
+  if (!isUuid(bookingId)) throw new Error('Booking not found.')
+  const current = await getMyBooking(bookingId)
+  if (!canRescheduleBooking(current)) throw new Error(BOOKING_ALREADY_UPDATED)
+  const { data, error } = await supabase.rpc('reschedule_booking', {
+    p_booking_id: bookingId,
+    p_starts_at: startsAtUtc,
+    p_display_timezone: displayTimezone ?? current.displayTimezone,
+  })
+  fail(error)
+  const createdId = isRecord(data) ? readString(data, 'id') : null
+  if (createdId) return getMyBooking(createdId)
+  return getMyBooking(bookingId)
+}
+
+export type BookableSlotRow = {
+  startsAtUtc: string
+  endsAtUtc: string
+}
+
+export async function listMyBookableSlots(
+  serviceId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<BookableSlotRow[]> {
+  const interviewerProfileId = await myInterviewerProfileId()
+  const { data, error } = await supabase.rpc('list_bookable_slots', {
+    p_interviewer_profile_id: interviewerProfileId,
+    p_service_id: serviceId,
+    p_from: fromIso,
+    p_to: toIso,
+  })
+  fail(error)
+  return ((data ?? []) as unknown[])
+    .map((row): BookableSlotRow | null => {
+      if (!isRecord(row)) return null
+      const startsAtUtc = readString(row, 'starts_at')
+      const endsAtUtc = readString(row, 'ends_at')
+      if (!startsAtUtc || !endsAtUtc) return null
+      return { startsAtUtc, endsAtUtc }
+    })
+    .filter((item): item is BookableSlotRow => item !== null)
+}

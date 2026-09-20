@@ -46,6 +46,7 @@ import {
   formatNotificationTime,
   listMyNotifications,
   countMyUnreadNotifications,
+  markNotificationRead,
   notificationHref,
 } from '../services/interviewerNotifications.ts'
 import { getMyServices } from '../services/interviewerServices.ts'
@@ -591,11 +592,16 @@ export function DashboardPage() {
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy-950">Notifications</h2>
-          {notifications.status === 'success' && notifications.data.unreadCount > 0 ? (
-            <span className="text-sm text-slate-500">
-              {formatCount(notifications.data.unreadCount)} unread
-            </span>
-          ) : null}
+          <div className="flex items-center gap-3">
+            {notifications.status === 'success' && notifications.data.unreadCount > 0 ? (
+              <span className="text-sm text-slate-500">
+                {formatCount(notifications.data.unreadCount)} unread
+              </span>
+            ) : null}
+            <Link to="/interviewer/notifications" className="text-sm font-medium text-navy-950 hover:underline">
+              View all
+            </Link>
+          </div>
         </div>
         {notifications.status === 'loading' ? <Skeleton className="h-24" /> : null}
         {notifications.status === 'error' ? (
@@ -611,7 +617,20 @@ export function DashboardPage() {
                 key={item.id}
                 type="button"
                 className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-slate-50"
-                onClick={() => navigate(notificationHref(item))}
+                onClick={() => {
+                  void (async () => {
+                    if (!item.readAt) {
+                      try {
+                        await markNotificationRead(item.id)
+                        notifications.reload()
+                      } catch (caught) {
+                        pushToast(caught instanceof Error ? caught.message : 'Could not update that notification. Try again.')
+                        return
+                      }
+                    }
+                    navigate(notificationHref(item))
+                  })()
+                }}
               >
                 <Bell className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                 <span className="min-w-0 flex-1">
@@ -649,10 +668,22 @@ export function DashboardPage() {
               View Bookings
             </Button>
           </Link>
+          <Link to="/interviewer/bookings?tab=upcoming">
+            <Button variant="outline">
+              <Video className="h-4 w-4" />
+              View Interviews
+            </Button>
+          </Link>
           <Link to="/interviewer/earnings">
             <Button variant="outline">
               <IndianRupee className="h-4 w-4" />
               View Earnings
+            </Button>
+          </Link>
+          <Link to="/interviewer/notifications">
+            <Button variant="outline">
+              <Bell className="h-4 w-4" />
+              View Notifications
             </Button>
           </Link>
         </div>

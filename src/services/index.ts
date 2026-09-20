@@ -92,6 +92,9 @@ export {
 export {
   BOOKING_ALREADY_UPDATED,
   bookingsForTab,
+  cancelMyBooking,
+  canCancelBooking,
+  canRescheduleBooking,
   confirmBooking,
   getCancelledBookings,
   getCompletedBookings,
@@ -100,8 +103,10 @@ export {
   getPendingBookingRequests,
   getUpcomingBookings,
   isActionableBookingRequest,
+  listMyBookableSlots,
   listMyBookingsWithStatuses,
   rejectBooking,
+  rescheduleMyBooking,
   tabForBooking,
   type DbBookingStatus,
   type InterviewerBooking,
@@ -185,7 +190,9 @@ export {
 } from './adminOperations.ts'
 export {
   loadMyPublicReviewSummary,
+  listMyPublicReviews,
   type PublicReviewPreview,
+  type PublicReviewRecord,
   type PublicReviewSummary,
 } from './interviewerReviews.ts'
 export {
@@ -201,3 +208,4 @@ export {
   verificationSummary,
   type DashboardAttentionItem,
 } from './interviewerDashboard.ts'
+export { getMyCandidate, listMyCandidates, type InterviewerCandidateHistory } from './interviewerCandidates.ts'

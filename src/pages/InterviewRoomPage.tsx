@@ -58,6 +58,8 @@ export function InterviewRoomPage() {
   const [code, setCode] = useState(codingProblem.starter)
   const [ran, setRan] = useState(false)
   const [mobileTab, setMobileTab] = useState<'video' | 'work' | 'notes'>('video')
+  const [ending, setEnding] = useState(false)
+  const [endError, setEndError] = useState<string | null>(null)
 
   useEffect(() => {
     const timer = window.setInterval(() => setSeconds((value) => Math.max(0, value - 1)), 1000)
@@ -77,25 +79,29 @@ export function InterviewRoomPage() {
       </div>
     )
   }
-  if (sessionState.status === 'error') {
+  if (sessionState.status === 'error' || !sessionState.data) {
     return (
       <div className="p-8">
-        <ErrorState body={sessionState.error} />
+        <ErrorState body={sessionState.error ?? 'Could not open this interview.'} onRetry={sessionState.reload} />
       </div>
     )
   }
 
   const { booking } = sessionState.data
   const candidateName = booking.candidate.name
-  const isCoding = booking.interviewType === 'Coding'
+  const isCoding = booking.interviewType.toLowerCase().includes('coding')
 
   async function endSession() {
+    setEnding(true)
+    setEndError(null)
     try {
       await endInterviewSession(booking.id)
-    } catch {
-      // No end-session RPC exists yet; still leave the mock workspace.
+      navigate(`/interviewer/feedback/${booking.id}`)
+    } catch (caught) {
+      setEndError(caught instanceof Error ? caught.message : 'Could not complete this interview.')
+    } finally {
+      setEnding(false)
     }
-    navigate('/interviewer/bookings')
   }
 
   return (
@@ -111,13 +117,15 @@ export function InterviewRoomPage() {
               {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)} ·{' '}
               {timezoneLabel(booking.displayTimezone)}
             </p>
-            <p className="text-xs text-white/40">Booking ID {booking.id}</p>
+            <p className="text-xs text-white/40">
+              {booking.candidate.targetRole || 'Candidate'} · Stub workspace · Booking {booking.id.slice(0, 8)}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <span className="rounded-md bg-white/10 px-3 py-1 font-mono text-sm">{clock}</span>
-          <Button variant="danger" size="sm" onClick={endSession}>
-            End Session
+          <Button variant="danger" size="sm" onClick={() => void endSession()} disabled={ending}>
+            {ending ? 'Ending…' : 'End Session'}
           </Button>
         </div>
       </header>
@@ -243,11 +251,12 @@ export function InterviewRoomPage() {
         <Control label="More">
           <MoreHorizontal className="h-4 w-4" />
         </Control>
-        <Button variant="danger" onClick={endSession}>
+        <Button variant="danger" onClick={() => void endSession()} disabled={ending}>
           <PhoneOff className="h-4 w-4" />
-          End Interview
+          {ending ? 'Ending…' : 'End Interview'}
         </Button>
       </div>
+      {endError ? <p className="px-4 pb-3 text-center text-sm text-red-300">{endError}</p> : null}
     </div>
   )
 }

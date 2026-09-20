@@ -34,8 +34,13 @@ function readString(row: Record<string, unknown>, key: string) {
   return typeof value === 'string' ? value : null
 }
 
-function fail(error: { message: string } | null) {
-  if (error) throw new Error(error.message)
+function fail(error: { message?: string; code?: string } | null) {
+  if (!error) return
+  const text = `${error.code ?? ''} ${error.message ?? ''}`.toLowerCase()
+  if (text.includes('jwt') || text.includes('not authenticated') || error.code === 'PGRST301') {
+    throw new Error('You need to sign in to continue.')
+  }
+  throw new Error('Could not load this interview session. Check your connection and try again.')
 }
 
 function parseSession(value: unknown): InterviewSessionRecord | null {
@@ -132,6 +137,20 @@ export async function loadMyInterviewBoard(): Promise<{
   return { bookings, sessions, feedbackBookingIds }
 }
 
+function mapSessionRpcError(error: { message: string; code?: string; details?: string }) {
+  const text = `${error.code ?? ''} ${error.message} ${error.details ?? ''}`.toLowerCase()
+  if (text.includes('not_authorized') || error.code === '42501') {
+    return new Error('You can only update your own interview sessions.')
+  }
+  if (text.includes('booking_not_found') || text.includes('session_not_found') || error.code === 'P0002') {
+    return new Error('Interview session not found.')
+  }
+  if (text.includes('invalid_status') || error.code === 'P0001') {
+    return new Error('This interview cannot be updated from its current status.')
+  }
+  return new Error('Could not update this interview session. Try again.')
+}
+
 export async function startInterviewSession(bookingId: string): Promise<InterviewSessionBundle> {
   const booking = await getMyBooking(bookingId)
   if (booking.status === 'requested') {
@@ -145,10 +164,19 @@ export async function startInterviewSession(bookingId: string): Promise<Intervie
   if (state.kind !== 'ready' || !session) {
     throw new Error('You cannot join this interview.')
   }
-  return { booking, session }
+
+  const { error } = await supabase.rpc('start_interview_session', { p_booking_id: booking.id })
+  if (error) throw mapSessionRpcError(error)
+
+  const nextBooking = await getMyBooking(booking.id)
+  const nextSession = await getInterviewSessionByBooking(booking.id)
+  if (!nextSession) throw new Error('Interview session not found.')
+  return { booking: nextBooking, session: nextSession }
 }
 
 export async function endInterviewSession(bookingId: string): Promise<InterviewSessionBundle> {
+  const { error } = await supabase.rpc('complete_interview_session', { p_booking_id: bookingId })
+  if (error) throw mapSessionRpcError(error)
   const booking = await getMyBooking(bookingId)
   const session = await getInterviewSessionByBooking(booking.id)
   if (!session) throw new Error('Interview session not found.')

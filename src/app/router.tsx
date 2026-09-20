@@ -16,6 +16,7 @@ import { EarningsPage } from '../pages/EarningsPage.tsx'
 import { FeedbackPage } from '../pages/FeedbackPage.tsx'
 import { InterviewRoomPage } from '../pages/InterviewRoomPage.tsx'
 import { LoginPage } from '../pages/LoginPage.tsx'
+import { NotificationsPage } from '../pages/NotificationsPage.tsx'
 import { ProfilePage } from '../pages/ProfilePage.tsx'
 import { RegisterPage } from '../pages/RegisterPage.tsx'
 import { ReviewsPage } from '../pages/ReviewsPage.tsx'
@@ -66,6 +67,7 @@ export function AppRouter() {
             <Route path="/interviewer/feedback/:bookingId" element={<FeedbackPage />} />
             <Route path="/interviewer/reviews" element={<ReviewsPage />} />
             <Route path="/interviewer/earnings" element={<EarningsPage />} />
+            <Route path="/interviewer/notifications" element={<NotificationsPage />} />
             <Route path="/interviewer/profile" element={<ProfilePage />} />
             <Route path="/interviewer/verification" element={<VerificationPage />} />
             <Route path="/interviewer/settings" element={<SettingsPage />} />
