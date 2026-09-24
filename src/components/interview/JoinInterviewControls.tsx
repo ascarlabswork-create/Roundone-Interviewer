@@ -28,9 +28,13 @@ export function JoinInterviewControls({
     return <p className="text-sm text-slate-600">Interview starts at {interviewStartsAtCopy(booking)}</p>
   }
   if (state.kind !== 'ready') return null
+
+  const inProgress = booking.status === 'in_progress' || Boolean(session?.startedAt)
+  const label = inProgress ? 'Join Interview' : 'Enter Interview'
+
   return (
     <Link to={`/interviewer/interview/${booking.id}`}>
-      <Button size={size}>Join Interview</Button>
+      <Button size={size}>{label}</Button>
     </Link>
   )
 }

@@ -117,6 +117,7 @@ export {
 } from './interviewerBookings.ts'
 export {
   endInterviewSession,
+  getInterviewSession,
   getInterviewSessionByBooking,
   getInterviewSessionsByBookingIds,
   interviewJoinState,
