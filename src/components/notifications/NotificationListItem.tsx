@@ -57,7 +57,9 @@ export function NotificationListItem({
           <span className="text-sm font-medium text-navy-950">{display.title}</span>
           {item.readAt ? null : <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />}
         </span>
-        <span className={cn('mt-0.5 block text-slate-600', compact ? 'text-xs' : 'text-sm')}>{display.body}</span>
+        <span className={cn('mt-0.5 block whitespace-pre-line text-slate-600', compact ? 'text-xs' : 'text-sm')}>
+          {display.body}
+        </span>
         {display.dateLabel ? (
           <span className="mt-1 block text-xs text-slate-500">{display.dateLabel}</span>
         ) : null}

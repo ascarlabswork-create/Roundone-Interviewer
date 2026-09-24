@@ -77,8 +77,17 @@ export function NotificationBell() {
         await refresh()
       } catch (caught) {
         pushToast(caught instanceof Error ? caught.message : 'Could not update that notification. Try again.')
-        return
       }
+    }
+    if (
+      (item.kind === 'booking_requested' ||
+        item.kind === 'booking_confirmed' ||
+        item.kind === 'booking_rejected' ||
+        item.kind === 'booking_cancelled' ||
+        item.kind === 'booking_rescheduled') &&
+      !bookingId
+    ) {
+      pushToast('This notification is missing booking details.')
     }
     setOpen(false)
     navigate(notificationHref(item, booking))
