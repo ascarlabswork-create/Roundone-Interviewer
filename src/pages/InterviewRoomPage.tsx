@@ -286,7 +286,7 @@ export function InterviewRoomPage() {
   // Active in-progress interview room: open immediately without start RPC
   const isStarted = Boolean(session?.startedAt) || booking.status === 'in_progress'
   if (isStarted && session) {
-    return <ActiveInterviewRoom booking={booking} />
+    return <ActiveInterviewRoom booking={booking} session={session} />
   }
 
   // Pre-session waiting & ready room
@@ -459,9 +459,37 @@ function WaitingRoom({
   )
 }
 
-function ActiveInterviewRoom({ booking }: { booking: InterviewerBooking }) {
+function formatInterviewClock(totalSeconds: number) {
+  const safe = Math.max(0, Math.floor(totalSeconds))
+  const mm = String(Math.floor(safe / 60)).padStart(2, '0')
+  const ss = String(safe % 60).padStart(2, '0')
+  return `${mm}:${ss}`
+}
+
+function remainingInterviewSeconds(
+  durationMin: number,
+  startedAtIso: string,
+  nowMs = Date.now(),
+  endedAtIso?: string | null,
+) {
+  if (!Number.isFinite(durationMin) || durationMin <= 0) return null
+  const startedAtMs = Date.parse(startedAtIso)
+  if (Number.isNaN(startedAtMs)) return null
+  const durationSeconds = durationMin * 60
+  const endMs = endedAtIso ? Date.parse(endedAtIso) : nowMs
+  const referenceMs = Number.isNaN(endMs) ? nowMs : endMs
+  return Math.max(0, durationSeconds - Math.floor((referenceMs - startedAtMs) / 1000))
+}
+
+function ActiveInterviewRoom({
+  booking,
+  session,
+}: {
+  booking: InterviewerBooking
+  session: InterviewSessionRecord
+}) {
   const navigate = useNavigate()
-  const [seconds, setSeconds] = useState(60 * 60)
+  const [nowMs, setNowMs] = useState(() => Date.now())
   const [muted, setMuted] = useState(false)
   const [cameraOff, setCameraOff] = useState(false)
   const [notes, setNotes] = useState('Private notes. The candidate cannot see this pane.')
@@ -471,16 +499,34 @@ function ActiveInterviewRoom({ booking }: { booking: InterviewerBooking }) {
   const [ending, setEnding] = useState(false)
   const [endError, setEndError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const timer = window.setInterval(() => setSeconds((value) => Math.max(0, value - 1)), 1000)
-    return () => window.clearInterval(timer)
-  }, [])
+  const startedAt = session.startedAt
+  const endedAt = session.endedAt
+  const durationMin = booking.durationMin
+  const sessionEnded = Boolean(endedAt) || booking.status === 'completed'
+  const remainingSeconds = useMemo(() => {
+    if (!startedAt) return null
+    return remainingInterviewSeconds(durationMin, startedAt, nowMs, sessionEnded ? endedAt : null)
+  }, [durationMin, startedAt, endedAt, sessionEnded, nowMs])
+  const durationElapsed = remainingSeconds === 0
 
-  const clock = useMemo(() => {
-    const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
-    const ss = String(seconds % 60).padStart(2, '0')
-    return `${mm}:${ss}`
-  }, [seconds])
+  useEffect(() => {
+    if (sessionEnded || !startedAt) return
+    if (!Number.isFinite(durationMin) || durationMin <= 0) return
+
+    const tick = () => {
+      const next = Date.now()
+      setNowMs(next)
+      const remaining = remainingInterviewSeconds(durationMin, startedAt, next, null)
+      if (remaining !== null && remaining <= 0) {
+        window.clearInterval(timer)
+      }
+    }
+
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
+  }, [sessionEnded, startedAt, durationMin])
+
+  const clock = remainingSeconds === null ? '--:--' : formatInterviewClock(remainingSeconds)
 
   const candidateName = booking.candidate.name
   const isCoding = booking.interviewType.toLowerCase().includes('coding')
@@ -516,11 +562,32 @@ function ActiveInterviewRoom({ booking }: { booking: InterviewerBooking }) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="rounded-md bg-white/10 px-3 py-1 font-mono text-sm">{clock}</span>
-          <Button variant="danger" size="sm" onClick={() => void endSession()} disabled={ending}>
-            {ending ? 'Ending…' : 'End Session'}
-          </Button>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-3">
+            <span
+              className={`rounded-md px-3 py-1 font-mono text-sm ${
+                durationElapsed ? 'bg-amber-500/20 text-amber-200' : 'bg-white/10 text-white'
+              }`}
+              title={
+                remainingSeconds === null
+                  ? 'Interview duration is unavailable'
+                  : durationElapsed
+                    ? 'Scheduled duration has elapsed'
+                    : `${durationMin} minute session`
+              }
+            >
+              {clock}
+            </span>
+            <Button variant="danger" size="sm" onClick={() => void endSession()} disabled={ending}>
+              {ending ? 'Ending…' : 'End Session'}
+            </Button>
+          </div>
+          {durationElapsed ? (
+            <p className="text-[11px] text-amber-200/80">Scheduled duration elapsed · End when ready</p>
+          ) : null}
+          {remainingSeconds === null ? (
+            <p className="text-[11px] text-white/50">Duration unavailable</p>
+          ) : null}
         </div>
       </header>
 
