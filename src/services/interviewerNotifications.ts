@@ -166,7 +166,7 @@ export function notificationDisplay(
     const tz = booking?.displayTimezone ?? (typeof item.payload.timezone === 'string' ? item.payload.timezone : 'Asia/Kolkata')
     return {
       title: 'New Interview Request',
-      body: `${candidate} requested ${service}.`,
+      body: `${candidate} requested\n${service}`,
       dateLabel: startsAt ? formatDateShortInZone(startsAt, tz) : null,
       timeLabel: startsAt ? formatTimeInZone(startsAt, tz) : null,
       actionLabel: 'Review Booking',
@@ -179,6 +179,28 @@ export function notificationDisplay(
   const timeLabel = booking ? formatTimeInZone(booking.startsAtUtc, booking.displayTimezone) : null
   const hasBookingLink = Boolean(notificationBookingId(item)) && item.kind !== 'feedback_ready'
 
+  if (item.kind === 'booking_confirmed') {
+    return {
+      title: 'Booking Confirmed',
+      body: booking
+        ? `${booking.candidate.name} · ${booking.serviceName} is confirmed.`
+        : item.body,
+      dateLabel,
+      timeLabel,
+      actionLabel: hasBookingLink ? 'View booking' : null,
+    }
+  }
+  if (item.kind === 'booking_rejected') {
+    return {
+      title: 'Booking Rejected',
+      body: booking
+        ? `${booking.candidate.name} · ${booking.serviceName} was rejected.`
+        : item.body,
+      dateLabel,
+      timeLabel,
+      actionLabel: hasBookingLink ? 'View booking' : null,
+    }
+  }
   if (item.kind === 'booking_cancelled') {
     return {
       title: item.title,
