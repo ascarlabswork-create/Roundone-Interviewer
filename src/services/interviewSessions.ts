@@ -85,6 +85,15 @@ export function interviewJoinState(
   return { kind: 'ready' }
 }
 
+export async function getInterviewSession(bookingId: string): Promise<{
+  booking: InterviewerBooking
+  session: InterviewSessionRecord | null
+}> {
+  const booking = await getMyBooking(bookingId)
+  const session = await getInterviewSessionByBooking(booking.id)
+  return { booking, session }
+}
+
 export async function getInterviewSessionsByBookingIds(
   bookingIds: string[],
 ): Promise<Map<string, InterviewSessionRecord>> {
