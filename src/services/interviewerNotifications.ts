@@ -1,5 +1,12 @@
+import { formatDateShortInZone, formatTimeInZone } from '../lib/dates.ts'
 import { supabase } from '../lib/supabase.ts'
 import { requireUser } from './auth.ts'
+import {
+  getMyBookingsByIds,
+  interviewerBookingHref,
+  tabForBooking,
+  type InterviewerBooking,
+} from './interviewerBookings.ts'
 import { TABLES } from './tables.ts'
 
 export const NOTIFICATION_PAGE_SIZE = 50
@@ -32,6 +39,15 @@ export type InterviewerNotification = {
 export type NotificationBoard = {
   items: InterviewerNotification[]
   unreadCount: number
+  bookingsById: Map<string, InterviewerBooking>
+}
+
+export type NotificationDisplay = {
+  title: string
+  body: string
+  dateLabel: string | null
+  timeLabel: string | null
+  actionLabel: string | null
 }
 
 const SELECT_COLUMNS = 'id, kind, title, body, payload, read_at, created_at'
@@ -94,18 +110,38 @@ export function notificationBookingId(item: Pick<InterviewerNotification, 'paylo
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
-export function notificationHref(item: Pick<InterviewerNotification, 'kind' | 'payload'>) {
+export function notificationHref(
+  item: Pick<InterviewerNotification, 'kind' | 'payload'>,
+  booking?: InterviewerBooking | null,
+) {
   const bookingId = notificationBookingId(item)
+  if (bookingId && booking) {
+    if (item.kind === 'interview_reminder') {
+      return `/interviewer/interview/${bookingId}`
+    }
+    if (item.kind === 'interview_completed') {
+      return `/interviewer/feedback/${bookingId}`
+    }
+    const tab = tabForBooking(booking.status)
+    if (tab) return interviewerBookingHref(bookingId, booking.status)
+  }
   switch (item.kind) {
     case 'booking_requested':
-      return '/interviewer/bookings'
+      return bookingId ? interviewerBookingHref(bookingId, 'requested') : '/interviewer/bookings?tab=pending'
     case 'booking_cancelled':
     case 'booking_expired':
     case 'booking_rejected':
-      return '/interviewer/bookings?tab=cancelled'
+      return bookingId
+        ? interviewerBookingHref(bookingId, 'cancelled')
+        : '/interviewer/bookings?tab=cancelled'
     case 'booking_rescheduled':
+      return bookingId
+        ? interviewerBookingHref(bookingId, 'rescheduled')
+        : '/interviewer/bookings?tab=cancelled'
     case 'booking_confirmed':
-      return '/interviewer/bookings?tab=upcoming'
+      return bookingId
+        ? interviewerBookingHref(bookingId, 'confirmed')
+        : '/interviewer/bookings?tab=upcoming'
     case 'interview_reminder':
       return bookingId ? `/interviewer/interview/${bookingId}` : '/interviewer/bookings?tab=upcoming'
     case 'interview_completed':
@@ -113,7 +149,59 @@ export function notificationHref(item: Pick<InterviewerNotification, 'kind' | 'p
     case 'feedback_ready':
       return '/interviewer/reviews'
     default:
-      return bookingId ? '/interviewer/bookings' : '/interviewer/dashboard'
+      return bookingId ? interviewerBookingHref(bookingId) : '/interviewer/dashboard'
+  }
+}
+
+export function notificationDisplay(
+  item: InterviewerNotification,
+  booking?: InterviewerBooking | null,
+): NotificationDisplay {
+  if (item.kind === 'booking_requested') {
+    const candidate = booking?.candidate.name?.trim() || 'A candidate'
+    const service = booking?.serviceName?.trim() || 'a session'
+    return {
+      title: 'New Interview Request',
+      body: `${candidate} requested ${service}.`,
+      dateLabel: booking
+        ? formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)
+        : null,
+      timeLabel: booking ? formatTimeInZone(booking.startsAtUtc, booking.displayTimezone) : null,
+      actionLabel: 'Review Booking',
+    }
+  }
+
+  const dateLabel = booking
+    ? formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)
+    : null
+  const timeLabel = booking ? formatTimeInZone(booking.startsAtUtc, booking.displayTimezone) : null
+  const hasBookingLink = Boolean(notificationBookingId(item)) && item.kind !== 'feedback_ready'
+
+  if (item.kind === 'booking_cancelled') {
+    return {
+      title: item.title,
+      body: booking ? `${booking.candidate.name} · ${booking.serviceName} was cancelled.` : item.body,
+      dateLabel,
+      timeLabel,
+      actionLabel: hasBookingLink ? 'View booking' : null,
+    }
+  }
+  if (item.kind === 'booking_rescheduled') {
+    return {
+      title: item.title,
+      body: booking ? `${booking.serviceName} was moved to a new time.` : item.body,
+      dateLabel,
+      timeLabel,
+      actionLabel: hasBookingLink ? 'View booking' : null,
+    }
+  }
+
+  return {
+    title: item.title,
+    body: item.body,
+    dateLabel,
+    timeLabel,
+    actionLabel: hasBookingLink ? 'View booking' : null,
   }
 }
 
@@ -153,9 +241,16 @@ export async function countMyUnreadNotifications(): Promise<number> {
   return count ?? 0
 }
 
-export async function loadMyNotificationBoard(): Promise<NotificationBoard> {
-  const [items, unreadCount] = await Promise.all([listMyNotifications(), countMyUnreadNotifications()])
-  return { items, unreadCount }
+export async function loadMyNotificationBoard(limit = NOTIFICATION_PAGE_SIZE): Promise<NotificationBoard> {
+  const [items, unreadCount] = await Promise.all([listMyNotifications(limit), countMyUnreadNotifications()])
+  const bookingIds = items.map(notificationBookingId).filter((id): id is string => Boolean(id))
+  let bookingsById = new Map<string, InterviewerBooking>()
+  try {
+    bookingsById = await getMyBookingsByIds(bookingIds)
+  } catch {
+    bookingsById = new Map()
+  }
+  return { items, unreadCount, bookingsById }
 }
 
 export async function markNotificationRead(id: string): Promise<void> {

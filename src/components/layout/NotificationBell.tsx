@@ -1,19 +1,11 @@
-import {
-  Bell,
-  CalendarClock,
-  CalendarX2,
-  CheckCircle2,
-  ClipboardList,
-  Star,
-} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { cn } from '../../lib/cn.ts'
+import { NotificationListItem } from '../notifications/NotificationListItem.tsx'
 import {
-  formatNotificationTime,
   loadMyNotificationBoard,
   markAllNotificationsRead,
   markNotificationRead,
+  notificationBookingId,
   notificationHref,
   type InterviewerNotification,
   type NotificationBoard,
@@ -21,30 +13,9 @@ import {
 import { useToast } from '../../state/toast.tsx'
 import { Button } from '../ui/Button.tsx'
 import { Skeleton } from '../ui/primitives.tsx'
+import { Bell } from 'lucide-react'
 
 const POLL_MS = 45_000
-
-function KindIcon({ kind }: { kind: string }) {
-  const className = 'mt-0.5 h-4 w-4 shrink-0 text-slate-500'
-  switch (kind) {
-    case 'booking_requested':
-      return <ClipboardList className={className} />
-    case 'booking_cancelled':
-    case 'booking_rejected':
-    case 'booking_expired':
-      return <CalendarX2 className={className} />
-    case 'booking_rescheduled':
-    case 'booking_confirmed':
-    case 'interview_reminder':
-      return <CalendarClock className={className} />
-    case 'interview_completed':
-      return <CheckCircle2 className={className} />
-    case 'feedback_ready':
-      return <Star className={className} />
-    default:
-      return <Bell className={className} />
-  }
-}
 
 export function NotificationBell() {
   const navigate = useNavigate()
@@ -98,6 +69,8 @@ export function NotificationBell() {
   const unreadCount = board?.unreadCount ?? 0
 
   async function onOpenItem(item: InterviewerNotification) {
+    const bookingId = notificationBookingId(item)
+    const booking = bookingId ? board?.bookingsById.get(bookingId) ?? null : null
     if (!item.readAt) {
       try {
         await markNotificationRead(item.id)
@@ -108,7 +81,7 @@ export function NotificationBell() {
       }
     }
     setOpen(false)
-    navigate(notificationHref(item))
+    navigate(notificationHref(item, booking))
   }
 
   async function onMarkAll() {
@@ -143,7 +116,7 @@ export function NotificationBell() {
       </button>
       {open ? (
         <div
-          className="absolute right-0 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg sm:w-96"
+          className="absolute right-0 mt-2 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
           role="dialog"
           aria-label="Notifications"
         >
@@ -175,28 +148,19 @@ export function NotificationBell() {
           ) : null}
           {board && board.items.length > 0 ? (
             <ul className="max-h-96 overflow-y-auto p-1">
-              {board.items.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => void onOpenItem(item)}
-                    className={cn(
-                      'flex w-full gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-slate-50',
-                      item.readAt ? 'opacity-80' : 'bg-blue-50/60',
-                    )}
-                  >
-                    <KindIcon kind={item.kind} />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-medium text-navy-950">{item.title}</span>
-                        {item.readAt ? null : <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-slate-600">{item.body}</span>
-                      <span className="mt-1 block text-[11px] text-slate-400">{formatNotificationTime(item.createdAt)}</span>
-                    </span>
-                  </button>
-                </li>
-              ))}
+              {board.items.map((item) => {
+                const bookingId = notificationBookingId(item)
+                return (
+                  <li key={item.id}>
+                    <NotificationListItem
+                      item={item}
+                      booking={bookingId ? board.bookingsById.get(bookingId) ?? null : null}
+                      compact
+                      onOpen={() => void onOpenItem(item)}
+                    />
+                  </li>
+                )
+              })}
             </ul>
           ) : null}
           <div className="border-t border-slate-100 px-3 py-2">

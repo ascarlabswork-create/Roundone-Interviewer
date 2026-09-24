@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
@@ -6,8 +6,9 @@ import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
 import { JoinInterviewControls } from '../components/interview/JoinInterviewControls.tsx'
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
-import { Card, EmptyState, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
+import { Badge, Card, EmptyState, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
 import { formatDateLongInZone, formatDateShortInZone, formatTimeInZone, timezoneLabel } from '../lib/dates.ts'
+import { formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import {
   BOOKING_ALREADY_UPDATED,
@@ -17,9 +18,11 @@ import {
   cancelMyBooking,
   confirmBooking,
   isActionableBookingRequest,
+  isBookingId,
   listMyBookableSlots,
   rejectBooking,
   rescheduleMyBooking,
+  tabForBooking,
   type BookableSlotRow,
   type InterviewerBooking,
   type InterviewerBookingTab,
@@ -55,8 +58,10 @@ const emptyCopy: Record<InterviewerBookingTab, { title: string; body: string }> 
 export function BookingsPage() {
   const [params, setParams] = useSearchParams()
   const requestedTab = params.get('tab')
+  const bookingParam = params.get('booking')
   const tab: InterviewerBookingTab = isBookingTab(requestedTab) ? requestedTab : 'pending'
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [deepLinkError, setDeepLinkError] = useState<string | null>(null)
   const [rejectId, setRejectId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [cancelId, setCancelId] = useState<string | null>(null)
@@ -82,6 +87,59 @@ export function BookingsPage() {
   const detail = state.status === 'success' ? state.data.bookings.find((item) => item.id === detailId) : undefined
   const sessions = state.status === 'success' ? state.data.sessions : new Map<string, InterviewSessionRecord>()
   const feedbackBookingIds = state.status === 'success' ? state.data.feedbackBookingIds : new Set<string>()
+
+  const writeParams = useCallback(
+    (nextTab: InterviewerBookingTab, bookingId: string | null) => {
+      const next = new URLSearchParams()
+      next.set('tab', nextTab)
+      if (bookingId) next.set('booking', bookingId)
+      setParams(next, { replace: true })
+    },
+    [setParams],
+  )
+
+  function openDetails(booking: InterviewerBooking) {
+    const nextTab = tabForBooking(booking.status) ?? tab
+    writeParams(nextTab, booking.id)
+    setDetailId(booking.id)
+    setDeepLinkError(null)
+  }
+
+  function closeDetails() {
+    writeParams(tab, null)
+    setDetailId(null)
+  }
+
+  const loadedBookings = state.status === 'success' ? state.data.bookings : null
+
+  useEffect(() => {
+    if (!bookingParam) {
+      setDeepLinkError(null)
+      setDetailId(null)
+      return
+    }
+    if (!isBookingId(bookingParam)) {
+      setDetailId(null)
+      setDeepLinkError('This booking link is not valid.')
+      return
+    }
+    if (state.status === 'loading') return
+    if (state.status === 'error' || !loadedBookings) {
+      setDetailId(null)
+      setDeepLinkError('Could not load this booking. Try again.')
+      return
+    }
+    const found = loadedBookings.find((item) => item.id === bookingParam)
+    if (!found) {
+      setDetailId(null)
+      setDeepLinkError('This booking is not available.')
+      return
+    }
+    setDeepLinkError(null)
+    setDetailId(found.id)
+    const nextTab = tabForBooking(found.status)
+    if (nextTab && nextTab !== tab) writeParams(nextTab, found.id)
+  }, [bookingParam, state.status, loadedBookings, tab, writeParams])
 
   async function runAction(id: string, action: () => Promise<unknown>, successMessage: string) {
     setActingId(id)
@@ -146,10 +204,7 @@ export function BookingsPage() {
       <Tabs
         value={tab}
         onChange={(id) => {
-          const next = new URLSearchParams(params)
-          if (id === 'pending') next.delete('tab')
-          else next.set('tab', id)
-          setParams(next, { replace: true })
+          writeParams(id as InterviewerBookingTab, null)
         }}
         items={tabs.map((item) => ({
           id: item,
@@ -157,6 +212,10 @@ export function BookingsPage() {
           count: grouped[item].length,
         }))}
       />
+
+      {deepLinkError ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{deepLinkError}</div>
+      ) : null}
 
       {state.status === 'loading' ? <Skeleton className="h-64" /> : null}
       {state.status === 'error' ? <ErrorState body={state.error} onRetry={state.reload} /> : null}
@@ -199,7 +258,7 @@ export function BookingsPage() {
                       setRescheduleDate(date)
                       void loadRescheduleSlots(booking, date)
                     }}
-                    onDetails={() => setDetailId(booking.id)}
+                    onDetails={() => openDetails(booking)}
                     session={sessions.get(booking.id) ?? null}
                     hasFeedback={feedbackBookingIds.has(booking.id)}
                   />
@@ -240,7 +299,7 @@ export function BookingsPage() {
                       setRescheduleDate(date)
                       void loadRescheduleSlots(booking, date)
                     }}
-                    onDetails={() => setDetailId(booking.id)}
+                    onDetails={() => openDetails(booking)}
                     session={sessions.get(booking.id) ?? null}
                     hasFeedback={feedbackBookingIds.has(booking.id)}
                   />
@@ -251,18 +310,28 @@ export function BookingsPage() {
         </>
       ) : null}
 
-      <SlideOver title="Booking details" open={Boolean(detail)} onClose={() => setDetailId(null)}>
+      <SlideOver
+        title={detail && isActionableBookingRequest(detail) ? 'Booking Request' : 'Booking details'}
+        open={Boolean(detail)}
+        onClose={closeDetails}
+      >
         {detail ? (
           <BookingDetails
             booking={detail}
             session={sessions.get(detail.id) ?? null}
             hasFeedback={feedbackBookingIds.has(detail.id)}
+            actingId={actingId}
+            onConfirm={() => void onAccept(detail.id)}
+            onReject={() => {
+              setRejectId(detail.id)
+              setRejectReason('')
+            }}
           />
         ) : null}
       </SlideOver>
 
       <SlideOver
-        title="Reject booking"
+        title="Reject Booking"
         open={Boolean(rejectId)}
         onClose={() => {
           if (actingId) return
@@ -357,7 +426,13 @@ function CandidateSummary({ candidate }: { candidate: InterviewerBooking['candid
       <p className="font-medium text-navy-950">{candidate.name}</p>
       {roleLine ? <p className="text-xs text-slate-500">{roleLine}</p> : null}
       {candidate.skills.length > 0 ? (
-        <p className="mt-1 text-xs text-slate-500">{candidate.skills.join(', ')}</p>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {candidate.skills.map((skill) => (
+            <span key={skill} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+              {skill}
+            </span>
+          ))}
+        </div>
       ) : null}
     </div>
   )
@@ -367,47 +442,101 @@ function BookingDetails({
   booking,
   session,
   hasFeedback,
+  actingId,
+  onConfirm,
+  onReject,
 }: {
   booking: InterviewerBooking
   session: InterviewSessionRecord | null
   hasFeedback: boolean
+  actingId: string | null
+  onConfirm: () => void
+  onReject: () => void
 }) {
+  const actionable = isActionableBookingRequest(booking)
+  const busy = actingId === booking.id
+  const locked = actingId !== null
+  const fee = formatINR(Math.trunc(booking.sessionFeePaise / 100))
   return (
-    <div className="space-y-3 text-sm">
-      <p>
-        <span className="text-slate-500">Status</span>
-        <br />
-        <LiveBookingStatusBadge status={booking.status} />
-      </p>
-      <p>
-        <span className="text-slate-500">Candidate</span>
-        <br />
-        <CandidateSummary candidate={booking.candidate} />
-      </p>
-      <p>
-        <span className="text-slate-500">Service</span>
-        <br />
-        <span className="font-medium text-navy-950">{booking.serviceName}</span>
-      </p>
-      <p>
-        <span className="text-slate-500">Date</span>
-        <br />
-        <span className="font-medium text-navy-950">
-          {formatDateLongInZone(booking.startsAtUtc, booking.displayTimezone)} ({timezoneLabel(booking.displayTimezone)})
-        </span>
-      </p>
-      <p>
-        <span className="text-slate-500">Time</span>
-        <br />
-        <span className="font-medium text-navy-950">
-          {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)} ({timezoneLabel(booking.displayTimezone)})
-        </span>
-      </p>
-      <p>
-        <span className="text-slate-500">Duration</span>
-        <br />
-        <span className="font-medium text-navy-950">{booking.durationMin} minutes</span>
-      </p>
+    <div className="space-y-5 text-sm">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</p>
+        <div className="mt-1">
+          <LiveBookingStatusBadge status={booking.status} />
+        </div>
+        {!actionable ? (
+          <p className="mt-2 text-slate-600">
+            This request is no longer waiting for confirmation. The current status is shown above.
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Candidate summary</p>
+        <p className="mt-1 font-medium text-navy-950">{booking.candidate.name}</p>
+        <dl className="mt-2 space-y-1 text-slate-600">
+          <div className="flex flex-wrap justify-between gap-2">
+            <dt>Target role</dt>
+            <dd className="font-medium text-navy-950">{booking.candidate.targetRole || '—'}</dd>
+          </div>
+          <div className="flex flex-wrap justify-between gap-2">
+            <dt>Level</dt>
+            <dd className="font-medium text-navy-950">{booking.candidate.candidateLevel || '—'}</dd>
+          </div>
+        </dl>
+        <div className="mt-2 flex flex-wrap gap-1">
+          {booking.candidate.skills.length > 0 ? (
+            booking.candidate.skills.map((skill) => <Badge key={skill}>{skill}</Badge>)
+          ) : (
+            <span className="text-slate-500">No skills listed</span>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Service</p>
+        <dl className="mt-2 space-y-1 text-slate-600">
+          <div className="flex flex-wrap justify-between gap-2">
+            <dt>Service</dt>
+            <dd className="font-medium text-navy-950">{booking.serviceName}</dd>
+          </div>
+          <div className="flex flex-wrap justify-between gap-2">
+            <dt>Interview type</dt>
+            <dd className="font-medium text-navy-950">{booking.interviewType}</dd>
+          </div>
+          <div className="flex flex-wrap justify-between gap-2">
+            <dt>Duration</dt>
+            <dd className="font-medium text-navy-950">{booking.durationMin} minutes</dd>
+          </div>
+          <div className="flex flex-wrap justify-between gap-2">
+            <dt>Fee</dt>
+            <dd className="font-medium text-navy-950">{fee}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Schedule</p>
+        <dl className="mt-2 space-y-1 text-slate-600">
+          <div className="flex flex-wrap justify-between gap-2">
+            <dt>Date</dt>
+            <dd className="font-medium text-navy-950">
+              {formatDateLongInZone(booking.startsAtUtc, booking.displayTimezone)}
+            </dd>
+          </div>
+          <div className="flex flex-wrap justify-between gap-2">
+            <dt>Time</dt>
+            <dd className="font-medium text-navy-950">
+              {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)}
+            </dd>
+          </div>
+          <div className="flex flex-wrap justify-between gap-2">
+            <dt>Timezone</dt>
+            <dd className="font-medium text-navy-950">{timezoneLabel(booking.displayTimezone)}</dd>
+          </div>
+        </dl>
+      </div>
+
       {booking.status === 'rejected' && booking.rejectionReason ? (
         <p>
           <span className="text-slate-500">Rejection reason</span>
@@ -415,10 +544,22 @@ function BookingDetails({
           <span className="font-medium text-navy-950">{booking.rejectionReason}</span>
         </p>
       ) : null}
-      <div className="flex flex-col gap-2 pt-2">
-        <JoinInterviewControls booking={booking} session={session} size="md" />
-        <FeedbackAction booking={booking} hasFeedback={hasFeedback} size="md" />
-      </div>
+
+      {actionable ? (
+        <div className="flex flex-col gap-2 pt-1">
+          <Button fullWidth onClick={onConfirm} disabled={locked}>
+            {busy ? 'Confirming…' : 'Confirm Booking'}
+          </Button>
+          <Button fullWidth variant="outline" onClick={onReject} disabled={locked}>
+            Reject Booking
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 pt-1">
+          <JoinInterviewControls booking={booking} session={session} size="md" />
+          <FeedbackAction booking={booking} hasFeedback={hasFeedback} size="md" />
+        </div>
+      )}
     </div>
   )
 }
@@ -457,7 +598,7 @@ function BookingActions({
       {isActionableBookingRequest(booking) ? (
         <>
           <Button size="sm" onClick={() => onAccept(booking.id)} disabled={locked}>
-            {busy ? 'Accepting…' : 'Accept'}
+            {busy ? 'Confirming…' : 'Confirm'}
           </Button>
           <Button size="sm" variant="outline" onClick={onReject} disabled={locked}>
             Reject

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
+import { NotificationListItem } from '../components/notifications/NotificationListItem.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
@@ -25,6 +26,7 @@ import { loadMyAvailabilityBoard } from '../services/interviewerAvailability.ts'
 import {
   BOOKING_ALREADY_UPDATED,
   confirmBooking,
+  interviewerBookingHref,
   rejectBooking,
   type InterviewerBooking,
 } from '../services/interviewerBookings.ts'
@@ -43,10 +45,9 @@ import {
 import { loadMyEarnings } from '../services/interviewerEarnings.ts'
 import { isProfileSetupComplete } from '../services/interviewerProfile.ts'
 import {
-  formatNotificationTime,
-  listMyNotifications,
-  countMyUnreadNotifications,
+  loadMyNotificationBoard,
   markNotificationRead,
+  notificationBookingId,
   notificationHref,
 } from '../services/interviewerNotifications.ts'
 import { getMyServices } from '../services/interviewerServices.ts'
@@ -114,10 +115,7 @@ export function DashboardPage() {
     [],
   )
   const reviews = useAsync(() => loadMyPublicReviewSummary(), [])
-  const notifications = useAsync(async () => {
-    const [items, unreadCount] = await Promise.all([listMyNotifications(4), countMyUnreadNotifications()])
-    return { items, unreadCount }
-  }, [])
+  const notifications = useAsync(() => loadMyNotificationBoard(4), [])
   const [actingId, setActingId] = useState<string | null>(null)
 
   const bookings = board.status === 'success' ? board.data.bookings : []
@@ -258,7 +256,7 @@ export function DashboardPage() {
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy-950">Pending booking requests</h2>
-          <Link to="/interviewer/bookings" className="text-sm font-medium text-blue-700">
+          <Link to="/interviewer/bookings?tab=pending" className="text-sm font-medium text-blue-700">
             View Bookings
           </Link>
         </div>
@@ -289,7 +287,7 @@ export function DashboardPage() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 sm:mt-0">
                   <Button size="sm" onClick={() => void onConfirm(booking.id)} disabled={actingId !== null}>
-                    {actingId === booking.id ? 'Confirming…' : 'Confirm'}
+                    {actingId === booking.id ? 'Confirming…' : 'Confirm Booking'}
                   </Button>
                   <Button
                     size="sm"
@@ -297,11 +295,11 @@ export function DashboardPage() {
                     onClick={() => void onReject(booking.id)}
                     disabled={actingId !== null}
                   >
-                    Reject
+                    Reject Booking
                   </Button>
-                  <Link to="/interviewer/bookings">
+                  <Link to={interviewerBookingHref(booking.id, booking.status)}>
                     <Button size="sm" variant="ghost">
-                      View
+                      Review Booking
                     </Button>
                   </Link>
                 </div>
@@ -612,37 +610,35 @@ export function DashboardPage() {
         ) : null}
         {notifications.status === 'success' && notifications.data.items.length > 0 ? (
           <Card className="divide-y divide-slate-100">
-            {notifications.data.items.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-slate-50"
-                onClick={() => {
-                  void (async () => {
-                    if (!item.readAt) {
-                      try {
-                        await markNotificationRead(item.id)
-                        notifications.reload()
-                      } catch (caught) {
-                        pushToast(caught instanceof Error ? caught.message : 'Could not update that notification. Try again.')
-                        return
+            {notifications.data.items.map((item) => {
+              const bookingId = notificationBookingId(item)
+              const booking = bookingId ? notifications.data.bookingsById.get(bookingId) ?? null : null
+              return (
+                <NotificationListItem
+                  key={item.id}
+                  item={item}
+                  booking={booking}
+                  onOpen={() => {
+                    void (async () => {
+                      if (!item.readAt) {
+                        try {
+                          await markNotificationRead(item.id)
+                          notifications.reload()
+                        } catch (caught) {
+                          pushToast(
+                            caught instanceof Error
+                              ? caught.message
+                              : 'Could not update that notification. Try again.',
+                          )
+                          return
+                        }
                       }
-                    }
-                    navigate(notificationHref(item))
-                  })()
-                }}
-              >
-                <Bell className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-medium text-navy-950">{item.title}</span>
-                    {item.readAt ? null : <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />}
-                  </span>
-                  <span className="mt-0.5 block text-xs text-slate-600">{item.body}</span>
-                  <span className="mt-1 block text-[11px] text-slate-400">{formatNotificationTime(item.createdAt)}</span>
-                </span>
-              </button>
-            ))}
+                      navigate(notificationHref(item, booking))
+                    })()
+                  }}
+                />
+              )
+            })}
           </Card>
         ) : null}
       </section>

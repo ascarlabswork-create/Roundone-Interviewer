@@ -112,8 +112,12 @@ function readNumber(row: Record<string, unknown>, key: string) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-function isUuid(value: string) {
+export function isBookingId(value: string) {
   return UUID_PATTERN.test(value)
+}
+
+function isUuid(value: string) {
+  return isBookingId(value)
 }
 
 function isDbBookingStatus(value: string): value is DbBookingStatus {
@@ -139,7 +143,7 @@ export function mapBookingRpcError(error: { message: string; code?: string; deta
   if (text.includes('booking_not_found') || error.code === 'P0002') {
     return new Error('Booking not found.')
   }
-  return new Error(error.message || 'Could not update this booking.')
+  return new Error('Could not update this booking. Try again.')
 }
 
 async function myInterviewerProfileId() {
@@ -391,6 +395,22 @@ export async function getMyBooking(bookingId: string): Promise<InterviewerBookin
   }
   fail(lastError)
   throw new Error('Booking not found.')
+}
+
+export async function getMyBookingsByIds(ids: string[]): Promise<Map<string, InterviewerBooking>> {
+  const wanted = new Set(ids.filter(isUuid))
+  const found = new Map<string, InterviewerBooking>()
+  if (wanted.size === 0) return found
+  const bookings = await getMyBookings()
+  for (const booking of bookings) {
+    if (wanted.has(booking.id)) found.set(booking.id, booking)
+  }
+  return found
+}
+
+export function interviewerBookingHref(bookingId: string, status?: DbBookingStatus) {
+  const tab = status ? tabForBooking(status) ?? 'pending' : 'pending'
+  return `/interviewer/bookings?tab=${tab}&booking=${bookingId}`
 }
 
 export async function getPendingBookingRequests(): Promise<InterviewerBooking[]> {
