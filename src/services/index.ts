@@ -152,6 +152,7 @@ export {
   listMyNotifications,
   loadMyNotificationBoard,
   markAllNotificationsRead,
+  markBookingNotificationsRead,
   markNotificationRead,
   notificationDisplay,
   notificationHref,

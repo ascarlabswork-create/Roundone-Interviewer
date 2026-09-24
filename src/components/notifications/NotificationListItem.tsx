@@ -58,10 +58,11 @@ export function NotificationListItem({
           {item.readAt ? null : <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />}
         </span>
         <span className={cn('mt-0.5 block text-slate-600', compact ? 'text-xs' : 'text-sm')}>{display.body}</span>
-        {display.dateLabel || display.timeLabel ? (
-          <span className="mt-1 block text-xs text-slate-500">
-            {[display.dateLabel, display.timeLabel].filter(Boolean).join(' · ')}
-          </span>
+        {display.dateLabel ? (
+          <span className="mt-1 block text-xs text-slate-500">{display.dateLabel}</span>
+        ) : null}
+        {display.timeLabel ? (
+          <span className="block text-xs text-slate-500">{display.timeLabel}</span>
         ) : null}
         <span className="mt-1 block text-[11px] text-slate-400">{formatNotificationTime(item.createdAt)}</span>
         {display.actionLabel ? (

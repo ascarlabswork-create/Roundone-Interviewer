@@ -158,15 +158,17 @@ export function notificationDisplay(
   booking?: InterviewerBooking | null,
 ): NotificationDisplay {
   if (item.kind === 'booking_requested') {
-    const candidate = booking?.candidate.name?.trim() || 'A candidate'
-    const service = booking?.serviceName?.trim() || 'a session'
+    const payloadCandidate = typeof item.payload.candidate_name === 'string' ? item.payload.candidate_name : null
+    const payloadService = typeof item.payload.service_name === 'string' ? item.payload.service_name : null
+    const candidate = booking?.candidate.name?.trim() || payloadCandidate || 'A candidate'
+    const service = booking?.serviceName?.trim() || payloadService || 'a session'
+    const startsAt = booking?.startsAtUtc ?? (typeof item.payload.starts_at === 'string' ? item.payload.starts_at : null)
+    const tz = booking?.displayTimezone ?? (typeof item.payload.timezone === 'string' ? item.payload.timezone : 'Asia/Kolkata')
     return {
       title: 'New Interview Request',
       body: `${candidate} requested ${service}.`,
-      dateLabel: booking
-        ? formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)
-        : null,
-      timeLabel: booking ? formatTimeInZone(booking.startsAtUtc, booking.displayTimezone) : null,
+      dateLabel: startsAt ? formatDateShortInZone(startsAt, tz) : null,
+      timeLabel: startsAt ? formatTimeInZone(startsAt, tz) : null,
       actionLabel: 'Review Booking',
     }
   }
@@ -259,6 +261,18 @@ export async function markNotificationRead(id: string): Promise<void> {
     .from(TABLES.notifications)
     .update({ read_at: new Date().toISOString() })
     .eq('id', id)
+    .is('read_at', null)
+  mapUpdateError(error)
+}
+
+export async function markBookingNotificationsRead(bookingId: string): Promise<void> {
+  if (!bookingId) return
+  const user = await requireUser()
+  const { error } = await supabase
+    .from(TABLES.notifications)
+    .update({ read_at: new Date().toISOString() })
+    .eq('profile_id', user.id)
+    .contains('payload', { booking_id: bookingId })
     .is('read_at', null)
   mapUpdateError(error)
 }

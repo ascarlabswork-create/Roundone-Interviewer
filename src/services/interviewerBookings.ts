@@ -59,7 +59,7 @@ export type InterviewerBooking = {
   candidate: InterviewerBookingCandidate
 }
 
-export const BOOKING_ALREADY_UPDATED = 'This booking has already been updated.'
+export const BOOKING_ALREADY_UPDATED = 'This booking is no longer available for confirmation.'
 
 const BOOKING_COLUMNS = [
   'id',
@@ -124,15 +124,21 @@ function isDbBookingStatus(value: string): value is DbBookingStatus {
   return (DB_BOOKING_STATUSES as readonly string[]).includes(value)
 }
 
-function fail(error: { message: string; code?: string; details?: string } | null) {
-  if (error) throw mapBookingRpcError(error)
+function fail(
+  error: { message: string; code?: string; details?: string } | null,
+  action?: 'confirm' | 'reject' | 'cancel' | 'reschedule' | 'load',
+) {
+  if (error) throw mapBookingRpcError(error, action)
 }
 
 function errorText(error: { message: string; code?: string; details?: string }) {
   return `${error.code ?? ''} ${error.message} ${error.details ?? ''}`.toLowerCase()
 }
 
-export function mapBookingRpcError(error: { message: string; code?: string; details?: string }) {
+export function mapBookingRpcError(
+  error: { message: string; code?: string; details?: string },
+  action?: 'confirm' | 'reject' | 'cancel' | 'reschedule' | 'load',
+) {
   const text = errorText(error)
   if (text.includes('invalid_status') || error.code === 'P0001') {
     return new Error(BOOKING_ALREADY_UPDATED)
@@ -141,7 +147,16 @@ export function mapBookingRpcError(error: { message: string; code?: string; deta
     return new Error('You can only update your own booking requests.')
   }
   if (text.includes('booking_not_found') || error.code === 'P0002') {
-    return new Error('Booking not found.')
+    return new Error('This booking is no longer available.')
+  }
+  if (action === 'confirm') {
+    return new Error('Unable to confirm the booking. Please try again.')
+  }
+  if (action === 'reject') {
+    return new Error('Unable to reject the booking. Please try again.')
+  }
+  if (action === 'load') {
+    return new Error('Unable to load this booking.')
   }
   return new Error('Could not update this booking. Try again.')
 }
@@ -378,23 +393,23 @@ export async function getMyBookings(): Promise<InterviewerBooking[]> {
 }
 
 export async function getMyBooking(bookingId: string): Promise<InterviewerBooking> {
-  if (!isUuid(bookingId)) throw new Error('Booking not found.')
+  if (!isUuid(bookingId)) throw new Error('This booking is no longer available.')
   const interviewerProfileId = await myInterviewerProfileId()
   let lastError: { message: string; code?: string; details?: string } | null = null
   for (const select of BOOKING_SELECTS) {
     const result = await selectMyBooking(bookingId, interviewerProfileId, select)
     if (!result.error) {
       const booking = parseBooking(result.data)
-      if (!booking) throw new Error('Booking not found.')
+      if (!booking) throw new Error('This booking is no longer available.')
       const summaries = await getSummariesByBookingId([booking.id])
       const merged = mergeSummaries([booking], summaries)[0]
-      if (!merged) throw new Error('Booking not found.')
+      if (!merged) throw new Error('This booking is no longer available.')
       return merged
     }
     lastError = result.error
   }
-  fail(lastError)
-  throw new Error('Booking not found.')
+  fail(lastError, 'load')
+  throw new Error('Unable to load this booking.')
 }
 
 export async function getMyBookingsByIds(ids: string[]): Promise<Map<string, InterviewerBooking>> {
@@ -434,18 +449,18 @@ export async function getCancelledBookings(): Promise<InterviewerBooking[]> {
 }
 
 export async function confirmBooking(bookingId: string): Promise<InterviewerBooking> {
-  if (!isUuid(bookingId)) throw new Error('Booking not found.')
+  if (!isUuid(bookingId)) throw new Error('This booking is no longer available.')
   const current = await getMyBooking(bookingId)
   if (current.status !== 'requested') {
     throw new Error(BOOKING_ALREADY_UPDATED)
   }
   const { error } = await supabase.rpc('confirm_booking', { p_booking_id: bookingId })
-  fail(error)
+  fail(error, 'confirm')
   return getMyBooking(bookingId)
 }
 
 export async function rejectBooking(bookingId: string, reason?: string): Promise<InterviewerBooking> {
-  if (!isUuid(bookingId)) throw new Error('Booking not found.')
+  if (!isUuid(bookingId)) throw new Error('This booking is no longer available.')
   const current = await getMyBooking(bookingId)
   if (current.status !== 'requested') {
     throw new Error(BOOKING_ALREADY_UPDATED)
@@ -455,7 +470,7 @@ export async function rejectBooking(bookingId: string, reason?: string): Promise
     p_booking_id: bookingId,
     p_reason: trimmed,
   })
-  fail(error)
+  fail(error, 'reject')
   return getMyBooking(bookingId)
 }
 

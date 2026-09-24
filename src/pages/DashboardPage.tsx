@@ -46,6 +46,7 @@ import { loadMyEarnings } from '../services/interviewerEarnings.ts'
 import { isProfileSetupComplete } from '../services/interviewerProfile.ts'
 import {
   loadMyNotificationBoard,
+  markBookingNotificationsRead,
   markNotificationRead,
   notificationBookingId,
   notificationHref,
@@ -141,9 +142,11 @@ export function DashboardPage() {
     setActingId(id)
     try {
       await action()
+      void markBookingNotificationsRead(id).catch(() => {})
       pushToast(successMessage)
       board.reload()
       earnings.reload()
+      notifications.reload()
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Could not update this booking.'
       pushToast(message)

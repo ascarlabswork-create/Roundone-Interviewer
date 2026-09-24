@@ -27,6 +27,7 @@ import {
   type InterviewerBooking,
   type InterviewerBookingTab,
 } from '../services/interviewerBookings.ts'
+import { markBookingNotificationsRead } from '../services/interviewerNotifications.ts'
 import { loadMyInterviewBoard, type InterviewSessionRecord } from '../services/interviewSessions.ts'
 import { useToast } from '../state/toast.tsx'
 
@@ -120,19 +121,19 @@ export function BookingsPage() {
     }
     if (!isBookingId(bookingParam)) {
       setDetailId(null)
-      setDeepLinkError('This booking link is not valid.')
+      setDeepLinkError('This booking is no longer available.')
       return
     }
     if (state.status === 'loading') return
     if (state.status === 'error' || !loadedBookings) {
       setDetailId(null)
-      setDeepLinkError('Could not load this booking. Try again.')
+      setDeepLinkError('Unable to load this booking.')
       return
     }
     const found = loadedBookings.find((item) => item.id === bookingParam)
     if (!found) {
       setDetailId(null)
-      setDeepLinkError('This booking is not available.')
+      setDeepLinkError('This booking is no longer available.')
       return
     }
     setDeepLinkError(null)
@@ -145,6 +146,7 @@ export function BookingsPage() {
     setActingId(id)
     try {
       await action()
+      void markBookingNotificationsRead(id).catch(() => {})
       pushToast(successMessage)
       setRejectId(null)
       setRejectReason('')
@@ -350,7 +352,7 @@ export function BookingsPage() {
           />
         </div>
         <Button className="mt-6" fullWidth onClick={() => void onRejectConfirm()} disabled={Boolean(actingId)}>
-          {actingId ? 'Rejecting…' : 'Reject booking'}
+          {actingId ? 'Rejecting…' : 'Reject Booking'}
         </Button>
       </SlideOver>
 
