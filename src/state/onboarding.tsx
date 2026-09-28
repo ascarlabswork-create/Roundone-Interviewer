@@ -19,9 +19,6 @@ export const emptyDraft = (): OnboardingDraft => ({
   professionalSummary: '',
   previousCompanies: '',
   skills: [],
-  technologies: [],
-  industries: [],
-  interviewTypes: [],
   candidateLevels: [],
   targetRoles: [],
   firstService: {

@@ -1,21 +1,12 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { ExpertiseFields } from '../components/profile/ExpertiseFields.tsx'
 import { AvailabilityStep, validateOnboardingAvailability } from '../components/setup/AvailabilityStep.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Stepper } from '../components/ui/dashboard.tsx'
 import { Card, FieldLabel, TextArea, TextInput } from '../components/ui/primitives.tsx'
-import { SuggestedSelect, SuggestionChips } from '../components/ui/suggestions.tsx'
-import {
-  CANDIDATE_LEVELS,
-  INDUSTRIES,
-  INTERVIEW_TYPES,
-  ONBOARDING_STEPS,
-  SKILLS,
-  TARGET_ROLES,
-  TECHNOLOGIES,
-  TIMEZONES,
-  WEEKDAY_LABELS,
-} from '../data/catalogs.ts'
+import { SuggestedSelect } from '../components/ui/suggestions.tsx'
+import { INTERVIEW_TYPES, ONBOARDING_STEPS, TIMEZONES, WEEKDAY_LABELS } from '../data/catalogs.ts'
 import { formatClockRange, formatReviewDate } from '../lib/dates.ts'
 import {
   loadMyAvailabilityBoard,
@@ -281,66 +272,18 @@ export function SetupPage() {
 
           {step === 'expertise' ? (
             <>
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium text-slate-800">Skills</legend>
-                <SuggestionChips
-                  id="setup-skill"
-                  suggestions={SKILLS}
-                  value={draft.skills}
-                  onChange={(skills) => update({ skills })}
-                  placeholder="Type to add a skill"
-                />
-              </fieldset>
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium text-slate-800">Technologies</legend>
-                <SuggestionChips
-                  id="setup-tech"
-                  suggestions={TECHNOLOGIES}
-                  value={draft.technologies}
-                  onChange={(technologies) => update({ technologies })}
-                  placeholder="Type to add a technology"
-                />
-              </fieldset>
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium text-slate-800">Industries</legend>
-                <SuggestionChips
-                  id="setup-industry"
-                  suggestions={INDUSTRIES}
-                  value={draft.industries}
-                  onChange={(industries) => update({ industries })}
-                  placeholder="Type to add an industry"
-                />
-              </fieldset>
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium text-slate-800">Interview expertise</legend>
-                <SuggestionChips
-                  id="setup-interview-type"
-                  suggestions={INTERVIEW_TYPES}
-                  value={draft.interviewTypes}
-                  onChange={(interviewTypes) => update({ interviewTypes })}
-                  placeholder="Type to add an interview type"
-                />
-              </fieldset>
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium text-slate-800">Candidate levels</legend>
-                <SuggestionChips
-                  id="setup-level"
-                  suggestions={CANDIDATE_LEVELS}
-                  value={draft.candidateLevels}
-                  onChange={(candidateLevels) => update({ candidateLevels })}
-                  placeholder="Type to add a candidate level"
-                />
-              </fieldset>
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium text-slate-800">Target roles</legend>
-                <SuggestionChips
-                  id="setup-role"
-                  suggestions={TARGET_ROLES}
-                  value={draft.targetRoles}
-                  onChange={(targetRoles) => update({ targetRoles })}
-                  placeholder="Type to add a target role"
-                />
-              </fieldset>
+              <div>
+                <h2 className="text-lg font-semibold text-navy-950">Interview expertise</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Tell candidates what you interview on. These are compared with the skills, roles, and levels on
+                  candidate profiles.
+                </p>
+              </div>
+              <ExpertiseFields
+                idPrefix="setup"
+                value={{ skills: draft.skills, targetRoles: draft.targetRoles, candidateLevels: draft.candidateLevels }}
+                onChange={(next) => update(next)}
+              />
             </>
           ) : null}
 
@@ -427,8 +370,10 @@ export function SetupPage() {
               <p>
                 <strong>{draft.fullName}</strong> · {draft.role} @ {draft.company}
               </p>
-              <p>{draft.experienceYears} years · {draft.interviewTypes.join(', ')}</p>
-              <p>Levels: {draft.candidateLevels.join(', ')}</p>
+              <p>{draft.experienceYears} years experience</p>
+              <p>Skills: {draft.skills.join(', ') || 'None selected'}</p>
+              <p>Roles: {draft.targetRoles.join(', ') || 'None selected'}</p>
+              <p>Levels: {draft.candidateLevels.join(', ') || 'None selected'}</p>
               <p>
                 First service: {draft.firstService.name} · {draft.firstService.durationMin} min · ₹
                 {draft.firstService.price}

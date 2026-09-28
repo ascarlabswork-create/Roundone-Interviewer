@@ -24,39 +24,36 @@ export const TARGET_ROLES = [
   'Software Engineer',
   'Backend Engineer',
   'Frontend Engineer',
+  'Full Stack Engineer',
   'Data Scientist',
+  'Data Analyst',
   'ML Engineer',
+  'DevOps Engineer',
   'Product Manager',
 ] as const
 
-export const INDUSTRIES = [
-  'Cloud Infrastructure',
-  'Consumer Internet',
-  'Fintech',
-  'Marketplace',
-  'Developer Tools',
-  'AI / ML',
+/** Grouped the way candidates list skills on their profiles and resumes. */
+export const SKILL_GROUPS = [
+  { label: 'Programming', skills: ['Python', 'Java', 'JavaScript', 'TypeScript', 'C++', 'Go', 'SQL'] },
+  {
+    label: 'Data & Analytics',
+    skills: ['Data Analysis', 'Excel', 'Power BI', 'Tableau', 'Pandas', 'NumPy', 'Statistics', 'Data Visualization'],
+  },
+  {
+    label: 'Machine Learning & AI',
+    skills: ['Machine Learning', 'Deep Learning', 'Scikit-learn', 'TensorFlow', 'PyTorch', 'NLP', 'Computer Vision'],
+  },
+  { label: 'Web & Frontend', skills: ['React', 'Node.js', 'HTML/CSS', 'REST APIs', 'Full-stack Development'] },
+  {
+    label: 'Backend & Systems',
+    skills: ['System Design', 'Backend', 'Distributed Systems', 'Microservices', 'Databases'],
+  },
+  { label: 'Cloud & DevOps', skills: ['AWS', 'Docker', 'Kubernetes', 'CI/CD'] },
+  { label: 'Core CS', skills: ['DSA', 'OOP'] },
+  { label: 'Professional', skills: ['Communication', 'Leadership', 'Product Sense', 'Stakeholder Management'] },
 ] as const
 
-export const SKILLS = [
-  'System Design',
-  'Backend',
-  'Distributed Systems',
-  'Microservices',
-  'DSA',
-  'Leadership',
-  'Communication',
-] as const
-
-export const TECHNOLOGIES = [
-  'Java',
-  'AWS',
-  'Kubernetes',
-  'Go',
-  'Python',
-  'TypeScript',
-  'SQL',
-] as const
+export const SKILLS: readonly string[] = SKILL_GROUPS.flatMap((group) => group.skills)
 
 export const ONBOARDING_STEPS = [
   { id: 'account', label: 'Account' },

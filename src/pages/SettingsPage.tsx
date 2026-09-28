@@ -7,12 +7,21 @@ import { TIMEZONES } from '../data/catalogs.ts'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
 import { updateInterviewerProfile } from '../services/interviewerProfile.ts'
+import {
+  normalizeWhatsappPhone,
+  WHATSAPP_PHONE_INVALID,
+  WHATSAPP_PHONE_MISSING_COUNTRY_CODE,
+} from '../lib/whatsappPhone.ts'
+
+const FRIENDLY_SAVE_ERRORS = new Set([WHATSAPP_PHONE_INVALID, WHATSAPP_PHONE_MISSING_COUNTRY_CODE])
 
 export function SettingsPage() {
   const { account, error, refreshAccount, status } = useSession()
   const { pushToast } = useToast()
   const [timezone, setTimezone] = useState(account?.profile.timezone ?? 'Asia/Kolkata')
   const [phone, setPhone] = useState(account?.phone ?? '')
+  const [whatsappPhone, setWhatsappPhone] = useState(account?.interviewer.whatsapp_phone ?? '')
+  const [whatsappError, setWhatsappError] = useState<string | null>(null)
   const [isListed, setIsListed] = useState(account?.interviewer.is_listed ?? false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -21,6 +30,7 @@ export function SettingsPage() {
     if (!account) return
     setTimezone(account.profile.timezone)
     setPhone(account.phone)
+    setWhatsappPhone(account.interviewer.whatsapp_phone ?? '')
     setIsListed(account.interviewer.is_listed)
   }, [account])
 
@@ -31,14 +41,22 @@ export function SettingsPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    setSaving(true)
     setSaveError(null)
+    const normalizedWhatsapp = normalizeWhatsappPhone(whatsappPhone)
+    if (!normalizedWhatsapp.ok) {
+      setWhatsappError(normalizedWhatsapp.error)
+      return
+    }
+    setWhatsappError(null)
+    setSaving(true)
     try {
-      await updateInterviewerProfile({ timezone, phone, isListed })
+      await updateInterviewerProfile({ timezone, phone, isListed, whatsappPhone: normalizedWhatsapp.value })
       await refreshAccount()
       pushToast('Settings saved')
     } catch (caught) {
-      setSaveError(caught instanceof Error ? caught.message : 'Could not save settings.')
+      const message = caught instanceof Error ? caught.message : ''
+      if (FRIENDLY_SAVE_ERRORS.has(message)) setWhatsappError(message)
+      else setSaveError('Could not save settings. Try again.')
     } finally {
       setSaving(false)
     }
@@ -57,6 +75,28 @@ export function SettingsPage() {
           <div>
             <FieldLabel htmlFor="phone">Phone</FieldLabel>
             <TextInput id="phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
+          </div>
+          <div>
+            <FieldLabel htmlFor="whatsapp-phone">WhatsApp Number</FieldLabel>
+            <TextInput
+              id="whatsapp-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="+91 98765 43210"
+              value={whatsappPhone}
+              aria-invalid={whatsappError ? true : undefined}
+              aria-describedby="whatsapp-phone-help"
+              onChange={(event) => {
+                setWhatsappPhone(event.target.value)
+                if (whatsappError) setWhatsappError(null)
+              }}
+            />
+            <p id="whatsapp-phone-help" className="mt-1 text-xs text-slate-500">
+              Used for RoundOne interview booking notifications. Include your country code. Kept private and never
+              shown to candidates.
+            </p>
+            {whatsappError ? <p className="mt-1 text-sm text-red-700">{whatsappError}</p> : null}
           </div>
           <div>
             <FieldLabel htmlFor="tz">Timezone</FieldLabel>
