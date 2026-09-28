@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase.ts'
+import { normalizeWhatsappPhone, WHATSAPP_PHONE_INVALID } from '../lib/whatsappPhone.ts'
 import { TABLES } from './tables.ts'
 import { claimInterviewerPersona, requireUser, updateAuthMetadata } from './auth.ts'
 
@@ -24,6 +25,7 @@ export type InterviewerProfileRecord = {
   timezone: string
   languages: string[]
   is_listed: boolean
+  whatsapp_phone: string | null
 }
 
 export type InterviewerRoleRecord = {
@@ -68,12 +70,13 @@ export type InterviewerProfileUpdates = {
   linkedin?: string
   phone?: string
   isListed?: boolean
+  whatsappPhone?: string | null
 }
 
 const WRONG_APP_ROLE = 'This Interviewer app only supports interviewer accounts.'
 const PROFILE_SELECT = 'id, role, full_name, avatar_url, timezone, is_active'
 const INTERVIEWER_SELECT =
-  'id, profile_id, headline, bio, current_role, company, experience_years, timezone, languages, is_listed'
+  'id, profile_id, headline, bio, current_role, company, experience_years, timezone, languages, is_listed, whatsapp_phone'
 const VERIFICATION_KINDS: DbVerificationKind[] = ['identity', 'employment']
 
 function fail(error: { message: string } | null) {
@@ -150,6 +153,7 @@ function mapInterviewer(row: {
   timezone: string
   languages: string[] | null
   is_listed?: boolean
+  whatsapp_phone?: string | null
 }): InterviewerProfileRecord {
   return {
     id: row.id,
@@ -162,6 +166,7 @@ function mapInterviewer(row: {
     timezone: row.timezone,
     languages: row.languages ?? [],
     is_listed: row.is_listed === true,
+    whatsapp_phone: row.whatsapp_phone ?? null,
   }
 }
 
@@ -326,6 +331,11 @@ export async function updateInterviewerProfile(updates: InterviewerProfileUpdate
   if (updates.linkedin !== undefined) metadata.linkedin = updates.linkedin.trim()
   if (updates.phone !== undefined) metadata.phone = updates.phone.trim()
   if (updates.isListed !== undefined) interviewerPatch.is_listed = updates.isListed
+  if (updates.whatsappPhone !== undefined) {
+    const normalized = normalizeWhatsappPhone(updates.whatsappPhone ?? '')
+    if (!normalized.ok) throw new Error(normalized.error)
+    interviewerPatch.whatsapp_phone = normalized.value
+  }
 
   if (Object.keys(profilePatch).length > 0) {
     const { error } = await supabase.from(TABLES.profiles).update(profilePatch).eq('id', account.userId)
@@ -337,6 +347,9 @@ export async function updateInterviewerProfile(updates: InterviewerProfileUpdate
       .from(TABLES.interviewerProfiles)
       .update(interviewerPatch)
       .eq('id', account.interviewer.id)
+    if (error?.code === '23514' && error.message.includes('whatsapp_phone')) {
+      throw new Error(WHATSAPP_PHONE_INVALID)
+    }
     fail(error)
   }
 
