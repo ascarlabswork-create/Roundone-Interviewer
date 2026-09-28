@@ -1,17 +1,21 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { CheckCircle2, Circle } from 'lucide-react'
+import { CandidatePreviewCard } from '../components/profile/CandidatePreviewCard.tsx'
+import { ExpertiseFields, type ExpertiseValue } from '../components/profile/ExpertiseFields.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
-import { Avatar, StarRating, VerifiedBadge } from '../components/ui/identity.tsx'
-import { Badge, Card, EmptyState, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
-import { SuggestedSelect, SuggestionChips } from '../components/ui/suggestions.tsx'
-import { CANDIDATE_LEVELS, REVIEW_DIMENSIONS, SKILLS, TARGET_ROLES, TIMEZONES } from '../data/catalogs.ts'
+import { StarRating } from '../components/ui/identity.tsx'
+import { Badge, Card, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
+import { SuggestedSelect } from '../components/ui/suggestions.tsx'
+import { REVIEW_DIMENSIONS, TIMEZONES } from '../data/catalogs.ts'
 import { formatReviewDate, timezoneLabel } from '../lib/dates.ts'
 import { formatCount, formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import { loadMyAvailabilityBoard } from '../services/interviewerAvailability.ts'
 import { getMyBookings } from '../services/interviewerBookings.ts'
 import {
+  profileChecklist,
   profileCompleteness,
   updateInterviewerProfile,
   updateInterviewerRoles,
@@ -21,6 +25,15 @@ import { loadMyPublicReviewSummary, listMyPublicReviews } from '../services/inte
 import { getMyServices, paiseToRupees } from '../services/interviewerServices.ts'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
+
+function SectionHeader({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="border-b border-slate-100 pb-4">
+      <h2 className="text-lg font-semibold text-navy-950">{title}</h2>
+      <p className="mt-1 text-sm text-slate-500">{description}</p>
+    </div>
+  )
+}
 
 export function ProfilePage() {
   const { account, error, refreshAccount, status } = useSession()
@@ -42,10 +55,8 @@ export function ProfilePage() {
     company: '',
     experienceYears: '',
     languages: '',
-    skills: [] as string[],
-    targetRoles: [] as string[],
-    candidateLevels: [] as string[],
   })
+  const [expertise, setExpertise] = useState<ExpertiseValue>({ skills: [], targetRoles: [], candidateLevels: [] })
 
   useEffect(() => {
     if (!account) return
@@ -59,6 +70,8 @@ export function ProfilePage() {
       company: account.interviewer.company === 'Pending' ? '' : account.interviewer.company,
       experienceYears: String(account.interviewer.experience_years || ''),
       languages: account.interviewer.languages.join(', '),
+    })
+    setExpertise({
       skills: account.skills,
       targetRoles: account.targetRoles,
       candidateLevels: account.candidateLevels,
@@ -88,6 +101,9 @@ export function ProfilePage() {
   const employmentVerified = account.verifications.some((item) => item.kind === 'employment' && item.status === 'verified')
   const verified = identityVerified && employmentVerified
   const completeness = profileCompleteness(account)
+  const checklist = profileChecklist(account)
+  const summary = summaryState.status === 'success' ? summaryState.data : null
+  const interviewTypes = [...new Set(services.map((service) => service.interview_type))]
 
   async function onSave(event: FormEvent) {
     event.preventDefault()
@@ -108,10 +124,10 @@ export function ProfilePage() {
           .map((item) => item.trim())
           .filter(Boolean),
       })
-      await updateInterviewerSkills(form.skills)
+      await updateInterviewerSkills(expertise.skills)
       await updateInterviewerRoles({
-        targetRoles: form.targetRoles,
-        candidateLevels: form.candidateLevels,
+        targetRoles: expertise.targetRoles,
+        candidateLevels: expertise.candidateLevels,
       })
       await refreshAccount()
       pushToast('Saved successfully')
@@ -126,7 +142,7 @@ export function ProfilePage() {
     <div className="space-y-6">
       <PageHeader
         title="Your Public Profile"
-        subtitle="This is how candidates see you. It is not your private dashboard."
+        subtitle="Present your experience and expertise so the right candidates find and book you."
         actions={
           <Link to="/interviewer/setup?step=professional">
             <Button variant="outline">Open setup</Button>
@@ -134,169 +150,164 @@ export function ProfilePage() {
         }
       />
 
-      <Card className="p-4">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-sm font-medium text-navy-950">Profile completeness</p>
-          <p className="text-sm font-semibold text-navy-950">{completeness}%</p>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <CandidatePreviewCard
+            account={account}
+            activeServices={services}
+            averageRating={summary?.averageRating ?? null}
+            reviewCount={summary?.count ?? 0}
+            completedCount={completedCount}
+            verified={verified}
+          />
         </div>
-        <div className="mt-2 h-2 rounded-full bg-slate-100">
-          <div className="h-2 rounded-full bg-emerald-600" style={{ width: `${completeness}%` }} />
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <div className="flex flex-col gap-5 sm:flex-row">
-          <Avatar src={account.profile.avatar_url ?? ''} name={account.profile.full_name} size="xl" />
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-2xl font-semibold text-navy-950">{account.profile.full_name}</h2>
-              {verified ? <VerifiedBadge /> : null}
-            </div>
-            <p className="mt-1 text-slate-600">
-              {account.interviewer.current_role} @ {account.interviewer.company}
-            </p>
-            <p className="mt-3 text-sm text-slate-600">
-              {account.interviewer.experience_years}+ years experience · {timezoneLabel(account.profile.timezone)}
-            </p>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
-              {account.interviewer.bio || account.interviewer.headline || 'Add a bio so candidates understand your practice.'}
-            </p>
+        <Card className="h-fit p-5">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="font-semibold text-navy-950">Profile strength</h2>
+            <p className="text-sm font-semibold text-navy-950">{completeness}%</p>
           </div>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <h3 className="font-semibold text-navy-950">Edit your profile</h3>
-        <p className="mt-1 text-sm text-slate-500">Changes save to your RoundOne interviewer profile.</p>
-        <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={onSave}>
-          <div>
-            <FieldLabel htmlFor="fullName">Full name</FieldLabel>
-            <TextInput id="fullName" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} />
+          <div className="mt-2 h-2 rounded-full bg-slate-100">
+            <div className="h-2 rounded-full bg-emerald-600" style={{ width: `${completeness}%` }} />
           </div>
-          <div>
-            <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
-            <SuggestedSelect
-              id="timezone"
-              options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
-              value={form.timezone}
-              onChange={(timezone) => setForm({ ...form, timezone })}
-              customPlaceholder="Type a timezone, e.g. Europe/Berlin"
-              required
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <FieldLabel htmlFor="avatar">Avatar URL</FieldLabel>
-            <TextInput
-              id="avatar"
-              value={form.avatarUrl}
-              onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })}
-            />
-          </div>
-          <div>
-            <FieldLabel htmlFor="currentRole">Current role</FieldLabel>
-            <TextInput id="currentRole" value={form.currentRole} onChange={(event) => setForm({ ...form, currentRole: event.target.value })} />
-          </div>
-          <div>
-            <FieldLabel htmlFor="company">Current company</FieldLabel>
-            <TextInput id="company" value={form.company} onChange={(event) => setForm({ ...form, company: event.target.value })} />
-          </div>
-          <div>
-            <FieldLabel htmlFor="yoe">Years of experience</FieldLabel>
-            <TextInput
-              id="yoe"
-              type="number"
-              min={0}
-              value={form.experienceYears}
-              onChange={(event) => setForm({ ...form, experienceYears: event.target.value })}
-            />
-          </div>
-          <div>
-            <FieldLabel htmlFor="languages">Languages</FieldLabel>
-            <TextInput
-              id="languages"
-              placeholder="English, Hindi"
-              value={form.languages}
-              onChange={(event) => setForm({ ...form, languages: event.target.value })}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <FieldLabel htmlFor="headline">Headline</FieldLabel>
-            <TextInput id="headline" value={form.headline} onChange={(event) => setForm({ ...form, headline: event.target.value })} />
-          </div>
-          <div className="sm:col-span-2">
-            <FieldLabel htmlFor="bio">Bio</FieldLabel>
-            <TextArea id="bio" value={form.bio} onChange={(event) => setForm({ ...form, bio: event.target.value })} />
-          </div>
-          <fieldset className="sm:col-span-2">
-            <legend className="mb-2 text-sm font-medium text-slate-800">Skills</legend>
-            <SuggestionChips
-              id="custom-skill"
-              suggestions={SKILLS}
-              value={form.skills}
-              onChange={(skills) => setForm({ ...form, skills })}
-              placeholder="Type to add a skill"
-            />
-          </fieldset>
-          <fieldset className="sm:col-span-2">
-            <legend className="mb-2 text-sm font-medium text-slate-800">Target roles</legend>
-            <SuggestionChips
-              id="custom-role"
-              suggestions={TARGET_ROLES}
-              value={form.targetRoles}
-              onChange={(targetRoles) => setForm({ ...form, targetRoles })}
-              placeholder="Type to add a target role"
-            />
-          </fieldset>
-          <fieldset className="sm:col-span-2">
-            <legend className="mb-2 text-sm font-medium text-slate-800">Candidate levels</legend>
-            <SuggestionChips
-              id="custom-level"
-              suggestions={CANDIDATE_LEVELS}
-              value={form.candidateLevels}
-              onChange={(candidateLevels) => setForm({ ...form, candidateLevels })}
-              placeholder="Type to add a candidate level"
-            />
-          </fieldset>
-          {saveError ? <p className="sm:col-span-2 text-sm text-red-700">{saveError}</p> : null}
-          <div className="sm:col-span-2">
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Saving…' : 'Save profile'}
-            </Button>
-          </div>
-        </form>
-      </Card>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <h3 className="font-semibold text-navy-950">Expertise</h3>
-          {account.skills.length === 0 ? (
-            <EmptyState title="No skills yet" body="Select the skills you interview on so candidates can find you." />
-          ) : (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {account.skills.map((item) => (
-                <Badge key={item} tone="blue">
-                  {item}
-                </Badge>
-              ))}
-            </div>
-          )}
-          <h3 className="mt-5 font-semibold text-navy-950">Target roles</h3>
-          {account.targetRoles.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-500">No target roles selected.</p>
-          ) : (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {account.targetRoles.map((item) => (
-                <Badge key={item}>{item}</Badge>
-              ))}
-            </div>
-          )}
-          <h3 className="mt-5 font-semibold text-navy-950">Candidate levels</h3>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {account.candidateLevels.map((item) => (
-              <Badge key={item}>{item}</Badge>
+          <p className="mt-3 text-xs text-slate-500">Complete profiles are easier for candidates to trust and book.</p>
+          <ul className="mt-4 space-y-2 text-sm">
+            {checklist.map((item) => (
+              <li key={item.label} className="flex items-center gap-2">
+                {item.done ? (
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+                ) : (
+                  <Circle className="h-4 w-4 shrink-0 text-slate-300" aria-hidden />
+                )}
+                <span className={item.done ? 'text-slate-600' : 'font-medium text-navy-950'}>{item.label}</span>
+                <span className="sr-only">{item.done ? 'complete' : 'missing'}</span>
+              </li>
             ))}
+          </ul>
+        </Card>
+      </div>
+
+      <form className="space-y-6" onSubmit={onSave}>
+        <Card className="p-6">
+          <SectionHeader
+            title="Professional details"
+            description="Your background and credibility. Candidates see this at the top of your profile."
+          />
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div>
+              <FieldLabel htmlFor="fullName">Full name</FieldLabel>
+              <TextInput id="fullName" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} />
+            </div>
+            <div>
+              <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
+              <SuggestedSelect
+                id="timezone"
+                options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
+                value={form.timezone}
+                onChange={(timezone) => setForm({ ...form, timezone })}
+                customPlaceholder="Type a timezone, e.g. Europe/Berlin"
+                required
+              />
+            </div>
+            <div>
+              <FieldLabel htmlFor="currentRole">Current role</FieldLabel>
+              <TextInput
+                id="currentRole"
+                placeholder="e.g. Senior Data Scientist"
+                value={form.currentRole}
+                onChange={(event) => setForm({ ...form, currentRole: event.target.value })}
+              />
+            </div>
+            <div>
+              <FieldLabel htmlFor="company">Current company</FieldLabel>
+              <TextInput
+                id="company"
+                placeholder="e.g. Flipkart"
+                value={form.company}
+                onChange={(event) => setForm({ ...form, company: event.target.value })}
+              />
+            </div>
+            <div>
+              <FieldLabel htmlFor="yoe">Years of experience</FieldLabel>
+              <TextInput
+                id="yoe"
+                type="number"
+                min={0}
+                value={form.experienceYears}
+                onChange={(event) => setForm({ ...form, experienceYears: event.target.value })}
+              />
+            </div>
+            <div>
+              <FieldLabel htmlFor="languages">Interview languages</FieldLabel>
+              <TextInput
+                id="languages"
+                placeholder="English, Hindi"
+                value={form.languages}
+                onChange={(event) => setForm({ ...form, languages: event.target.value })}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <FieldLabel htmlFor="headline">Headline</FieldLabel>
+              <TextInput
+                id="headline"
+                placeholder="e.g. Data Scientist helping analysts crack SQL and ML interviews"
+                value={form.headline}
+                onChange={(event) => setForm({ ...form, headline: event.target.value })}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <FieldLabel htmlFor="bio">Bio</FieldLabel>
+              <TextArea
+                id="bio"
+                placeholder="Your background, what you have hired for, and how you run a mock interview."
+                value={form.bio}
+                onChange={(event) => setForm({ ...form, bio: event.target.value })}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <FieldLabel htmlFor="avatar">Photo URL</FieldLabel>
+              <TextInput
+                id="avatar"
+                placeholder="https://…"
+                value={form.avatarUrl}
+                onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })}
+              />
+            </div>
           </div>
         </Card>
+
+        <Card className="p-6">
+          <SectionHeader
+            title="Interview expertise"
+            description="What you interview on. This is compared with the skills, roles, and levels on candidate profiles."
+          />
+          <div className="mt-5">
+            <ExpertiseFields idPrefix="profile" value={expertise} onChange={setExpertise} />
+          </div>
+          <div className="mt-8 border-t border-slate-100 pt-5">
+            <p className="text-sm font-semibold text-navy-950">Interview formats</p>
+            <p className="mt-0.5 text-xs text-slate-500">Taken from your active services.</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {interviewTypes.length === 0 ? (
+                <span className="text-sm text-slate-500">No active services yet.</span>
+              ) : (
+                interviewTypes.map((type) => <Badge key={type}>{type}</Badge>)
+              )}
+              <Link to="/interviewer/services" className="text-sm font-medium text-blue-700">
+                Manage services
+              </Link>
+            </div>
+          </div>
+        </Card>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          {saveError ? <p className="text-sm text-red-700 sm:mr-auto">{saveError}</p> : null}
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save profile'}
+          </Button>
+        </div>
+      </form>
+
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <h3 className="font-semibold text-navy-950">Candidate-visible slots</h3>
           <p className="mt-1 text-sm text-slate-500">
@@ -314,28 +325,27 @@ export function ProfilePage() {
             </ul>
           )}
         </Card>
-      </div>
-
-      <Card className="p-5">
-        <h3 className="font-semibold text-navy-950">Services & pricing</h3>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {services.length === 0 ? (
-            <p className="text-sm text-slate-500">No active services yet.</p>
-          ) : (
-            services.map((service) => (
-              <div key={service.id} className="rounded-lg border border-slate-200 p-4">
-                <div className="flex items-start justify-between">
-                  <p className="font-medium text-navy-950">{service.name}</p>
-                  <p className="font-semibold text-navy-950">{formatINR(paiseToRupees(service.price_paise))}</p>
+        <Card className="p-5">
+          <h3 className="font-semibold text-navy-950">Services & pricing</h3>
+          <div className="mt-4 grid gap-3">
+            {services.length === 0 ? (
+              <p className="text-sm text-slate-500">No active services yet.</p>
+            ) : (
+              services.map((service) => (
+                <div key={service.id} className="rounded-lg border border-slate-200 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-medium text-navy-950">{service.name}</p>
+                    <p className="font-semibold text-navy-950">{formatINR(paiseToRupees(service.price_paise))}</p>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {service.duration_min} minutes · {service.interview_type}
+                  </p>
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
-                  {service.duration_min} minutes · {service.interview_type}
-                </p>
-              </div>
-            ))
-          )}
-        </div>
-      </Card>
+              ))
+            )}
+          </div>
+        </Card>
+      </div>
 
       <Card className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -346,19 +356,13 @@ export function ProfilePage() {
           Only public candidate reviews appear here. Private performance scores are never shown on this profile.
         </p>
         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-600">
-          <span>
-            {summaryState.status === 'success' && summaryState.data.averageRating
-              ? `${summaryState.data.averageRating.toFixed(1)} / 5 overall`
-              : 'No public rating yet'}
-          </span>
-          <span>
-            {formatCount(summaryState.status === 'success' ? summaryState.data.count : 0)} public reviews
-          </span>
+          <span>{summary?.averageRating ? `${summary.averageRating.toFixed(1)} / 5 overall` : 'No public rating yet'}</span>
+          <span>{formatCount(summary?.count ?? 0)} public reviews</span>
           <span>{formatCount(completedCount)} interviews completed</span>
         </div>
         <div className="mt-5 space-y-3">
           {REVIEW_DIMENSIONS.map((item) => {
-            const value = summaryState.status === 'success' ? summaryState.data.dimensionAverages?.[item.key] ?? 0 : 0
+            const value = summary?.dimensionAverages?.[item.key] ?? 0
             return (
               <div key={item.key}>
                 <div className="flex justify-between text-sm">
