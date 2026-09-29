@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { readSessionJson, writeSessionJson } from '../lib/storage.ts'
 import type { OnboardingDraft } from '../types.ts'
 
-const KEY = 'roundone.interviewer.onboarding.v4'
+const KEY = 'jobround.interviewer.onboarding.v4'
+const LEGACY_KEY = 'roundone.interviewer.onboarding.v4'
 
 export const emptyDraft = (): OnboardingDraft => ({
   firstName: '',
@@ -47,7 +48,7 @@ const OnboardingContext = createContext<OnboardingContextValue | null>(null)
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [draft, setDraft] = useState<OnboardingDraft>(() => {
-    const stored = readSessionJson(KEY, emptyDraft())
+    const stored = readSessionJson(KEY, readSessionJson(LEGACY_KEY, emptyDraft()))
     return {
       ...emptyDraft(),
       ...stored,

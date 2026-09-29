@@ -1,4 +1,4 @@
-export { ROUNDONE_PROJECT_REF, supabase } from '../lib/supabase.ts'
+export { JOBROUND_PROJECT_REF, supabase } from '../lib/supabase.ts'
 export { verifySupabaseConnection, type ConnectionCheck } from './connection.ts'
 export { TABLES, type TableName } from './tables.ts'
 export {

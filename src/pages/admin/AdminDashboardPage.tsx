@@ -34,7 +34,7 @@ export function AdminDashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="Operations overview"
-        subtitle="Counts come from live RoundOne tables. No estimated or AI-generated scores."
+        subtitle="Counts come from live jobround.ai tables. No estimated or AI-generated scores."
       />
 
       {metrics.status === 'loading' ? (

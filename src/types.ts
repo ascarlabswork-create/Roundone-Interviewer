@@ -8,7 +8,7 @@ export type Verification = Record<VerificationKey, VerificationStatus>
 
 export type SlotState = 'available' | 'booked' | 'blocked'
 
-/** Generated candidate-visible slot (RoundOne calculates these). */
+/** Generated candidate-visible slot (jobround.ai calculates these). */
 export type AvailabilitySlot = {
   id: string
   start: string

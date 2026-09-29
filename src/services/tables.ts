@@ -1,4 +1,4 @@
-/** Shared Roundone tables used by the Interviewer app. */
+/** Shared jobround.ai tables used by the Interviewer app. */
 export const TABLES = {
   profiles: 'profiles',
   interviewerProfiles: 'interviewer_profiles',

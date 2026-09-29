@@ -1,4 +1,4 @@
-import { ROUNDONE_PROJECT_REF, supabase } from '../lib/supabase.ts'
+import { JOBROUND_PROJECT_REF, supabase } from '../lib/supabase.ts'
 import { TABLES } from './tables.ts'
 
 export type ConnectionCheck = {
@@ -17,28 +17,28 @@ function isProjectReachableError(message: string) {
   )
 }
 
-/** Lightweight reachability check against the shared Roundone project. No writes. */
+/** Lightweight reachability check against the shared jobround.ai project. No writes. */
 export async function verifySupabaseConnection(): Promise<ConnectionCheck> {
   const { error } = await supabase.from(TABLES.profiles).select('id', { head: true, count: 'exact' })
 
   if (!error) {
     return {
       ok: true,
-      projectRef: ROUNDONE_PROJECT_REF,
+      projectRef: JOBROUND_PROJECT_REF,
     }
   }
 
-  // Unauthenticated roles may be denied by grants/RLS; a PostgREST reply still means we hit Roundone.
+  // Unauthenticated roles may be denied by grants/RLS; a PostgREST reply still means we hit jobround.ai.
   if (isProjectReachableError(error.message)) {
     return {
       ok: true,
-      projectRef: ROUNDONE_PROJECT_REF,
+      projectRef: JOBROUND_PROJECT_REF,
     }
   }
 
   return {
     ok: false,
-    projectRef: ROUNDONE_PROJECT_REF,
+    projectRef: JOBROUND_PROJECT_REF,
     error: error.message,
   }
 }

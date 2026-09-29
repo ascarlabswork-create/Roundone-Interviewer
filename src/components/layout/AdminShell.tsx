@@ -44,7 +44,7 @@ export function AdminShell() {
       >
         <div className="flex h-16 items-center justify-between px-4">
           <div>
-            <p className="text-sm font-semibold tracking-tight">RoundOne Admin</p>
+            <p className="text-sm font-semibold tracking-tight">jobround.ai Admin</p>
             <p className="text-[11px] text-slate-300">Internal operations</p>
           </div>
           <button type="button" className="rounded-lg p-2 lg:hidden" onClick={() => setOpen(false)} aria-label="Close menu">
@@ -87,7 +87,7 @@ export function AdminShell() {
           </button>
           <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
             <ClipboardCheck className="h-4 w-4" />
-            RoundOne Admin
+            jobround.ai Admin
           </div>
           <div className="ml-auto flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-navy-900 text-xs font-semibold text-white">

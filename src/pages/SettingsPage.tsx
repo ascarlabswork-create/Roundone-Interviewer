@@ -93,7 +93,7 @@ export function SettingsPage() {
               }}
             />
             <p id="whatsapp-phone-help" className="mt-1 text-xs text-slate-500">
-              Used for RoundOne interview booking notifications. Include your country code. Kept private and never
+              Used for jobround.ai interview booking notifications. Include your country code. Kept private and never
               shown to candidates.
             </p>
             {whatsappError ? <p className="mt-1 text-sm text-red-700">{whatsappError}</p> : null}

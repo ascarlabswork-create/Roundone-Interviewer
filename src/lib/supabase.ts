@@ -13,11 +13,11 @@ if (!supabaseUrl || !supabasePublishableKey) {
 
 if (!supabaseUrl.includes(EXPECTED_PROJECT_REF)) {
   throw new Error(
-    `Interviewer must use the shared Roundone Supabase project (${EXPECTED_PROJECT_REF}). Got: ${supabaseUrl}`,
+    `Interviewer must use the shared jobround.ai Supabase project (${EXPECTED_PROJECT_REF}). Got: ${supabaseUrl}`,
   )
 }
 
-export const ROUNDONE_PROJECT_REF = EXPECTED_PROJECT_REF
+export const JOBROUND_PROJECT_REF = EXPECTED_PROJECT_REF
 
 export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
   auth: {

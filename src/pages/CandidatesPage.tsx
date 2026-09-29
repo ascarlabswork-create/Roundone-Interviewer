@@ -40,7 +40,7 @@ export function CandidatesPage() {
     <div className="space-y-6">
       <PageHeader
         title="All Candidates"
-        subtitle="Every active candidate on RoundOne, ranked by how well their skills match yours. Low or zero matches are still listed."
+        subtitle="Every active candidate on jobround.ai, ranked by how well their skills match yours. Low or zero matches are still listed."
       />
 
       <Card className="p-4">
@@ -136,7 +136,7 @@ export function CandidatesPage() {
             }
           />
         ) : (
-          <EmptyState title="No candidates yet" body="Active candidates will appear here as they join RoundOne." />
+          <EmptyState title="No candidates yet" body="Active candidates will appear here as they join jobround.ai." />
         )
       ) : null}
 

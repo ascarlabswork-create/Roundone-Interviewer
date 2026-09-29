@@ -66,7 +66,7 @@ export function VerificationPage() {
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <h1 className="text-2xl font-semibold text-navy-950">Verify your professional identity</h1>
       <p className="mt-2 text-sm text-slate-600">
-        Status is read from RoundOne. You can submit a request, but you cannot change Pending, Verified, or Rejected
+        Status is read from jobround.ai. You can submit a request, but you cannot change Pending, Verified, or Rejected
         yourself.
       </p>
 
