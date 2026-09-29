@@ -238,7 +238,6 @@ export function profileChecklist(account: InterviewerAccount): ProfileChecklistI
     { label: 'Years of experience', done: account.interviewer.experience_years > 0 },
     { label: 'Skills', done: account.skills.length > 0 },
     { label: 'Target roles', done: account.targetRoles.length > 0 },
-    { label: 'Candidate levels', done: account.candidateLevels.length > 0 },
   ]
 }
 

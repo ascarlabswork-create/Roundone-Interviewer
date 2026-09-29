@@ -127,7 +127,6 @@ export function CandidatePreviewCard({
           <PreviewSection title="Skills" empty="No skills added yet" items={account.skills} tone="blue" />
           <PreviewSection title="Interview formats" empty="Add an active service" items={interviewTypes} />
           <PreviewSection title="Roles" empty="No target roles yet" items={account.targetRoles} />
-          <PreviewSection title="Candidate levels" empty="No levels yet" items={account.candidateLevels} />
         </div>
       </div>
     </Card>

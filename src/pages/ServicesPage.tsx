@@ -125,21 +125,16 @@ export function ServicesPage() {
         actions={<Button onClick={() => setForm(emptyForm())}>Create New Service</Button>}
       />
 
-      {account && (account.targetRoles.length > 0 || account.candidateLevels.length > 0) ? (
+      {account && account.targetRoles.length > 0 ? (
         <Card className="p-4">
           <p className="text-sm font-medium text-navy-950">Profile expertise used for all services</p>
           <p className="mt-1 text-xs text-slate-500">
-            The services table does not store per-service roles or levels. Candidates will later see these from your
+            The services table does not store per-service roles. Candidates will later see these from your
             interviewer profile.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {account.targetRoles.map((role) => (
               <Badge key={role}>{role}</Badge>
-            ))}
-            {account.candidateLevels.map((level) => (
-              <Badge key={level} tone="blue">
-                {level}
-              </Badge>
             ))}
           </div>
         </Card>

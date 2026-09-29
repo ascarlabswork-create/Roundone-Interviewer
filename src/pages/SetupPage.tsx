@@ -275,8 +275,8 @@ export function SetupPage() {
               <div>
                 <h2 className="text-lg font-semibold text-navy-950">Interview expertise</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Tell candidates what you interview on. These are compared with the skills, roles, and levels on
-                  candidate profiles.
+                  Tell candidates what you interview on. These are compared with the skills and roles on candidate
+                  profiles.
                 </p>
               </div>
               <ExpertiseFields
@@ -373,7 +373,6 @@ export function SetupPage() {
               <p>{draft.experienceYears} years experience</p>
               <p>Skills: {draft.skills.join(', ') || 'None selected'}</p>
               <p>Roles: {draft.targetRoles.join(', ') || 'None selected'}</p>
-              <p>Levels: {draft.candidateLevels.join(', ') || 'None selected'}</p>
               <p>
                 First service: {draft.firstService.name} · {draft.firstService.durationMin} min · ₹
                 {draft.firstService.price}

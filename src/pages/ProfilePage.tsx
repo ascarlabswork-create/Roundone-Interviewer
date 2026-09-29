@@ -47,7 +47,6 @@ export function ProfilePage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [form, setForm] = useState({
     fullName: '',
-    avatarUrl: '',
     timezone: 'Asia/Kolkata',
     headline: '',
     bio: '',
@@ -62,7 +61,6 @@ export function ProfilePage() {
     if (!account) return
     setForm({
       fullName: account.profile.full_name,
-      avatarUrl: account.profile.avatar_url ?? '',
       timezone: account.profile.timezone,
       headline: account.interviewer.headline ?? '',
       bio: account.interviewer.bio ?? '',
@@ -112,7 +110,6 @@ export function ProfilePage() {
     try {
       await updateInterviewerProfile({
         fullName: form.fullName,
-        avatarUrl: form.avatarUrl.trim() || null,
         timezone: form.timezone,
         headline: form.headline,
         bio: form.bio,
@@ -263,22 +260,13 @@ export function ProfilePage() {
                 onChange={(event) => setForm({ ...form, bio: event.target.value })}
               />
             </div>
-            <div className="sm:col-span-2">
-              <FieldLabel htmlFor="avatar">Photo URL</FieldLabel>
-              <TextInput
-                id="avatar"
-                placeholder="https://…"
-                value={form.avatarUrl}
-                onChange={(event) => setForm({ ...form, avatarUrl: event.target.value })}
-              />
-            </div>
           </div>
         </Card>
 
         <Card className="p-6">
           <SectionHeader
             title="Interview expertise"
-            description="What you interview on. This is compared with the skills, roles, and levels on candidate profiles."
+            description="What you interview on. This is compared with the skills and roles on candidate profiles."
           />
           <div className="mt-5">
             <ExpertiseFields idPrefix="profile" value={expertise} onChange={setExpertise} />

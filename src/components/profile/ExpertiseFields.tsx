@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Plus } from 'lucide-react'
-import { CANDIDATE_LEVELS, SKILL_GROUPS, SKILLS, TARGET_ROLES } from '../../data/catalogs.ts'
+import { SKILL_GROUPS, SKILLS, TARGET_ROLES } from '../../data/catalogs.ts'
 import { SuggestionChips } from '../ui/suggestions.tsx'
 
 export type ExpertiseValue = {
@@ -120,21 +120,6 @@ export function ExpertiseFields({
           options={TARGET_ROLES}
           selected={value.targetRoles}
           onAdd={(role) => onChange({ ...value, targetRoles: [...value.targetRoles, role] })}
-        />
-      </Section>
-
-      <Section title="Candidate levels" description="Experience levels you are comfortable interviewing.">
-        <SuggestionChips
-          id={`${idPrefix}-level`}
-          suggestions={CANDIDATE_LEVELS}
-          value={value.candidateLevels}
-          onChange={(candidateLevels) => onChange({ ...value, candidateLevels })}
-          placeholder="Type a candidate level"
-        />
-        <QuickAdd
-          options={CANDIDATE_LEVELS}
-          selected={value.candidateLevels}
-          onAdd={(level) => onChange({ ...value, candidateLevels: [...value.candidateLevels, level] })}
         />
       </Section>
     </div>
