@@ -146,6 +146,12 @@ export {
   type InterviewCallToken,
 } from './interviewCall.ts'
 export {
+  decideInterviewAdmission,
+  getInterviewAdmission,
+  parseAdmissionStatus,
+  watchInterviewAdmission,
+} from './interviewAdmission.ts'
+export {
   FEEDBACK_ALREADY_SUBMITTED,
   FEEDBACK_INVALID_SCORE,
   FEEDBACK_MISSING_FIELDS,

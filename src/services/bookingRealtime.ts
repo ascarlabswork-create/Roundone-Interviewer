@@ -10,7 +10,7 @@ type ChannelStatus = 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR'
 export type RealtimeChannelLike = {
   on(
     type: 'postgres_changes',
-    filter: { event: 'UPDATE'; schema: string; table: string; filter: string },
+    filter: { event: 'UPDATE' | 'INSERT' | '*'; schema: string; table: string; filter: string },
     callback: (payload: { new?: unknown }) => void,
   ): RealtimeChannelLike
   subscribe(callback: (status: ChannelStatus, error?: Error) => void): RealtimeChannelLike

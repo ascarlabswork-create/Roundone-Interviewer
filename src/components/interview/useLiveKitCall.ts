@@ -1,4 +1,4 @@
-import { Room } from 'livekit-client'
+import { Room, VideoPresets, createLocalAudioTrack, createLocalVideoTrack } from 'livekit-client'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { requestInterviewToken } from '../../services/interviewCall.ts'
 import {
@@ -6,10 +6,27 @@ import {
   InterviewCallController,
   type CallRoom,
   type CallSnapshot,
+  type LocalMedia,
+  type LocalMediaTrack,
 } from '../../services/interviewCallController.ts'
 
 function createLiveKitRoom(): CallRoom {
   return new Room({ adaptiveStream: true, dynacast: true }) as unknown as CallRoom
+}
+
+async function createLiveKitMedia(want: { audio: boolean; video: boolean }): Promise<LocalMedia> {
+  const [audio, video] = await Promise.allSettled([
+    want.audio
+      ? createLocalAudioTrack({ echoCancellation: true, noiseSuppression: true, autoGainControl: true })
+      : Promise.resolve(null),
+    want.video ? createLocalVideoTrack({ resolution: VideoPresets.h720.resolution }) : Promise.resolve(null),
+  ])
+  const failed = [audio, video].find((result) => result.status === 'rejected')
+  return {
+    audio: audio.status === 'fulfilled' ? (audio.value as unknown as LocalMediaTrack | null) : null,
+    video: video.status === 'fulfilled' ? (video.value as unknown as LocalMediaTrack | null) : null,
+    error: failed?.status === 'rejected' ? failed.reason : null,
+  }
 }
 
 const noopSubscribe = () => () => {}
@@ -18,11 +35,12 @@ const initialSnapshot = () => INITIAL_CALL_SNAPSHOT
 export type LiveKitCallHandlers = {
   onJoined?: () => void
   onLeft?: () => void
+  onAdmissionRequested?: () => void
 }
 
 /**
  * Joins the LiveKit room for an interview session while mounted and tears the
- * room and all listeners down on unmount or when the session changes.
+ * room, camera, microphone and all listeners down on unmount or session change.
  */
 export function useLiveKitCall(
   sessionId: string | null,
@@ -41,8 +59,10 @@ export function useLiveKitCall(
       sessionId,
       fetchToken: (id) => requestInterviewToken(id),
       createRoom: createLiveKitRoom,
+      createLocalMedia: createLiveKitMedia,
       onJoined: () => handlersRef.current.onJoined?.(),
       onLeft: () => handlersRef.current.onLeft?.(),
+      onAdmissionRequested: () => handlersRef.current.onAdmissionRequested?.(),
     })
     setController(next)
     void next.join()

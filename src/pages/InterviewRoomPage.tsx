@@ -9,7 +9,9 @@ import {
   PhoneOff,
   RefreshCw,
   ShieldAlert,
+  UserCheck,
   UserRound,
+  UserX,
   Video,
   VideoOff,
   Volume2,
@@ -24,6 +26,7 @@ import { Skeleton } from '../components/ui/primitives.tsx'
 import { formatDateShortInZone, formatTimeInZone, timezoneLabel } from '../lib/dates.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import { watchBookingStatus } from '../services/bookingRealtime.ts'
+import { decideInterviewAdmission, watchInterviewAdmission } from '../services/interviewAdmission.ts'
 import type { CallSnapshot, CallTrack } from '../services/interviewCallController.ts'
 import type { InterviewerBooking } from '../services/interviewerBookings.ts'
 import {
@@ -243,6 +246,30 @@ function remainingInterviewSeconds(durationMin: number, startedAtIso: string, no
   return Math.max(0, durationMin * 60 - Math.floor((nowMs - startedAtMs) / 1000))
 }
 
+function playKnockChime() {
+  try {
+    const context = new AudioContext()
+    const gain = context.createGain()
+    gain.connect(context.destination)
+    gain.gain.setValueAtTime(0.0001, context.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.2, context.currentTime + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.6)
+    for (const [frequency, offset] of [
+      [880, 0],
+      [1320, 0.15],
+    ]) {
+      const tone = context.createOscillator()
+      tone.frequency.value = frequency
+      tone.connect(gain)
+      tone.start(context.currentTime + offset)
+      tone.stop(context.currentTime + offset + 0.3)
+    }
+    window.setTimeout(() => void context.close().catch(() => {}), 1000)
+  } catch {
+    // Sound is a nicety; the on-screen prompt is the real notification.
+  }
+}
+
 function LiveCallRoom({
   booking,
   session,
@@ -272,13 +299,40 @@ function LiveCallRoom({
       onLeft: () => {
         void recordInterviewCallEvent(session.id, 'participant_left').catch(() => {})
       },
+      onAdmissionRequested: playKnockChime,
     }),
     [session.id, onStarted],
   )
   const { snapshot, controller } = useLiveKitCall(session.id, handlers)
+  const [admissionError, setAdmissionError] = useState<string | null>(null)
 
   const started = booking.status === 'in_progress' || Boolean(session.startedAt)
-  const connected = snapshot.phase === 'connected' || snapshot.phase === 'reconnecting'
+  const canUseMedia = snapshot.phase !== 'left'
+  const knocking = snapshot.admission === 'requested'
+
+  useEffect(() => {
+    if (!controller) return
+    const watch = watchInterviewAdmission(session.id, (status) => void controller.applyServerAdmission(status))
+    return () => watch.unsubscribe()
+  }, [controller, session.id])
+
+  useEffect(() => {
+    if (!knocking) return
+    const previous = document.title
+    document.title = `${booking.candidate.name} wants to join · jobround.ai`
+    return () => {
+      document.title = previous
+    }
+  }, [knocking, booking.candidate.name])
+
+  function decide(admit: boolean) {
+    if (!controller) return
+    setAdmissionError(null)
+    void (admit ? controller.admit() : controller.deny())
+    decideInterviewAdmission(session.id, admit).catch((caught: unknown) => {
+      setAdmissionError(caught instanceof Error ? caught.message : 'Could not save your admission decision.')
+    })
+  }
 
   useEffect(() => {
     if (!session.startedAt) return
@@ -353,8 +407,14 @@ function LiveCallRoom({
               {recordError}
             </p>
           ) : null}
+          {admissionError ? (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              {admissionError}
+            </p>
+          ) : null}
+          {knocking ? <AdmissionBanner candidateName={candidateName} onDecide={decide} /> : null}
           <div className="relative min-h-72 flex-1 overflow-hidden rounded-xl bg-navy-800">
-            <RemoteStage snapshot={snapshot} candidateName={candidateName} />
+            <RemoteStage snapshot={snapshot} candidateName={candidateName} onDecide={decide} />
             <div className="absolute bottom-3 right-3 h-28 w-40 overflow-hidden rounded-lg border border-white/20 bg-navy-900 shadow-lg sm:h-36 sm:w-52">
               {snapshot.localVideoTrack ? (
                 <VideoTrackView track={snapshot.localVideoTrack} mirrored />
@@ -399,7 +459,7 @@ function LiveCallRoom({
         <Control
           label={snapshot.micEnabled ? 'Mute' : 'Unmute'}
           active={snapshot.micEnabled}
-          disabled={!connected}
+          disabled={!canUseMedia}
           onClick={() => void controller?.toggleMic()}
         >
           {snapshot.micEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
@@ -407,7 +467,7 @@ function LiveCallRoom({
         <Control
           label={snapshot.cameraEnabled ? 'Stop video' : 'Start video'}
           active={snapshot.cameraEnabled}
-          disabled={!connected}
+          disabled={!canUseMedia}
           onClick={() => void controller?.toggleCamera()}
         >
           {snapshot.cameraEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
@@ -448,11 +508,76 @@ function ConnectionBadge({ phase }: { phase: CallSnapshot['phase'] }) {
   )
 }
 
-function RemoteStage({ snapshot, candidateName }: { snapshot: CallSnapshot; candidateName: string }) {
-  const { candidate, phase } = snapshot
+function AdmissionBanner({ candidateName, onDecide }: { candidateName: string; onDecide: (admit: boolean) => void }) {
+  return (
+    <div
+      role="alertdialog"
+      aria-label={`${candidateName} wants to join`}
+      className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-2 text-sm text-emerald-50"
+    >
+      <UserRound className="h-4 w-4" />
+      <span className="flex-1">
+        <strong>{candidateName}</strong> wants to join this interview.
+      </span>
+      <Button size="sm" variant="outline" onClick={() => onDecide(false)}>
+        <UserX className="h-3.5 w-3.5" />
+        Decline
+      </Button>
+      <Button size="sm" onClick={() => onDecide(true)}>
+        <UserCheck className="h-3.5 w-3.5" />
+        Admit
+      </Button>
+    </div>
+  )
+}
+
+function RemoteStage({
+  snapshot,
+  candidateName,
+  onDecide,
+}: {
+  snapshot: CallSnapshot
+  candidateName: string
+  onDecide: (admit: boolean) => void
+}) {
+  const { candidate, phase, admission } = snapshot
   if (phase === 'idle' || phase === 'requesting_token' || phase === 'connecting') {
     return (
       <StageMessage icon={<Loader2 className="h-6 w-6 animate-spin" />} title="Joining the interview call…" />
+    )
+  }
+  if (admission === 'requested') {
+    return (
+      <StageMessage
+        icon={<UserRound className="h-6 w-6" />}
+        title={`${candidateName} is waiting to join`}
+        body="They can't see or hear you until you admit them."
+      >
+        <div className="mt-2 flex gap-2">
+          <Button variant="outline" onClick={() => onDecide(false)}>
+            <UserX className="h-4 w-4" />
+            Decline
+          </Button>
+          <Button onClick={() => onDecide(true)}>
+            <UserCheck className="h-4 w-4" />
+            Admit
+          </Button>
+        </div>
+      </StageMessage>
+    )
+  }
+  if (admission === 'denied' && candidate.presence === 'joined') {
+    return (
+      <StageMessage
+        icon={<UserX className="h-6 w-6" />}
+        title={`You declined ${candidateName}`}
+        body="They are still in the lobby and can't see or hear you."
+      >
+        <Button className="mt-2" onClick={() => onDecide(true)}>
+          <UserCheck className="h-4 w-4" />
+          Admit anyway
+        </Button>
+      </StageMessage>
     )
   }
   if (candidate.presence === 'joined' && candidate.videoTrack) {
@@ -488,17 +613,32 @@ function RemoteStage({ snapshot, candidateName }: { snapshot: CallSnapshot; cand
     <StageMessage
       icon={<Clock className="h-6 w-6" />}
       title={`Waiting for ${candidateName} to join…`}
-      body="You will see and hear the candidate as soon as they connect."
+      body={
+        admission === 'admitted'
+          ? 'They are already admitted and will connect straight in.'
+          : "You'll be asked to admit them when they arrive."
+      }
     />
   )
 }
 
-function StageMessage({ icon, title, body }: { icon: ReactNode; title: string; body?: string }) {
+function StageMessage({
+  icon,
+  title,
+  body,
+  children,
+}: {
+  icon: ReactNode
+  title: string
+  body?: string
+  children?: ReactNode
+}) {
   return (
     <div className="flex h-full min-h-72 flex-col items-center justify-center gap-2 p-6 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white/80">{icon}</div>
       <p className="text-sm font-medium text-white">{title}</p>
       {body ? <p className="max-w-sm text-xs text-white/60">{body}</p> : null}
+      {children}
     </div>
   )
 }

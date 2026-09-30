@@ -12,6 +12,7 @@ export const TABLES = {
   bookings: 'bookings',
   bookingCandidateSummary: 'booking_candidate_summary',
   interviewSessions: 'interview_sessions',
+  interviewAdmissions: 'interview_admissions',
   sessionEvents: 'session_events',
   interviewerFeedback: 'interviewer_feedback',
   candidateProfiles: 'candidate_profiles',

@@ -18,19 +18,37 @@ export type CallTrack = {
   detach(element: HTMLMediaElement): HTMLMediaElement
 }
 
-export type CallPublication = { isMuted: boolean; track?: CallTrack }
+export type LocalMediaTrack = CallTrack & {
+  isMuted: boolean
+  mute(): Promise<unknown>
+  unmute(): Promise<unknown>
+  stop(): void
+}
+
+export type LocalMedia = {
+  audio: LocalMediaTrack | null
+  video: LocalMediaTrack | null
+  error: unknown
+}
+
+export type CallPublication = {
+  isMuted: boolean
+  track?: CallTrack
+  isSubscribed?: boolean
+  setSubscribed?(subscribed: boolean): void
+}
 
 export type CallParticipant = {
   identity: string
   name?: string
   getTrackPublication(source: 'camera' | 'microphone'): CallPublication | undefined
+  getTrackPublications(): CallPublication[]
 }
 
-export type CallLocalParticipant = CallParticipant & {
-  isMicrophoneEnabled: boolean
-  isCameraEnabled: boolean
-  setMicrophoneEnabled(enabled: boolean): Promise<unknown>
-  setCameraEnabled(enabled: boolean): Promise<unknown>
+export type CallLocalParticipant = {
+  identity: string
+  publishTrack(track: LocalMediaTrack): Promise<unknown>
+  unpublishTrack(track: LocalMediaTrack, stopOnUnpublish?: boolean): Promise<unknown>
 }
 
 export type CallRoom = {
@@ -39,7 +57,7 @@ export type CallRoom = {
   canPlaybackAudio: boolean
   on(event: string, listener: (arg?: unknown) => void): unknown
   removeAllListeners(): unknown
-  connect(url: string, token: string): Promise<void>
+  connect(url: string, token: string, options?: { autoSubscribe: boolean }): Promise<void>
   disconnect(): Promise<void>
   startAudio(): Promise<void>
 }
@@ -86,6 +104,14 @@ export type CallPhase =
   | 'left'
   | 'error'
 
+/**
+ * none: nobody has asked yet · requested: the candidate is waiting to be let in ·
+ * admitted: media flows both ways · denied: the interviewer declined.
+ */
+export type AdmissionState = 'none' | 'requested' | 'admitted' | 'denied'
+
+export type ServerAdmissionStatus = 'waiting' | 'admitted' | 'denied'
+
 export type CandidateView = {
   presence: CandidatePresence
   name: string | null
@@ -99,6 +125,9 @@ export type CallSnapshot = {
   phase: CallPhase
   error: { kind: CallErrorKind; message: string } | null
   mediaError: { kind: MediaErrorKind; message: string } | null
+  admission: AdmissionState
+  /** True once the interviewer's mic/camera are published to the room. */
+  live: boolean
   micEnabled: boolean
   cameraEnabled: boolean
   localVideoTrack: CallTrack | null
@@ -119,6 +148,8 @@ export const INITIAL_CALL_SNAPSHOT: CallSnapshot = {
   phase: 'idle',
   error: null,
   mediaError: null,
+  admission: 'none',
+  live: false,
   micEnabled: false,
   cameraEnabled: false,
   localVideoTrack: null,
@@ -145,18 +176,30 @@ export type InterviewCallDeps = {
   sessionId: string
   fetchToken: (sessionId: string) => Promise<InterviewCallToken>
   createRoom: () => CallRoom
+  /** Opens the camera and microphone independently so one failure keeps the other. */
+  createLocalMedia: (want: { audio: boolean; video: boolean }) => Promise<LocalMedia>
   /** Called after every successful connection to the room. */
   onJoined?: () => void
   /** Called once per connection when it ends (leave, unmount or unexpected disconnect). */
   onLeft?: () => void
+  /** Called each time the candidate starts waiting to be admitted. */
+  onAdmissionRequested?: () => void
 }
 
+/**
+ * Zoom-style lobby: the interviewer previews their camera locally and nothing is
+ * published or subscribed until they admit the candidate.
+ */
 export class InterviewCallController {
   private readonly deps: InterviewCallDeps
   private snapshot: CallSnapshot = INITIAL_CALL_SNAPSHOT
   private readonly listeners = new Set<() => void>()
   private room: CallRoom | null = null
   private selfIdentity: string | null = null
+  private audio: LocalMediaTrack | null = null
+  private video: LocalMediaTrack | null = null
+  private published = new Set<LocalMediaTrack>()
+  private candidatePresent = false
   private candidateEverJoined = false
   private inRoom = false
   private disposed = false
@@ -190,33 +233,112 @@ export class InterviewCallController {
     this.update({ mediaError: { kind, message: MEDIA_ERROR_MESSAGES[kind] } })
   }
 
+  private setAdmission(admission: AdmissionState) {
+    if (this.snapshot.admission === admission) return
+    this.update({ admission })
+    if (admission === 'requested') this.deps.onAdmissionRequested?.()
+  }
+
+  private localPatch(): Partial<CallSnapshot> {
+    const cameraEnabled = Boolean(this.video && !this.video.isMuted)
+    return {
+      micEnabled: Boolean(this.audio && !this.audio.isMuted),
+      cameraEnabled,
+      localVideoTrack: cameraEnabled ? this.video : null,
+      live: this.published.size > 0,
+    }
+  }
+
   private sync() {
     const room = this.room
-    if (!room) return
-    const local = room.localParticipant
+    if (!room) {
+      this.update(this.localPatch())
+      return
+    }
     const candidate = pickCandidateParticipant(room.remoteParticipants.values(), this.selfIdentity)
+    const arrived = Boolean(candidate) && !this.candidatePresent
+    this.candidatePresent = Boolean(candidate)
     if (candidate) this.candidateEverJoined = true
+
+    const admitted = this.snapshot.admission === 'admitted'
+    if (candidate) {
+      for (const publication of candidate.getTrackPublications()) {
+        if (publication.isSubscribed !== admitted) publication.setSubscribed?.(admitted)
+      }
+    }
+    if (arrived && !admitted) this.setAdmission('requested')
+    if (!candidate && this.snapshot.admission === 'requested') this.setAdmission('none')
+
     const camera = candidate?.getTrackPublication('camera')
     const microphone = candidate?.getTrackPublication('microphone')
     this.update({
-      micEnabled: local.isMicrophoneEnabled,
-      cameraEnabled: local.isCameraEnabled,
-      localVideoTrack: visibleTrack(local.getTrackPublication('camera')),
+      ...this.localPatch(),
       canPlaybackAudio: room.canPlaybackAudio,
       candidate: {
         presence: candidatePresence(Boolean(candidate), this.candidateEverJoined),
         name: candidate?.name?.trim() || null,
-        videoTrack: visibleTrack(camera),
-        audioTrack: visibleTrack(microphone),
+        videoTrack: admitted ? visibleTrack(camera) : null,
+        audioTrack: admitted ? visibleTrack(microphone) : null,
         micMuted: !microphone || microphone.isMuted,
         cameraOff: !camera || camera.isMuted,
       },
     })
   }
 
+  private async ensureLocalMedia() {
+    const want = { audio: !this.audio, video: !this.video }
+    if (!want.audio && !want.video) return
+    const media = await this.deps.createLocalMedia(want)
+    if (this.disposed) {
+      media.audio?.stop()
+      media.video?.stop()
+      return
+    }
+    if (media.audio) this.audio = media.audio
+    if (media.video) this.video = media.video
+    if (media.error) this.setMediaError(media.error)
+    else this.update({ mediaError: null })
+  }
+
+  private stopLocalMedia() {
+    this.audio?.stop()
+    this.video?.stop()
+    this.audio = null
+    this.video = null
+    this.published.clear()
+  }
+
+  private async publishLocalMedia() {
+    const room = this.room
+    if (!room || this.snapshot.admission !== 'admitted') return
+    for (const track of [this.audio, this.video]) {
+      if (!track || this.published.has(track)) continue
+      try {
+        await room.localParticipant.publishTrack(track)
+        if (this.room !== room) return
+        this.published.add(track)
+      } catch (error) {
+        if (this.room !== room) return
+        this.setMediaError(error)
+      }
+    }
+  }
+
+  private async unpublishLocalMedia() {
+    const room = this.room
+    const tracks = [...this.published]
+    this.published.clear()
+    if (!room) return
+    for (const track of tracks) {
+      await room.localParticipant.unpublishTrack(track, false).catch(() => {})
+    }
+  }
+
   private releaseRoom() {
     const room = this.room
     this.room = null
+    this.published.clear()
+    this.candidatePresent = false
     if (!room) return
     room.removeAllListeners()
     void room.disconnect().catch(() => {})
@@ -239,30 +361,12 @@ export class InterviewCallController {
       if (this.room !== room) return
       this.releaseRoom()
       this.update({
+        ...this.localPatch(),
         phase: 'disconnected',
         error: { kind: 'connection', message: 'The call was disconnected.' },
-        localVideoTrack: null,
         candidate: { ...EMPTY_CANDIDATE, presence: candidatePresence(false, this.candidateEverJoined) },
       })
     })
-  }
-
-  private async publishLocalMedia() {
-    const room = this.room
-    if (!room) return
-    this.update({ mediaError: null })
-    for (const enable of [
-      () => room.localParticipant.setMicrophoneEnabled(true),
-      () => room.localParticipant.setCameraEnabled(true),
-    ]) {
-      try {
-        await enable()
-      } catch (error) {
-        if (this.room !== room) return
-        this.setMediaError(error)
-      }
-    }
-    if (this.room === room) this.sync()
   }
 
   async join(): Promise<void> {
@@ -270,6 +374,7 @@ export class InterviewCallController {
     this.started = true
     this.update({ phase: 'requesting_token', error: null })
 
+    const media = this.ensureLocalMedia().then(() => this.sync())
     let credentials: InterviewCallToken
     try {
       credentials = await this.deps.fetchToken(this.deps.sessionId)
@@ -290,7 +395,7 @@ export class InterviewCallController {
     this.update({ phase: 'connecting' })
 
     try {
-      await room.connect(credentials.url, credentials.token)
+      await room.connect(credentials.url, credentials.token, { autoSubscribe: false })
     } catch (error) {
       if (this.room !== room) return
       this.releaseRoom()
@@ -303,10 +408,37 @@ export class InterviewCallController {
     this.update({ phase: 'connected' })
     this.sync()
     this.deps.onJoined?.()
+    await media
     await this.publishLocalMedia()
+    this.sync()
   }
 
-  /** Starts a fresh connection after an error or unexpected disconnect. */
+  /** Lets the candidate in: publishes local media and subscribes to theirs. */
+  async admit(): Promise<void> {
+    if (this.disposed) return
+    this.setAdmission('admitted')
+    this.sync()
+    await this.publishLocalMedia()
+    this.sync()
+  }
+
+  /** Keeps the candidate out: nothing is sent to or received from them. */
+  async deny(): Promise<void> {
+    if (this.disposed) return
+    this.setAdmission('denied')
+    await this.unpublishLocalMedia()
+    this.sync()
+  }
+
+  /** Applies an admission decision or knock stored in the database. */
+  applyServerAdmission(status: ServerAdmissionStatus): Promise<void> {
+    if (status === 'admitted') return this.snapshot.admission === 'admitted' ? Promise.resolve() : this.admit()
+    if (status === 'denied') return this.snapshot.admission === 'denied' ? Promise.resolve() : this.deny()
+    if (this.snapshot.admission !== 'admitted') this.setAdmission('requested')
+    return Promise.resolve()
+  }
+
+  /** Starts a fresh connection after an error, unexpected disconnect or leaving. */
   retry(): Promise<void> {
     if (this.disposed || this.room) return Promise.resolve()
     this.started = false
@@ -314,31 +446,35 @@ export class InterviewCallController {
   }
 
   async toggleMic(): Promise<void> {
-    const room = this.room
-    if (!room) return
+    if (!this.audio) {
+      await this.retryMedia()
+      return
+    }
     try {
-      await room.localParticipant.setMicrophoneEnabled(!room.localParticipant.isMicrophoneEnabled)
-      if (this.room === room) this.update({ mediaError: null })
+      await (this.audio.isMuted ? this.audio.unmute() : this.audio.mute())
     } catch (error) {
-      if (this.room === room) this.setMediaError(error)
+      this.setMediaError(error)
     }
     this.sync()
   }
 
   async toggleCamera(): Promise<void> {
-    const room = this.room
-    if (!room) return
+    if (!this.video) {
+      await this.retryMedia()
+      return
+    }
     try {
-      await room.localParticipant.setCameraEnabled(!room.localParticipant.isCameraEnabled)
-      if (this.room === room) this.update({ mediaError: null })
+      await (this.video.isMuted ? this.video.unmute() : this.video.mute())
     } catch (error) {
-      if (this.room === room) this.setMediaError(error)
+      this.setMediaError(error)
     }
     this.sync()
   }
 
-  retryMedia(): Promise<void> {
-    return this.publishLocalMedia()
+  async retryMedia(): Promise<void> {
+    await this.ensureLocalMedia()
+    await this.publishLocalMedia()
+    this.sync()
   }
 
   async startAudio(): Promise<void> {
@@ -351,15 +487,14 @@ export class InterviewCallController {
     }
   }
 
-  /** Disconnects from LiveKit and removes every room listener. Safe to call repeatedly. */
+  /** Disconnects, removes every room listener and releases the camera and mic. Safe to call repeatedly. */
   leave(): void {
     this.releaseRoom()
+    this.stopLocalMedia()
     if (this.snapshot.phase !== 'left') {
       this.update({
+        ...this.localPatch(),
         phase: 'left',
-        localVideoTrack: null,
-        micEnabled: false,
-        cameraEnabled: false,
         candidate: EMPTY_CANDIDATE,
       })
     }
@@ -368,6 +503,7 @@ export class InterviewCallController {
   dispose(): void {
     this.disposed = true
     this.releaseRoom()
+    this.stopLocalMedia()
     this.listeners.clear()
   }
 }
