@@ -1,6 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { getCurrentUser, onAuthStateChange, signOut as signOutRequest } from '../services/auth.ts'
+import {
+  claimInterviewerPersona,
+  getCurrentUser,
+  onAuthStateChange,
+  signOut as signOutRequest,
+} from '../services/auth.ts'
 import { getCurrentInterviewer, type InterviewerAccount } from '../services/interviewer.ts'
 import {
   getMyProfile,
@@ -48,14 +53,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUser(nextUser)
     setStatus('authenticated')
     try {
-      const nextProfile = await getMyProfile()
-      setProfile(nextProfile)
+      let nextProfile = await getMyProfile()
 
       if (nextProfile.role === 'admin') {
+        setProfile(nextProfile)
         setAccount(null)
         setError(null)
         return
       }
+
+      // New Google sign-ups are created as candidates; claim the empty stub first.
+      if (nextProfile.role !== 'interviewer' && (await claimInterviewerPersona())) {
+        nextProfile = await getMyProfile()
+      }
+      setProfile(nextProfile)
 
       if (nextProfile.role !== 'interviewer') {
         setAccount(null)

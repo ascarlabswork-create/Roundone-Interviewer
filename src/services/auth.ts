@@ -189,6 +189,7 @@ export async function signInWithGoogle(nextPath?: string) {
     provider: 'google',
     options: {
       redirectTo: buildOAuthRedirect(nextPath),
+      queryParams: { prompt: 'select_account' },
     },
   })
   if (error) throw new Error(authErrorMessage(error))

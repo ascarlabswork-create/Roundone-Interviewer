@@ -33,7 +33,7 @@ export function AuthCallbackPage() {
   if (failed) {
     const heading = notInterviewer ? 'This account can\u2019t use the Interviewer app' : 'Sign-in could not be completed'
     const body = notInterviewer
-      ? 'This Google account is registered as a candidate. Use an interviewer account to continue, or an admin account for operations.'
+      ? 'This Google account already has a jobround.ai candidate profile, so it can’t be used as an interviewer. Choose a different Google account, or register with email.'
       : oauthError
         ? oauthError
         : 'We couldn\u2019t confirm your session. Please try signing in again.'
