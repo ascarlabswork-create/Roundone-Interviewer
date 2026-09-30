@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthLayout } from '../components/auth/AuthLayout.tsx'
 import { RequireAdminAuth } from '../components/auth/RequireAdminAuth.tsx'
@@ -14,7 +15,6 @@ import { CandidatesPage } from '../pages/CandidatesPage.tsx'
 import { DashboardPage } from '../pages/DashboardPage.tsx'
 import { EarningsPage } from '../pages/EarningsPage.tsx'
 import { FeedbackPage } from '../pages/FeedbackPage.tsx'
-import { InterviewRoomPage } from '../pages/InterviewRoomPage.tsx'
 import { LoginPage } from '../pages/LoginPage.tsx'
 import { NotificationsPage } from '../pages/NotificationsPage.tsx'
 import { ProfilePage } from '../pages/ProfilePage.tsx'
@@ -30,6 +30,11 @@ import { AdminDashboardPage } from '../pages/admin/AdminDashboardPage.tsx'
 import { AdminReviewsPage } from '../pages/admin/AdminReviewsPage.tsx'
 import { AdminServicesPage } from '../pages/admin/AdminServicesPage.tsx'
 import { AdminVerificationsPage } from '../pages/admin/AdminVerificationsPage.tsx'
+
+// Loaded on demand so livekit-client stays out of the main bundle.
+const InterviewRoomPage = lazy(() =>
+  import('../pages/InterviewRoomPage.tsx').then((module) => ({ default: module.InterviewRoomPage })),
+)
 
 export function AppRouter() {
   return (
@@ -72,7 +77,14 @@ export function AppRouter() {
             <Route path="/interviewer/verification" element={<VerificationPage />} />
             <Route path="/interviewer/settings" element={<SettingsPage />} />
           </Route>
-          <Route path="/interviewer/interview/:id" element={<InterviewRoomPage />} />
+          <Route
+            path="/interviewer/interview/:id"
+            element={
+              <Suspense fallback={<div className="min-h-svh bg-navy-950" />}>
+                <InterviewRoomPage />
+              </Suspense>
+            }
+          />
         </Route>
         <Route path="*" element={<UnknownRoute />} />
       </Routes>

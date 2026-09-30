@@ -121,12 +121,30 @@ export {
   getInterviewSessionByBooking,
   getInterviewSessionsByBookingIds,
   interviewJoinState,
+  beginInterviewCall,
   loadMyInterviewBoard,
-  startInterviewSession,
+  recordInterviewCallEvent,
+  resolveInterviewRoute,
+  type InterviewCallEvent,
   type InterviewJoinState,
   type InterviewSessionBundle,
   type InterviewSessionRecord,
 } from './interviewSessions.ts'
+export {
+  acceptBookingAndAwaitConfirmation,
+  acceptBookingAndGetCallPath,
+  interviewCallPath,
+  watchBookingStatus,
+  type BookingStatusChange,
+  type BookingStatusWatch,
+} from './bookingRealtime.ts'
+export {
+  InterviewCallError,
+  interviewRoomName,
+  requestInterviewToken,
+  type CallErrorKind,
+  type InterviewCallToken,
+} from './interviewCall.ts'
 export {
   FEEDBACK_ALREADY_SUBMITTED,
   FEEDBACK_INVALID_SCORE,
