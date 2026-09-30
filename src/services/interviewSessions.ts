@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase.ts'
 import { getFeedbackBookingIds } from './interviewerFeedback.ts'
-import { getMyBooking, getMyBookings, type InterviewerBooking } from './interviewerBookings.ts'
+import { getMyBooking, getMyBookings, isBookingId, type InterviewerBooking } from './interviewerBookings.ts'
 import { TABLES } from './tables.ts'
 
 export type InterviewSessionRecord = {
@@ -148,6 +148,12 @@ export async function loadMyInterviewBoard(): Promise<{
 
 function mapSessionRpcError(error: { message: string; code?: string; details?: string }) {
   const text = `${error.code ?? ''} ${error.message} ${error.details ?? ''}`.toLowerCase()
+  if (text.includes('booking_not_confirmed')) {
+    return new Error('This interview is not confirmed yet.')
+  }
+  if (text.includes('session_expired')) {
+    return new Error('This interview session has ended.')
+  }
   if (text.includes('not_authorized') || error.code === '42501') {
     return new Error('You can only update your own interview sessions.')
   }
@@ -160,27 +166,45 @@ function mapSessionRpcError(error: { message: string; code?: string; details?: s
   return new Error('Could not update this interview session. Try again.')
 }
 
-export async function startInterviewSession(bookingId: string): Promise<InterviewSessionBundle> {
-  const booking = await getMyBooking(bookingId)
-  if (booking.status === 'requested') {
-    throw new Error('This booking is still a request. Confirm it before joining the interview.')
+/**
+ * Accepts either an interview session id (canonical call route) or a booking id
+ * (older links) and returns the booking with its session.
+ */
+export async function resolveInterviewRoute(id: string): Promise<{
+  booking: InterviewerBooking
+  session: InterviewSessionRecord | null
+}> {
+  if (!isBookingId(id)) throw new Error('This booking is no longer available.')
+  const { data, error } = await supabase
+    .from(TABLES.interviewSessions)
+    .select(SESSION_SELECT)
+    .eq('id', id)
+    .maybeSingle()
+  fail(error)
+  const session = parseSession(data)
+  if (session) {
+    const booking = await getMyBooking(session.bookingId)
+    return { booking, session }
   }
-  const session = await getInterviewSessionByBooking(booking.id)
-  const state = interviewJoinState(booking, session)
-  if (state.kind === 'waiting') {
-    throw new Error('This interview has not started yet.')
-  }
-  if (state.kind !== 'ready' || !session) {
-    throw new Error('You cannot join this interview.')
-  }
+  return getInterviewSession(id)
+}
 
-  const { error } = await supabase.rpc('start_interview_session', { p_booking_id: booking.id })
+/**
+ * Records the interviewer joining the call through the shared begin_interview_call
+ * RPC (also used by the Candidate app): writes the call_opened / participant_joined
+ * session events, marks the session as a LiveKit call and moves a confirmed booking
+ * to in_progress.
+ */
+export async function beginInterviewCall(sessionId: string): Promise<void> {
+  const { error } = await supabase.rpc('begin_interview_call', { p_session_id: sessionId })
   if (error) throw mapSessionRpcError(error)
+}
 
-  const nextBooking = await getMyBooking(booking.id)
-  const nextSession = await getInterviewSessionByBooking(booking.id)
-  if (!nextSession) throw new Error('Interview session not found.')
-  return { booking: nextBooking, session: nextSession }
+export type InterviewCallEvent = 'participant_left' | 'call_ended'
+
+export async function recordInterviewCallEvent(sessionId: string, event: InterviewCallEvent): Promise<void> {
+  const { error } = await supabase.rpc('record_interview_call_event', { p_session_id: sessionId, p_event: event })
+  if (error) throw mapSessionRpcError(error)
 }
 
 export async function endInterviewSession(bookingId: string): Promise<InterviewSessionBundle> {

@@ -22,10 +22,10 @@ import { Badge, Card, Skeleton } from '../components/ui/primitives.tsx'
 import { completedWhenLabel, formatDateShortInZone, formatTimeInZone } from '../lib/dates.ts'
 import { formatCount, formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
+import { acceptBookingAndGetCallPath } from '../services/bookingRealtime.ts'
 import { loadMyAvailabilityBoard } from '../services/interviewerAvailability.ts'
 import {
   BOOKING_ALREADY_UPDATED,
-  confirmBooking,
   interviewerBookingHref,
   rejectBooking,
   type InterviewerBooking,
@@ -157,7 +157,15 @@ export function DashboardPage() {
   }
 
   async function onConfirm(id: string) {
-    await runBookingAction(id, () => confirmBooking(id), 'Booking confirmed')
+    const accepted: { path: string | null } = { path: null }
+    await runBookingAction(
+      id,
+      async () => {
+        accepted.path = await acceptBookingAndGetCallPath(id)
+      },
+      'Booking confirmed',
+    )
+    if (accepted.path) navigate(accepted.path)
   }
 
   async function onReject(id: string) {

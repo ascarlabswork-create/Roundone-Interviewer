@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
 import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
@@ -16,7 +16,6 @@ import {
   canCancelBooking,
   canRescheduleBooking,
   cancelMyBooking,
-  confirmBooking,
   isActionableBookingRequest,
   isBookingId,
   listMyBookableSlots,
@@ -27,6 +26,7 @@ import {
   type InterviewerBooking,
   type InterviewerBookingTab,
 } from '../services/interviewerBookings.ts'
+import { acceptBookingAndGetCallPath } from '../services/bookingRealtime.ts'
 import { markBookingNotificationsRead } from '../services/interviewerNotifications.ts'
 import { loadMyInterviewBoard, type InterviewSessionRecord } from '../services/interviewSessions.ts'
 import { useToast } from '../state/toast.tsx'
@@ -57,6 +57,7 @@ const emptyCopy: Record<InterviewerBookingTab, { title: string; body: string }> 
 }
 
 export function BookingsPage() {
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const requestedTab = params.get('tab')
   const bookingParam = params.get('booking')
@@ -161,7 +162,15 @@ export function BookingsPage() {
   }
 
   async function onAccept(id: string) {
-    await runAction(id, () => confirmBooking(id), 'Booking confirmed')
+    const accepted: { path: string | null } = { path: null }
+    await runAction(
+      id,
+      async () => {
+        accepted.path = await acceptBookingAndGetCallPath(id)
+      },
+      'Booking confirmed',
+    )
+    if (accepted.path) navigate(accepted.path)
   }
 
   async function onCancelConfirm() {
