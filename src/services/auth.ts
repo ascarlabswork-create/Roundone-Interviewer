@@ -196,6 +196,18 @@ export async function signInWithGoogle(nextPath?: string) {
   return data
 }
 
+/** Completes Google One Tap: exchanges Google's ID token for a Supabase session. */
+export async function signInWithGoogleIdToken(idToken: string, rawNonce: string) {
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: idToken,
+    nonce: rawNonce,
+  })
+  if (error) throw new Error(authErrorMessage(error))
+  if (!data.session) throw new Error('Sign in did not create a session.')
+  return data.user
+}
+
 export async function sendPasswordReset(email: string) {
   const trimmed = email.trim()
   if (!trimmed) throw new Error('Enter your email above first, then choose “Forgot password?”.')

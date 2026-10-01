@@ -5,6 +5,7 @@ import { Logo } from '../layout/Logo.tsx'
 import { ToastStack } from '../layout/PublicLayout.tsx'
 import { useToast } from '../../state/toast.tsx'
 import { cn } from '../../lib/cn.ts'
+import { GoogleOneTap } from './GoogleOneTap.tsx'
 
 /** Guest-only chrome: logo and the auth form. No dashboard or marketing. */
 export function AuthLayout() {
@@ -32,6 +33,7 @@ export function AuthLayout() {
         <Outlet />
       </div>
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
+      {location.pathname.startsWith('/interviewer/auth/callback') ? null : <GoogleOneTap />}
     </div>
   )
 }
