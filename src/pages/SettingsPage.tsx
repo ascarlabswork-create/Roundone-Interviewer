@@ -106,7 +106,7 @@ export function SettingsPage() {
               options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
               value={timezone}
               onChange={setTimezone}
-              customPlaceholder="Type a timezone, e.g. Europe/Berlin"
+              customPlaceholder="Search, e.g. America/Chicago or Asia/Kolkata"
               required
             />
           </div>

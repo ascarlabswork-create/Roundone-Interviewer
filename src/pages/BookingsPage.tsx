@@ -7,7 +7,13 @@ import { JoinInterviewControls, interviewConfirmedCopy } from '../components/int
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
 import { Badge, Card, EmptyState, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
-import { formatDateLongInZone, formatDateShortInZone, formatTimeInZone, timezoneLabel } from '../lib/dates.ts'
+import {
+  formatDateLongInZone,
+  formatDateShortInZone,
+  formatInstantInTwoZones,
+  formatTimeInZone,
+  timezoneLabel,
+} from '../lib/dates.ts'
 import { formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import {
@@ -543,13 +549,22 @@ function BookingDetails({
           </div>
           <div className="flex flex-wrap justify-between gap-2">
             <dt>Time</dt>
-            <dd className="font-medium text-navy-950">
-              {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)}
+            <dd className="max-w-sm text-right font-medium text-navy-950">
+              {formatInstantInTwoZones(
+                booking.startsAtUtc,
+                booking.interviewerTimezone,
+                booking.displayTimezone,
+                'time',
+              )}
             </dd>
           </div>
           <div className="flex flex-wrap justify-between gap-2">
-            <dt>Timezone</dt>
+            <dt>Candidate timezone</dt>
             <dd className="font-medium text-navy-950">{timezoneLabel(booking.displayTimezone)}</dd>
+          </div>
+          <div className="flex flex-wrap justify-between gap-2">
+            <dt>Your timezone</dt>
+            <dd className="font-medium text-navy-950">{timezoneLabel(booking.interviewerTimezone)}</dd>
           </div>
         </dl>
       </div>

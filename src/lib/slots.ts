@@ -1,4 +1,5 @@
-import { TIMEZONES, WEEKDAY_LABELS } from '../data/catalogs.ts'
+import { WEEKDAY_LABELS } from '../data/catalogs.ts'
+import { isValidTimezone } from './timezones.ts'
 import {
   combineDateTime,
   formatClock,
@@ -243,7 +244,7 @@ export function weeklyAvailableHours(recurring: RecurringAvailability[]) {
 export function validateRecurring(ranges: RecurringAvailability[], timezone: string) {
   const errors: string[] = []
   if (!timezone.trim()) errors.push('Timezone is required.')
-  if (!TIMEZONES.some((item) => item.id === timezone)) errors.push('Choose a supported timezone.')
+  if (!isValidTimezone(timezone)) errors.push('Choose a valid timezone.')
 
   ranges.forEach((range) => {
     if (!range.isActive) return

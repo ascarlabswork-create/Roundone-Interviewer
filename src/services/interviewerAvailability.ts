@@ -1,4 +1,5 @@
-import { BUFFER_OPTIONS, TIMEZONES, WEEKDAY_LABELS } from '../data/catalogs.ts'
+import { BUFFER_OPTIONS, WEEKDAY_LABELS } from '../data/catalogs.ts'
+import { isValidTimezone } from '../lib/timezones.ts'
 import { formatReviewDate, fromYMD, timeToMinutes, toISODate } from '../lib/dates.ts'
 import { isDateWithinRange, validateAvailableRange } from '../lib/slots.ts'
 import { supabase } from '../lib/supabase.ts'
@@ -8,7 +9,7 @@ import { TABLES } from './tables.ts'
 export const BOOKING_BUFFER_MINUTES = BUFFER_OPTIONS
 export type BookingBufferMinutes = (typeof BOOKING_BUFFER_MINUTES)[number]
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
-export type SupportedTimezone = (typeof TIMEZONES)[number]['id']
+export type SupportedTimezone = string
 
 export type AvailabilityWindow = {
   id: string
@@ -219,8 +220,8 @@ function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: strin
 function assertValidTimezone(timezone: string) {
   const trimmed = timezone.trim()
   if (!trimmed) throw new Error('Timezone is required.')
-  if (!TIMEZONES.some((zone) => zone.id === trimmed)) {
-    throw new Error('Choose a supported timezone.')
+  if (!isValidTimezone(trimmed)) {
+    throw new Error('Choose a valid timezone (e.g. America/Chicago or Asia/Kolkata).')
   }
   return trimmed
 }

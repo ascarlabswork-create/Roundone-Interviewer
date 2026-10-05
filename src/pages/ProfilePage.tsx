@@ -243,7 +243,7 @@ export function ProfilePage() {
                 options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
                 value={form.timezone}
                 onChange={(timezone) => setForm({ ...form, timezone })}
-                customPlaceholder="Type a timezone, e.g. Europe/Berlin"
+                customPlaceholder="Search, e.g. America/Chicago or Asia/Kolkata"
                 required
               />
             </div>

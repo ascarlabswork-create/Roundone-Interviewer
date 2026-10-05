@@ -1,3 +1,5 @@
+import { getTimezoneOptions } from '../lib/timezones.ts'
+
 export const INTERVIEW_TYPES = [
   'Coding',
   'System Design',
@@ -92,13 +94,8 @@ export const REVIEW_DIMENSIONS = [
   { key: 'professionalism', label: 'Professionalism' },
 ] as const
 
-export const TIMEZONES = [
-  { id: 'Asia/Kolkata', label: 'Asia/Kolkata (IST)' },
-  { id: 'America/Los_Angeles', label: 'America/Los_Angeles (PT)' },
-  { id: 'America/New_York', label: 'America/New_York (ET)' },
-  { id: 'Europe/London', label: 'Europe/London' },
-  { id: 'Asia/Singapore', label: 'Asia/Singapore' },
-] as const
+/** Full IANA list (popular zones first). Prefer `timezoneSelectOptions()` for searchable dropdowns. */
+export const TIMEZONES = getTimezoneOptions()
 
 export const BUFFER_OPTIONS = [0, 10, 15, 30] as const
 

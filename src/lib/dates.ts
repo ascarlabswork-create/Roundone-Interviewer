@@ -1,3 +1,5 @@
+import { formatTimezoneLabel } from './timezones.ts'
+
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -155,8 +157,25 @@ export function clock24hFromParts(hour12: number, minute: number, period: ClockP
 }
 
 export function timezoneLabel(zone: string) {
-  if (zone === 'Asia/Kolkata') return 'Asia/Kolkata (IST)'
-  return zone
+  return formatTimezoneLabel(zone)
+}
+
+/** Same instant shown in two zones (e.g. interviewer CST + candidate IST). */
+export function formatInstantInTwoZones(
+  iso: string,
+  zoneA: string,
+  zoneB: string,
+  format: 'time' | 'datetime' = 'time',
+) {
+  if (zoneA === zoneB) {
+    return format === 'time'
+      ? `${formatTimeInZone(iso, zoneA)} (${timezoneLabel(zoneA)})`
+      : `${formatDateLongInZone(iso, zoneA)} · ${formatTimeInZone(iso, zoneA)} (${timezoneLabel(zoneA)})`
+  }
+  if (format === 'time') {
+    return `${formatTimeInZone(iso, zoneA)} (${timezoneLabel(zoneA)}) · ${formatTimeInZone(iso, zoneB)} (${timezoneLabel(zoneB)})`
+  }
+  return `${formatDateLongInZone(iso, zoneA)} · ${formatTimeInZone(iso, zoneA)} (${timezoneLabel(zoneA)}) · ${formatTimeInZone(iso, zoneB)} (${timezoneLabel(zoneB)})`
 }
 
 function formatDateInZone(iso: string, timeZone: string, options: Intl.DateTimeFormatOptions) {

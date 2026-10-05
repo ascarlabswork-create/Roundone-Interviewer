@@ -12,7 +12,9 @@ import {
   Skeleton,
   TextInput,
 } from '../components/ui/primitives.tsx'
-import { BUFFER_OPTIONS, INTERVIEW_TYPES, TIMEZONES, WEEKDAY_LABELS, WEEKDAY_ORDER } from '../data/catalogs.ts'
+import { BUFFER_OPTIONS, INTERVIEW_TYPES, WEEKDAY_LABELS, WEEKDAY_ORDER } from '../data/catalogs.ts'
+import { SuggestedSelect } from '../components/ui/suggestions.tsx'
+import { timezoneSelectOptions } from '../lib/timezones.ts'
 import type { InterviewType } from '../data/catalogs.ts'
 import { cn } from '../lib/cn.ts'
 import {
@@ -140,11 +142,7 @@ export function CalendarPage() {
   const weekStart = addDays(startOfWeek(new Date()), weekOffset * 7)
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
   const liveSchedule = board ? toSchedule(board, previewService?.durationMin ?? 60) : null
-  const timezoneOptions = board
-    ? TIMEZONES.some((zone) => zone.id === board.timezone)
-      ? TIMEZONES
-      : [{ id: board.timezone, label: board.timezone }, ...TIMEZONES]
-    : TIMEZONES
+  const timezoneOptions = useMemo(() => timezoneSelectOptions(), [])
 
   const previewSlots = liveSchedule
     ? generateBookableSlots({
@@ -347,20 +345,17 @@ export function CalendarPage() {
           <Card className="p-5">
             <h2 className="text-lg font-semibold text-navy-950">Timezone</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Availability times are interpreted in your timezone ({timezoneLabel(board.timezone)}).
+              Set weekly hours in your timezone ({timezoneLabel(board.timezone)}). Candidates book in their own zone;
+              each session shows both times so CST and IST (or any pair) line up.
             </p>
             <div className="mt-4 max-w-md">
-              <SelectInput
+              <SuggestedSelect
+                id="availability-timezone"
+                options={timezoneOptions}
                 value={board.timezone}
-                disabled={saving}
-                onChange={(event) => void onTimezoneChange(event.target.value)}
-              >
-                {timezoneOptions.map((zone) => (
-                  <option key={zone.id} value={zone.id}>
-                    {zone.label}
-                  </option>
-                ))}
-              </SelectInput>
+                customPlaceholder="Search, e.g. America/Chicago or Asia/Kolkata"
+                onChange={(timezone) => void onTimezoneChange(timezone)}
+              />
             </div>
           </Card>
 
