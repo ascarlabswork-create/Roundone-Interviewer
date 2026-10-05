@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
 import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
@@ -502,6 +502,12 @@ function BookingDetails({
             <span className="text-slate-500">No skills listed</span>
           )}
         </div>
+        <Link
+          to={`/interviewer/candidates/${booking.candidate.candidateProfileId}`}
+          className="mt-3 inline-block text-sm font-medium text-blue-700 hover:text-blue-800"
+        >
+          View interview history with this candidate
+        </Link>
       </div>
 
       <div>

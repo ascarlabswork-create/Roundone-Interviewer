@@ -11,7 +11,6 @@ import {
   Shield,
   Star,
   UserRound,
-  Users,
   X,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -31,7 +30,6 @@ const navItems = [
   { to: '/interviewer/bookings', label: 'Bookings', icon: ClipboardList },
   { to: '/interviewer/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/interviewer/services', label: 'Services', icon: Briefcase },
-  { to: '/interviewer/candidates', label: 'Candidates', icon: Users },
   { to: '/interviewer/reviews', label: 'Reviews', icon: Star },
   { to: '/interviewer/earnings', label: 'Earnings', icon: IndianRupee },
   { to: '/interviewer/notifications', label: 'Notifications', icon: Bell },

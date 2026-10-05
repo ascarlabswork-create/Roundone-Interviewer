@@ -19,8 +19,8 @@ export function CandidateDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/interviewer/candidates" className="text-sm font-medium text-blue-700">
-        Back to candidates
+      <Link to="/interviewer/bookings" className="text-sm font-medium text-blue-700">
+        Back to bookings
       </Link>
       <Card className="p-6">
         <h1 className="text-2xl font-semibold text-navy-950">{candidate.name}</h1>

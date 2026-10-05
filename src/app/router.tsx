@@ -11,7 +11,6 @@ import { AuthCallbackPage } from '../pages/AuthCallbackPage.tsx'
 import { BookingsPage } from '../pages/BookingsPage.tsx'
 import { CalendarPage } from '../pages/CalendarPage.tsx'
 import { CandidateDetailPage } from '../pages/CandidateDetailPage.tsx'
-import { CandidatesPage } from '../pages/CandidatesPage.tsx'
 import { DashboardPage } from '../pages/DashboardPage.tsx'
 import { EarningsPage } from '../pages/EarningsPage.tsx'
 import { FeedbackPage } from '../pages/FeedbackPage.tsx'
@@ -67,7 +66,7 @@ export function AppRouter() {
             <Route path="/interviewer/bookings" element={<BookingsPage />} />
             <Route path="/interviewer/calendar" element={<CalendarPage />} />
             <Route path="/interviewer/services" element={<ServicesPage />} />
-            <Route path="/interviewer/candidates" element={<CandidatesPage />} />
+            <Route path="/interviewer/candidates" element={<Navigate to="/interviewer/bookings" replace />} />
             <Route path="/interviewer/candidates/:id" element={<CandidateDetailPage />} />
             <Route path="/interviewer/feedback/:bookingId" element={<FeedbackPage />} />
             <Route path="/interviewer/reviews" element={<ReviewsPage />} />
