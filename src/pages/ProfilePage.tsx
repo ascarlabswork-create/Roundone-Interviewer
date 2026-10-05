@@ -309,7 +309,7 @@ export function ProfilePage() {
       <Card className="p-6">
         <SectionHeader
           title="Skills you interview on"
-          description="Candidates are matched to you on these skills, even before you create a service. Changes save instantly."
+          description="Candidates are matched to you on these skills, even before you create a service."
         />
         <div className="mt-5">
           <SkillManager interviewerProfileId={account.interviewer.id} onChanged={refreshAccount} />

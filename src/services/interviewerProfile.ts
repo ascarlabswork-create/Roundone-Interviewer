@@ -406,44 +406,36 @@ export async function listInterviewerSkillRows(interviewerProfileId: string): Pr
   return (data ?? []).map((row) => ({ id: row.id, skill: row.skill }))
 }
 
-/** Adds one skill. The database stores the canonical label and skips canonical duplicates. */
-export async function addInterviewerSkill(interviewerProfileId: string, value: string): Promise<InterviewerSkillRecord> {
-  const skill = cleanSkillInput(value)
-  const { data, error } = await supabase
-    .from(TABLES.interviewerSkills)
-    .insert({ interviewer_profile_id: interviewerProfileId, skill })
-    .select('id, skill')
-  if (error) throw new Error(skillErrorMessage(error))
-  const row = data?.[0]
-  if (!row) throw new Error(SKILL_DUPLICATE)
-  return { id: row.id, skill: row.skill }
-}
-
-export async function renameInterviewerSkill(
+/**
+ * Applies an edited skill list in one save: removes the given rows of this interviewer and adds new names.
+ * The database stores canonical labels and skips additions that duplicate an existing skill.
+ */
+export async function saveInterviewerSkillSet(
   interviewerProfileId: string,
-  skillId: string,
-  value: string,
-): Promise<InterviewerSkillRecord> {
-  const skill = cleanSkillInput(value)
-  const { data, error } = await supabase
-    .from(TABLES.interviewerSkills)
-    .update({ skill })
-    .eq('id', skillId)
-    .eq('interviewer_profile_id', interviewerProfileId)
-    .select('id, skill')
-  if (error) throw new Error(skillErrorMessage(error))
-  const row = data?.[0]
-  if (!row) throw new Error(SKILL_SAVE_FAILED)
-  return { id: row.id, skill: row.skill }
-}
+  removeIds: string[],
+  additions: string[],
+): Promise<InterviewerSkillRecord[]> {
+  const toAdd = additions
+    .map(cleanSkillInput)
+    .filter((skill, index, all) => all.findIndex((other) => other.toLowerCase() === skill.toLowerCase()) === index)
 
-export async function deleteInterviewerSkill(interviewerProfileId: string, skillId: string): Promise<void> {
-  const { error } = await supabase
-    .from(TABLES.interviewerSkills)
-    .delete()
-    .eq('id', skillId)
-    .eq('interviewer_profile_id', interviewerProfileId)
-  if (error) throw new Error('Could not delete the skill. Try again.')
+  if (removeIds.length > 0) {
+    const { error } = await supabase
+      .from(TABLES.interviewerSkills)
+      .delete()
+      .in('id', removeIds)
+      .eq('interviewer_profile_id', interviewerProfileId)
+    if (error) throw new Error('Could not remove skills. Try again.')
+  }
+
+  if (toAdd.length > 0) {
+    const { error } = await supabase
+      .from(TABLES.interviewerSkills)
+      .insert(toAdd.map((skill) => ({ interviewer_profile_id: interviewerProfileId, skill })))
+    if (error) throw new Error(skillErrorMessage(error))
+  }
+
+  return listInterviewerSkillRows(interviewerProfileId)
 }
 
 export async function updateInterviewerSkills(skills: string[]): Promise<string[]> {

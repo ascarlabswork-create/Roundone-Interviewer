@@ -31,6 +31,10 @@ const fake = vi.hoisted(() => {
           call.filters.push([column, value])
           return builder
         },
+        in(column: string, values: unknown) {
+          call.filters.push([column, values])
+          return builder
+        },
         order() {
           return builder
         },
@@ -56,10 +60,8 @@ const {
   SKILL_DUPLICATE,
   SKILL_REQUIRED,
   SKILL_TOO_LONG,
-  addInterviewerSkill,
   cleanSkillInput,
-  deleteInterviewerSkill,
-  renameInterviewerSkill,
+  saveInterviewerSkillSet,
   skillErrorMessage,
 } = await import('./interviewerProfile.ts')
 
@@ -87,44 +89,39 @@ describe('skill input', () => {
   })
 })
 
-describe('skill CRUD', () => {
-  it('creates a skill for the signed-in interviewer and returns the canonical label', async () => {
+describe('saving the edited skill list', () => {
+  it('removes only the given rows of the owning interviewer and adds new skills', async () => {
     fake.respond({ data: [{ id: 's1', skill: 'Python' }], error: null })
-    await expect(addInterviewerSkill(MY_PROFILE, ' python3 ')).resolves.toEqual({ id: 's1', skill: 'Python' })
-    expect(fake.calls[0]).toMatchObject({
-      table: 'interviewer_skills',
-      op: 'insert',
-      payload: { interviewer_profile_id: MY_PROFILE, skill: 'python3' },
-    })
-  })
-
-  it('reports a canonical duplicate when the database skips the insert', async () => {
-    fake.respond({ data: [], error: null })
-    await expect(addInterviewerSkill(MY_PROFILE, 'Python 3')).rejects.toThrow(SKILL_DUPLICATE)
-  })
-
-  it('edits a skill scoped to the owning interviewer', async () => {
-    fake.respond({ data: [{ id: 's2', skill: 'Machine Learning' }], error: null })
-    await expect(renameInterviewerSkill(MY_PROFILE, 's2', 'ml')).resolves.toEqual({ id: 's2', skill: 'Machine Learning' })
-    expect(fake.calls[0]).toMatchObject({ op: 'update', payload: { skill: 'ml' } })
-    expect(fake.calls[0].filters).toEqual([
-      ['id', 's2'],
-      ['interviewer_profile_id', MY_PROFILE],
+    await expect(saveInterviewerSkillSet(MY_PROFILE, ['s2', 's3'], [' python3 '])).resolves.toEqual([
+      { id: 's1', skill: 'Python' },
     ])
-  })
-
-  it('rejects renaming onto a skill the interviewer already has', async () => {
-    fake.respond({ data: null, error: { code: '23505', message: 'duplicate_skill' } })
-    await expect(renameInterviewerSkill(MY_PROFILE, 's2', 'Python')).rejects.toThrow(SKILL_DUPLICATE)
-  })
-
-  it('deletes only the given skill of the owning interviewer', async () => {
-    await deleteInterviewerSkill(MY_PROFILE, 's3')
-    expect(fake.calls).toHaveLength(1)
     expect(fake.calls[0]).toMatchObject({ table: 'interviewer_skills', op: 'delete' })
     expect(fake.calls[0].filters).toEqual([
-      ['id', 's3'],
+      ['id', ['s2', 's3']],
       ['interviewer_profile_id', MY_PROFILE],
     ])
+    expect(fake.calls[1]).toMatchObject({
+      table: 'interviewer_skills',
+      op: 'insert',
+      payload: [{ interviewer_profile_id: MY_PROFILE, skill: 'python3' }],
+    })
+    expect(fake.calls[2]).toMatchObject({ op: 'select', filters: [['interviewer_profile_id', MY_PROFILE]] })
+  })
+
+  it('skips the delete and insert when nothing changed for that side', async () => {
+    fake.respond({ data: [], error: null })
+    await saveInterviewerSkillSet(MY_PROFILE, [], ['SQL', 'sql'])
+    expect(fake.calls.map((call) => call.op)).toEqual(['insert', 'select'])
+    expect(fake.calls[0].payload).toEqual([{ interviewer_profile_id: MY_PROFILE, skill: 'SQL' }])
+  })
+
+  it('rejects an empty skill before touching the database', async () => {
+    await expect(saveInterviewerSkillSet(MY_PROFILE, [], ['  '])).rejects.toThrow(SKILL_REQUIRED)
+    expect(fake.calls).toHaveLength(0)
+  })
+
+  it('shows a friendly message when the insert fails', async () => {
+    fake.respond({ data: null, error: { code: '23505', message: 'duplicate_skill' } })
+    await expect(saveInterviewerSkillSet(MY_PROFILE, [], ['Python'])).rejects.toThrow(SKILL_DUPLICATE)
   })
 })
