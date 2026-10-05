@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { CheckCircle2, Circle } from 'lucide-react'
 import { CandidatePreviewCard } from '../components/profile/CandidatePreviewCard.tsx'
 import { ExpertiseFields, type ExpertiseValue } from '../components/profile/ExpertiseFields.tsx'
+import { ReadinessCard } from '../components/profile/ReadinessCard.tsx'
+import { SkillManager } from '../components/profile/SkillManager.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
 import { StarRating } from '../components/ui/identity.tsx'
@@ -15,11 +17,11 @@ import { useAsync } from '../lib/useAsync.ts'
 import { loadMyAvailabilityBoard } from '../services/interviewerAvailability.ts'
 import { getMyBookings } from '../services/interviewerBookings.ts'
 import {
+  type InterviewerAccount,
   profileChecklist,
   profileCompleteness,
   updateInterviewerProfile,
   updateInterviewerRoles,
-  updateInterviewerSkills,
 } from '../services/interviewerProfile.ts'
 import { loadMyPublicReviewSummary, listMyPublicReviews } from '../services/interviewerReviews.ts'
 import { getMyServices, paiseToRupees } from '../services/interviewerServices.ts'
@@ -35,6 +37,49 @@ function SectionHeader({ title, description }: { title: string; description: str
   )
 }
 
+type ProfileForm = {
+  fullName: string
+  timezone: string
+  headline: string
+  bio: string
+  currentRole: string
+  company: string
+  experienceYears: string
+  languages: string
+}
+
+const EMPTY_FORM: ProfileForm = {
+  fullName: '',
+  timezone: 'Asia/Kolkata',
+  headline: '',
+  bio: '',
+  currentRole: '',
+  company: '',
+  experienceYears: '',
+  languages: '',
+}
+
+function formFromAccount(account: InterviewerAccount): ProfileForm {
+  return {
+    fullName: account.profile.full_name,
+    timezone: account.profile.timezone,
+    headline: account.interviewer.headline ?? '',
+    bio: account.interviewer.bio ?? '',
+    currentRole: account.interviewer.current_role === 'Pending' ? '' : account.interviewer.current_role,
+    company: account.interviewer.company === 'Pending' ? '' : account.interviewer.company,
+    experienceYears: String(account.interviewer.experience_years || ''),
+    languages: account.interviewer.languages.join(', '),
+  }
+}
+
+function expertiseFromAccount(account: InterviewerAccount): ExpertiseValue {
+  return {
+    skills: account.skills,
+    targetRoles: account.targetRoles,
+    candidateLevels: account.candidateLevels,
+  }
+}
+
 export function ProfilePage() {
   const { account, error, refreshAccount, status } = useSession()
   const { pushToast } = useToast()
@@ -45,35 +90,13 @@ export function ProfilePage() {
   const bookingsState = useAsync(() => getMyBookings(), [])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [form, setForm] = useState({
-    fullName: '',
-    timezone: 'Asia/Kolkata',
-    headline: '',
-    bio: '',
-    currentRole: '',
-    company: '',
-    experienceYears: '',
-    languages: '',
-  })
+  const [form, setForm] = useState<ProfileForm>(EMPTY_FORM)
   const [expertise, setExpertise] = useState<ExpertiseValue>({ skills: [], targetRoles: [], candidateLevels: [] })
 
   useEffect(() => {
     if (!account) return
-    setForm({
-      fullName: account.profile.full_name,
-      timezone: account.profile.timezone,
-      headline: account.interviewer.headline ?? '',
-      bio: account.interviewer.bio ?? '',
-      currentRole: account.interviewer.current_role === 'Pending' ? '' : account.interviewer.current_role,
-      company: account.interviewer.company === 'Pending' ? '' : account.interviewer.company,
-      experienceYears: String(account.interviewer.experience_years || ''),
-      languages: account.interviewer.languages.join(', '),
-    })
-    setExpertise({
-      skills: account.skills,
-      targetRoles: account.targetRoles,
-      candidateLevels: account.candidateLevels,
-    })
+    setForm(formFromAccount(account))
+    setExpertise(expertiseFromAccount(account))
   }, [account])
 
   if (status === 'loading') return <Skeleton className="h-96" />
@@ -102,6 +125,18 @@ export function ProfilePage() {
   const checklist = profileChecklist(account)
   const summary = summaryState.status === 'success' ? summaryState.data : null
   const interviewTypes = [...new Set(services.map((service) => service.interview_type))]
+  const savedExpertise = expertiseFromAccount(account)
+  const dirty =
+    JSON.stringify(form) !== JSON.stringify(formFromAccount(account)) ||
+    JSON.stringify([expertise.targetRoles, expertise.candidateLevels]) !==
+      JSON.stringify([savedExpertise.targetRoles, savedExpertise.candidateLevels])
+
+  function onCancel() {
+    if (!account) return
+    setForm(formFromAccount(account))
+    setExpertise(expertiseFromAccount(account))
+    setSaveError(null)
+  }
 
   async function onSave(event: FormEvent) {
     event.preventDefault()
@@ -121,7 +156,6 @@ export function ProfilePage() {
           .map((item) => item.trim())
           .filter(Boolean),
       })
-      await updateInterviewerSkills(expertise.skills)
       await updateInterviewerRoles({
         targetRoles: expertise.targetRoles,
         candidateLevels: expertise.candidateLevels,
@@ -158,32 +192,40 @@ export function ProfilePage() {
             verified={verified}
           />
         </div>
-        <Card className="h-fit p-5">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="font-semibold text-navy-950">Profile strength</h2>
-            <p className="text-sm font-semibold text-navy-950">{completeness}%</p>
-          </div>
-          <div className="mt-2 h-2 rounded-full bg-slate-100">
-            <div className="h-2 rounded-full bg-emerald-600" style={{ width: `${completeness}%` }} />
-          </div>
-          <p className="mt-3 text-xs text-slate-500">Complete profiles are easier for candidates to trust and book.</p>
-          <ul className="mt-4 space-y-2 text-sm">
-            {checklist.map((item) => (
-              <li key={item.label} className="flex items-center gap-2">
-                {item.done ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
-                ) : (
-                  <Circle className="h-4 w-4 shrink-0 text-slate-300" aria-hidden />
-                )}
-                <span className={item.done ? 'text-slate-600' : 'font-medium text-navy-950'}>{item.label}</span>
-                <span className="sr-only">{item.done ? 'complete' : 'missing'}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <div className="space-y-6">
+          {servicesState.status === 'success' && availState.status === 'success' ? (
+            <ReadinessCard account={account} services={servicesState.data} board={availState.data} />
+          ) : null}
+          <Card className="h-fit p-5">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="font-semibold text-navy-950">Profile strength</h2>
+              <p className="text-sm font-semibold text-navy-950">{completeness}%</p>
+            </div>
+            <div className="mt-2 h-2 rounded-full bg-slate-100">
+              <div className="h-2 rounded-full bg-emerald-600" style={{ width: `${completeness}%` }} />
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              Complete profiles are easier for candidates to trust and book. Services are optional here — you are
+              matched on your skills.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm">
+              {checklist.map((item) => (
+                <li key={item.label} className="flex items-center gap-2">
+                  {item.done ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+                  ) : (
+                    <Circle className="h-4 w-4 shrink-0 text-slate-300" aria-hidden />
+                  )}
+                  <span className={item.done ? 'text-slate-600' : 'font-medium text-navy-950'}>{item.label}</span>
+                  <span className="sr-only">{item.done ? 'complete' : 'missing'}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
       </div>
 
-      <form className="space-y-6" onSubmit={onSave}>
+      <form id="profile-form" className="space-y-6" onSubmit={onSave}>
         <Card className="p-6">
           <SectionHeader
             title="Professional details"
@@ -262,14 +304,26 @@ export function ProfilePage() {
             </div>
           </div>
         </Card>
+      </form>
 
+      <Card className="p-6">
+        <SectionHeader
+          title="Skills you interview on"
+          description="Candidates are matched to you on these skills, even before you create a service. Changes save instantly."
+        />
+        <div className="mt-5">
+          <SkillManager interviewerProfileId={account.interviewer.id} onChanged={refreshAccount} />
+        </div>
+      </Card>
+
+      <div className="space-y-6">
         <Card className="p-6">
           <SectionHeader
-            title="Interview expertise"
-            description="What you interview on. This is compared with the skills and roles on candidate profiles."
+            title="Roles you interview for"
+            description="Compared with the roles candidates are preparing for."
           />
           <div className="mt-5">
-            <ExpertiseFields idPrefix="profile" value={expertise} onChange={setExpertise} />
+            <ExpertiseFields idPrefix="profile" value={expertise} onChange={setExpertise} showSkills={false} />
           </div>
           <div className="mt-8 border-t border-slate-100 pt-5">
             <p className="text-sm font-semibold text-navy-950">Interview formats</p>
@@ -289,11 +343,15 @@ export function ProfilePage() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           {saveError ? <p className="text-sm text-red-700 sm:mr-auto">{saveError}</p> : null}
-          <Button type="submit" disabled={saving}>
+          {dirty ? <p className="text-sm text-slate-500 sm:mr-auto">You have unsaved changes.</p> : null}
+          <Button variant="outline" disabled={saving || !dirty} onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" form="profile-form" disabled={saving}>
             {saving ? 'Saving…' : 'Save profile'}
           </Button>
         </div>
-      </form>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-5">

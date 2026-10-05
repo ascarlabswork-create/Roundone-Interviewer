@@ -199,6 +199,14 @@ export async function setServiceActive(id: string, isActive: boolean): Promise<I
   return updateService(id, { isActive })
 }
 
+export const SERVICE_HAS_BOOKINGS =
+  'This service has bookings, so it cannot be deleted. Deactivate it instead to stop new bookings.'
+
+export function serviceDeleteErrorMessage(error: { code?: string; message?: string }) {
+  if (error.code === '23503' || error.message?.includes('bookings_service_id_fkey')) return SERVICE_HAS_BOOKINGS
+  return 'Could not delete the service. Try again.'
+}
+
 export async function deleteService(id: string): Promise<void> {
   const interviewerProfileId = await myInterviewerProfileId()
   await getOwnedService(id, interviewerProfileId)
@@ -207,5 +215,5 @@ export async function deleteService(id: string): Promise<void> {
     .delete()
     .eq('id', id)
     .eq('interviewer_profile_id', interviewerProfileId)
-  fail(error)
+  if (error) throw new Error(serviceDeleteErrorMessage(error))
 }

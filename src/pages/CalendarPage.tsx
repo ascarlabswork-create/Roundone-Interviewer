@@ -29,7 +29,14 @@ import {
   toISODate,
   weekdayShort,
 } from '../lib/dates.ts'
-import { buildDayPeriods, defaultRangeForDay, generateBookableSlots, generateUpcomingSlots } from '../lib/slots.ts'
+import {
+  buildDayPeriods,
+  defaultRangeForDay,
+  generateBookableSlots,
+  generateUpcomingSlots,
+  isDateWithinRange,
+  validateAvailableRange,
+} from '../lib/slots.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import {
   createAvailability,
@@ -42,9 +49,12 @@ import {
   updateAvailability,
   updateBlockedTime,
   updateCustomSlot,
+  describeAvailableRange,
+  updateMyAvailableRange,
   updateMyBookingBuffer,
   updateMyTimezone,
   type AvailabilityBoard,
+  type AvailableDateRange,
   type BlockedTimeRecord,
   type BookingBufferMinutes,
   type CustomSlotRecord,
@@ -208,6 +218,10 @@ export function CalendarPage() {
     await runMutation(() => updateMyBookingBuffer(bufferMin))
   }
 
+  async function onSaveRange(range: AvailableDateRange) {
+    await runMutation(() => updateMyAvailableRange(range), 'Available date range saved')
+  }
+
   async function onSaveCustom() {
     if (!customForm) return
     await runMutation(async () => {
@@ -283,11 +297,19 @@ export function CalendarPage() {
             </div>
           </Card>
 
+          <DateRangeCard
+            key={`${board.availableFrom ?? ''}|${board.availableUntil ?? ''}`}
+            range={{ availableFrom: board.availableFrom, availableUntil: board.availableUntil }}
+            saving={saving}
+            onSave={(range) => void onSaveRange(range)}
+          />
+
           <section className="space-y-3">
             <div>
               <h2 className="text-lg font-semibold text-navy-950">Weekly Availability</h2>
               <p className="text-sm text-slate-500">
                 Enable a day and add one or more time ranges. Use the clock to set start and end times in your timezone.
+                Weekly hours repeat only inside your available date range.
               </p>
             </div>
             {board.availability.length === 0 ? (
@@ -364,6 +386,11 @@ export function CalendarPage() {
                     <li key={slot.id} className="rounded-lg border border-slate-100 p-3 text-sm">
                       <p className="font-medium text-navy-950">{formatDateLong(combineIso(slot.on_date))}</p>
                       <p className="text-slate-600">{formatClockRange(slot.start_time, slot.end_time)}</p>
+                      {isDateWithinRange(slot.on_date, board.availableFrom, board.availableUntil) ? null : (
+                        <p className="mt-1 text-xs font-medium text-amber-800">
+                          Outside your available date range — candidates cannot book this slot.
+                        </p>
+                      )}
                       <div className="mt-2 flex flex-wrap gap-2">
                         <Button size="sm" variant="outline" disabled={saving} onClick={() => setCustomForm(toCustomForm(slot))}>
                           Edit
@@ -591,9 +618,16 @@ export function CalendarPage() {
               <TextInput
                 id="custom-date"
                 type="date"
+                min={board?.availableFrom ?? undefined}
+                max={board?.availableUntil ?? undefined}
                 value={customForm.date}
                 onChange={(event) => setCustomForm({ ...customForm, date: event.target.value })}
               />
+              {board && (board.availableFrom || board.availableUntil) ? (
+                <p className="mt-1 text-xs text-slate-500">
+                  Must be inside your available date range ({describeAvailableRange(board)}).
+                </p>
+              ) : null}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -677,6 +711,97 @@ export function CalendarPage() {
   )
 }
 
+function DateRangeCard({
+  range,
+  saving,
+  onSave,
+}: {
+  range: AvailableDateRange
+  saving: boolean
+  onSave: (range: AvailableDateRange) => void
+}) {
+  const [from, setFrom] = useState(range.availableFrom ?? '')
+  const [until, setUntil] = useState(range.availableUntil ?? '')
+  const rangeErrors = validateAvailableRange(from || null, until || null)
+  const dirty = from !== (range.availableFrom ?? '') || until !== (range.availableUntil ?? '')
+  const today = toISODate(new Date())
+  const ended = Boolean(range.availableUntil && range.availableUntil < today)
+
+  return (
+    <Card className="p-5">
+      <h2 className="text-lg font-semibold text-navy-950">Available date range</h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Candidates can only book slots between these dates. Leave a date empty for no limit on that side.
+      </p>
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div>
+          <FieldLabel htmlFor="range-from">Start date</FieldLabel>
+          <TextInput
+            id="range-from"
+            type="date"
+            value={from}
+            max={until || undefined}
+            disabled={saving}
+            onChange={(event) => setFrom(event.target.value)}
+          />
+        </div>
+        <span className="hidden pb-3 text-slate-400 sm:block" aria-hidden>
+          →
+        </span>
+        <div>
+          <FieldLabel htmlFor="range-until">End date</FieldLabel>
+          <TextInput
+            id="range-until"
+            type="date"
+            value={until}
+            min={from || undefined}
+            disabled={saving}
+            onChange={(event) => setUntil(event.target.value)}
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            disabled={saving || !dirty || rangeErrors.length > 0}
+            onClick={() => onSave({ availableFrom: from || null, availableUntil: until || null })}
+          >
+            Save range
+          </Button>
+          {dirty ? (
+            <Button
+              variant="outline"
+              disabled={saving}
+              onClick={() => {
+                setFrom(range.availableFrom ?? '')
+                setUntil(range.availableUntil ?? '')
+              }}
+            >
+              Cancel
+            </Button>
+          ) : range.availableFrom || range.availableUntil ? (
+            <Button
+              variant="ghost"
+              disabled={saving}
+              onClick={() => onSave({ availableFrom: null, availableUntil: null })}
+            >
+              Clear range
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {rangeErrors.length > 0 ? <p className="mt-2 text-sm text-red-700">{rangeErrors[0]}</p> : null}
+      <p className="mt-3 text-sm text-slate-600">
+        Current range: <span className="font-medium text-navy-950">{describeAvailableRange(range)}</span>
+      </p>
+      {ended ? (
+        <p className="mt-2 text-sm font-medium text-amber-800">
+          Your available date range has ended, so candidates cannot book new slots. Extend the end date to reopen
+          bookings.
+        </p>
+      ) : null}
+    </Card>
+  )
+}
+
 function combineIso(ymd: string) {
   return `${ymd}T00:00:00`
 }
@@ -732,6 +857,8 @@ function toSchedule(board: AvailabilityBoard, defaultDurationMin: number): Avail
       timezone: board.timezone,
       defaultDurationMin,
       bufferMin: board.bookingBufferMin,
+      availableFrom: board.availableFrom,
+      availableUntil: board.availableUntil,
     },
     recurring: board.availability.map((item) => ({
       id: item.id,

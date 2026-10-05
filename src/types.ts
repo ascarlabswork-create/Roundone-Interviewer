@@ -61,6 +61,9 @@ export type AvailabilitySettings = {
   timezone: string
   defaultDurationMin: number
   bufferMin: BufferMinutes
+  /** Inclusive YYYY-MM-DD bounds; null means open-ended. */
+  availableFrom?: string | null
+  availableUntil?: string | null
 }
 
 export type AvailabilitySchedule = {

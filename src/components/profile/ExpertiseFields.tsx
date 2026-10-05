@@ -14,7 +14,7 @@ function includesIgnoreCase(list: readonly string[], item: string) {
   return list.some((entry) => entry.toLowerCase() === lower)
 }
 
-function QuickAdd({
+export function QuickAdd({
   label,
   options,
   selected,
@@ -60,53 +60,57 @@ export function ExpertiseFields({
   idPrefix,
   value,
   onChange,
+  showSkills = true,
 }: {
   idPrefix: string
   value: ExpertiseValue
   onChange: (next: ExpertiseValue) => void
+  showSkills?: boolean
 }) {
   const [browseSkills, setBrowseSkills] = useState(true)
 
   return (
     <div className="grid gap-8">
-      <Section
-        title="Skills you interview on"
-        description="Candidates list skills like these on their profiles and resumes. Add the ones you can assess with confidence."
-      >
-        <SuggestionChips
-          id={`${idPrefix}-skill`}
-          suggestions={SKILLS}
-          value={value.skills}
-          onChange={(skills) => onChange({ ...value, skills })}
-          placeholder="Type a skill, e.g. Python, Power BI, System Design"
-        />
-        <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Popular with candidates</p>
-            <button
-              type="button"
-              className="text-xs font-medium text-blue-700"
-              aria-expanded={browseSkills}
-              onClick={() => setBrowseSkills((open) => !open)}
-            >
-              {browseSkills ? 'Hide' : 'Show'}
-            </button>
-          </div>
-          {browseSkills ? (
-            <div className="mt-3 grid gap-2.5">
-              {SKILL_GROUPS.map((group) => (
-                <QuickAdd
-                  key={group.label}
-                  label={group.label}
-                  options={group.skills}
-                  selected={value.skills}
-                  onAdd={(skill) => onChange({ ...value, skills: [...value.skills, skill] })}
-                />
-              ))}
+      {showSkills ? (
+        <Section
+          title="Skills you interview on"
+          description="Candidates list skills like these on their profiles and resumes. Add the ones you can assess with confidence."
+        >
+          <SuggestionChips
+            id={`${idPrefix}-skill`}
+            suggestions={SKILLS}
+            value={value.skills}
+            onChange={(skills) => onChange({ ...value, skills })}
+            placeholder="Type a skill, e.g. Python, Power BI, System Design"
+          />
+          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Popular with candidates</p>
+              <button
+                type="button"
+                className="text-xs font-medium text-blue-700"
+                aria-expanded={browseSkills}
+                onClick={() => setBrowseSkills((open) => !open)}
+              >
+                {browseSkills ? 'Hide' : 'Show'}
+              </button>
             </div>
-          ) : null}
-        </div>
-      </Section>
+            {browseSkills ? (
+              <div className="mt-3 grid gap-2.5">
+                {SKILL_GROUPS.map((group) => (
+                  <QuickAdd
+                    key={group.label}
+                    label={group.label}
+                    options={group.skills}
+                    selected={value.skills}
+                    onAdd={(skill) => onChange({ ...value, skills: [...value.skills, skill] })}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </Section>
+      ) : null}
 
       <Section title="Roles you interview for" description="Match the roles candidates are preparing for.">
         <SuggestionChips

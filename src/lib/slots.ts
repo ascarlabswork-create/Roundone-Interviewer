@@ -56,7 +56,26 @@ function appliesToService(serviceId: string | null | undefined, selected?: strin
   return serviceId === selected
 }
 
+export function isDateWithinRange(date: string, from?: string | null, until?: string | null) {
+  if (from && date < from) return false
+  if (until && date > until) return false
+  return true
+}
+
+export const RANGE_START_AFTER_END = 'Start date must be on or before the end date.'
+
+export function validateAvailableRange(from: string | null, until: string | null) {
+  const errors: string[] = []
+  const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && toISODate(fromYMD(value)) === value
+  if (from && !isDate(from)) errors.push('Choose a valid start date.')
+  if (until && !isDate(until)) errors.push('Choose a valid end date.')
+  if (from && until && from > until) errors.push(RANGE_START_AFTER_END)
+  return errors
+}
+
 function windowsForDate(input: SlotEngineInput): Interval[] {
+  const { availableFrom, availableUntil } = input.schedule.settings
+  if (!isDateWithinRange(input.date, availableFrom, availableUntil)) return []
   const weekday = fromYMD(input.date).getDay()
   const windows: Interval[] = []
 

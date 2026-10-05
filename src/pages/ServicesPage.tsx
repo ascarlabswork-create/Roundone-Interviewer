@@ -20,6 +20,7 @@ import {
   SERVICE_CURRENCY,
   SERVICE_DURATIONS,
   createService,
+  deleteService,
   getMyServices,
   paiseToRupees,
   setServiceActive,
@@ -76,6 +77,22 @@ export function ServicesPage() {
   const [form, setForm] = useState<ServiceForm | null>(null)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  async function onDelete(service: InterviewerServiceRecord) {
+    setDeleting(true)
+    try {
+      await deleteService(service.id)
+      pushToast('Service deleted')
+      setConfirmDeleteId(null)
+      state.reload()
+    } catch (caught) {
+      pushToast(caught instanceof Error ? caught.message : 'Could not delete the service. Try again.')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   async function onToggle(service: InterviewerServiceRecord) {
     try {
@@ -125,6 +142,11 @@ export function ServicesPage() {
         actions={<Button onClick={() => setForm(emptyForm())}>Create New Service</Button>}
       />
 
+      <p className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        Services are optional for matching — candidates are matched to you on your skills. An active service is only
+        needed so matched candidates can book a session.
+      </p>
+
       {account && account.targetRoles.length > 0 ? (
         <Card className="p-4">
           <p className="text-sm font-medium text-navy-950">Profile expertise used for all services</p>
@@ -170,14 +192,39 @@ export function ServicesPage() {
               <div className="mt-3 flex flex-wrap gap-2">
                 {service.is_active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
               </div>
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => setForm(toForm(service))}>
-                  Edit
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => void onToggle(service)}>
-                  {service.is_active ? 'Deactivate' : 'Activate'}
-                </Button>
-              </div>
+              {confirmDeleteId === service.id ? (
+                <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3">
+                  <p className="text-sm text-red-800">
+                    Delete <strong>{service.name}</strong>? This cannot be undone. Your skills and matching are not
+                    affected.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" variant="danger" disabled={deleting} onClick={() => void onDelete(service)}>
+                      {deleting ? 'Deleting…' : 'Delete service'}
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={deleting} onClick={() => setConfirmDeleteId(null)}>
+                      Keep
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setForm(toForm(service))}>
+                    Edit
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => void onToggle(service)}>
+                    {service.is_active ? 'Deactivate' : 'Activate'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-700 hover:bg-red-50"
+                    onClick={() => setConfirmDeleteId(service.id)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              )}
             </Card>
           ))}
         </div>

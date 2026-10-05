@@ -12,6 +12,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom'
 import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
 import { NotificationListItem } from '../components/notifications/NotificationListItem.tsx'
+import { ReadinessCard } from '../components/profile/ReadinessCard.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
@@ -539,6 +540,11 @@ export function DashboardPage() {
 
       <section>
         <h2 className="mb-4 text-lg font-semibold text-navy-950">Setup status</h2>
+        {account && services.status === 'success' && availability.status === 'success' ? (
+          <div className="mb-3">
+            <ReadinessCard account={account} services={services.data} board={availability.data} />
+          </div>
+        ) : null}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Card className="p-4">
             <p className="text-sm text-slate-500">Profile</p>

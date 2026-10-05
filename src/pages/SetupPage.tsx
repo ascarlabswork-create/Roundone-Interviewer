@@ -14,6 +14,7 @@ import {
   replaceMyWeeklyAvailability,
 } from '../services/interviewerAvailability.ts'
 import { updateInterviewerProfile, updateInterviewerRoles, updateInterviewerSkills } from '../services/interviewerProfile.ts'
+import { createService, getMyServices } from '../services/interviewerServices.ts'
 import { useOnboarding } from '../state/onboarding.tsx'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
@@ -103,7 +104,28 @@ export function SetupPage() {
     navigate(`/interviewer/setup?step=${next}`)
   }
 
+  async function saveOptionalFirstService() {
+    const service = draft.firstService
+    const name = service.name.trim()
+    if (!name) return false
+    const existing = await getMyServices()
+    if (existing.some((item) => item.name.trim().toLowerCase() === name.toLowerCase())) return false
+    const price = service.price.trim()
+    if (!/^\d+$/.test(price)) throw new Error('Price must be a whole number of rupees, with no decimals.')
+    await createService({
+      name,
+      interviewType: service.interviewType,
+      durationMin: Number(service.durationMin),
+      priceRupees: Number(price),
+      description: service.description,
+    })
+    return true
+  }
+
   async function persistCurrentStep() {
+    if (step === 'services') {
+      if (await saveOptionalFirstService()) pushToast('Service saved')
+    }
     if (step === 'professional') {
       await updateInterviewerProfile({
         fullName: `${draft.firstName} ${draft.lastName}`.trim() || draft.fullName,
@@ -289,11 +311,19 @@ export function SetupPage() {
 
           {step === 'services' ? (
             <>
+              <div className="flex flex-col gap-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  Optional. Candidates are matched to you on your skills without a service. Add one now or later so
+                  matched candidates can book you.
+                </p>
+                <Button size="sm" variant="outline" onClick={() => go('availability')}>
+                  Skip for now
+                </Button>
+              </div>
               <div>
                 <FieldLabel htmlFor="sname">Service Name</FieldLabel>
                 <TextInput
                   id="sname"
-                  required
                   placeholder="Enter a service name"
                   value={draft.firstService.name}
                   onChange={(event) => update({ firstService: { ...draft.firstService, name: event.target.value } })}
@@ -310,7 +340,7 @@ export function SetupPage() {
                       update({ firstService: { ...draft.firstService, interviewType } })
                     }
                     customPlaceholder="Type an interview type"
-                    required
+                    required={Boolean(draft.firstService.name.trim())}
                   />
                 </div>
                 <div>
@@ -334,7 +364,6 @@ export function SetupPage() {
                 <FieldLabel htmlFor="sdesc">Description</FieldLabel>
                 <TextArea
                   id="sdesc"
-                  required
                   placeholder="Describe this service"
                   value={draft.firstService.description}
                   onChange={(event) => update({ firstService: { ...draft.firstService, description: event.target.value } })}
@@ -344,7 +373,6 @@ export function SetupPage() {
                 <FieldLabel htmlFor="spolicy">Cancellation Policy</FieldLabel>
                 <TextArea
                   id="spolicy"
-                  required
                   placeholder="Describe your cancellation policy"
                   value={draft.firstService.cancellationPolicy}
                   onChange={(event) =>
@@ -374,8 +402,9 @@ export function SetupPage() {
               <p>Skills: {draft.skills.join(', ') || 'None selected'}</p>
               <p>Roles: {draft.targetRoles.join(', ') || 'None selected'}</p>
               <p>
-                First service: {draft.firstService.name} · {draft.firstService.durationMin} min · ₹
-                {draft.firstService.price}
+                {draft.firstService.name.trim()
+                  ? `First service: ${draft.firstService.name} · ${draft.firstService.durationMin} min · ₹${draft.firstService.price}`
+                  : 'First service: not added (optional — you can add services later)'}
               </p>
               <p>
                 Weekly hours:{' '}

@@ -1,3 +1,4 @@
+import { toISODate } from '../lib/dates.ts'
 import { interviewJoinState, type InterviewSessionRecord } from './interviewSessions.ts'
 import type { InterviewerBooking } from './interviewerBookings.ts'
 import { isActionableBookingRequest } from './interviewerBookings.ts'
@@ -167,10 +168,22 @@ export function buildDashboardAttentionItems(input: {
   if (input.services && activeServiceCount(input.services) === 0) {
     items.push({
       id: 'no-active-service',
-      title: 'No active service',
-      detail: 'Add or activate a service before candidates can request interviews.',
+      title: 'Not ready for booking yet',
+      detail:
+        'Candidates can already be matched to you on your skills. Add or activate a service so matched candidates can book you.',
       href: '/interviewer/services',
       actionLabel: 'Manage Services',
+    })
+  }
+
+  const today = toISODate(now)
+  if (input.availability?.availableUntil && input.availability.availableUntil < today) {
+    items.push({
+      id: 'availability-range-ended',
+      title: 'Available date range has ended',
+      detail: 'Candidates cannot book new slots. Extend your end date to reopen bookings.',
+      href: '/interviewer/calendar',
+      actionLabel: 'Manage Availability',
     })
   }
 

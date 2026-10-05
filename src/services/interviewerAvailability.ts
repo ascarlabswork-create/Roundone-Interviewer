@@ -1,5 +1,6 @@
 import { BUFFER_OPTIONS, TIMEZONES, WEEKDAY_LABELS } from '../data/catalogs.ts'
-import { fromYMD, timeToMinutes, toISODate } from '../lib/dates.ts'
+import { formatReviewDate, fromYMD, timeToMinutes, toISODate } from '../lib/dates.ts'
+import { isDateWithinRange, validateAvailableRange } from '../lib/slots.ts'
 import { supabase } from '../lib/supabase.ts'
 import { getCurrentInterviewer } from './interviewer.ts'
 import { TABLES } from './tables.ts'
@@ -79,20 +80,45 @@ export type AvailabilityBoard = {
   interviewerProfileId: string
   timezone: string
   bookingBufferMin: BookingBufferMinutes
+  availableFrom: string | null
+  availableUntil: string | null
   availability: AvailabilityWindow[]
   customSlots: CustomSlotRecord[]
   blockedTimes: BlockedTimeRecord[]
 }
 
+export type AvailableDateRange = {
+  availableFrom: string | null
+  availableUntil: string | null
+}
+
 const AVAILABILITY_SELECT = 'id, interviewer_profile_id, weekday, start_time, end_time'
 const CUSTOM_SELECT = 'id, interviewer_profile_id, on_date, start_time, end_time'
 const BLOCKED_SELECT = 'id, interviewer_profile_id, on_date, start_time, end_time, all_day, reason'
-const PROFILE_SETTINGS_SELECT = 'id, timezone, booking_buffer_min'
+const PROFILE_SETTINGS_SELECT = 'id, timezone, booking_buffer_min, available_from, available_until'
 
 type ProfileSettingsRow = {
   id: string
   timezone: string
   booking_buffer_min: number
+  available_from: string | null
+  available_until: string | null
+}
+
+export function describeAvailableRange(range: AvailableDateRange) {
+  const { availableFrom, availableUntil } = range
+  if (availableFrom && availableUntil) {
+    return `${formatReviewDate(availableFrom)} – ${formatReviewDate(availableUntil)}`
+  }
+  if (availableFrom) return `from ${formatReviewDate(availableFrom)}`
+  if (availableUntil) return `until ${formatReviewDate(availableUntil)}`
+  return 'no end date'
+}
+
+export function assertDateInsideRange(onDate: string, range: AvailableDateRange) {
+  if (!isDateWithinRange(onDate, range.availableFrom, range.availableUntil)) {
+    throw new Error(`This date is outside your available date range (${describeAvailableRange(range)}).`)
+  }
 }
 
 type AvailabilityRow = {
@@ -130,6 +156,12 @@ function fail(error: PostgrestFail | null) {
   if (!error) return
   if (error.code === '23505') {
     throw new Error('This time range already exists.')
+  }
+  if (error.message.includes('custom_slot_outside_range')) {
+    throw new Error('This date is outside your available date range.')
+  }
+  if (error.message.includes('interviewer_profiles_available_range_check')) {
+    throw new Error('Start date must be on or before the end date.')
   }
   throw new Error(error.message)
 }
@@ -343,7 +375,31 @@ async function getProfileSettings() {
     id: row.id,
     timezone: row.timezone,
     bookingBufferMin: readBuffer(row.booking_buffer_min),
+    availableFrom: row.available_from,
+    availableUntil: row.available_until,
   }
+}
+
+export async function getMyAvailableRange(): Promise<AvailableDateRange> {
+  const settings = await getProfileSettings()
+  return { availableFrom: settings.availableFrom, availableUntil: settings.availableUntil }
+}
+
+export async function updateMyAvailableRange(range: AvailableDateRange): Promise<AvailableDateRange> {
+  const availableFrom = range.availableFrom?.trim() || null
+  const availableUntil = range.availableUntil?.trim() || null
+  const errors = validateAvailableRange(availableFrom, availableUntil)
+  if (errors.length > 0) throw new Error(errors[0])
+  const interviewerProfileId = await myInterviewerProfileId()
+  const { data, error } = await supabase
+    .from(TABLES.interviewerProfiles)
+    .update({ available_from: availableFrom, available_until: availableUntil })
+    .eq('id', interviewerProfileId)
+    .select('available_from, available_until')
+    .single()
+  fail(error)
+  if (!data) throw new Error('Could not update your available date range.')
+  return { availableFrom: data.available_from, availableUntil: data.available_until }
 }
 
 export async function getMyAvailability(): Promise<AvailabilityWindow[]> {
@@ -439,6 +495,7 @@ export async function createCustomSlot(input: CustomSlotInput): Promise<CustomSl
   const startTime = normalizeTime(input.startTime)
   const endTime = normalizeTime(input.endTime)
   assertStartBeforeEnd(startTime, endTime, 'Custom availability')
+  assertDateInsideRange(input.onDate, await getMyAvailableRange())
 
   const interviewerProfileId = await myInterviewerProfileId()
   const existing = await getMyCustomSlots()
@@ -467,6 +524,7 @@ export async function updateCustomSlot(id: string, input: CustomSlotUpdates): Pr
   const startTime = normalizeTime(input.startTime ?? current.start_time)
   const endTime = normalizeTime(input.endTime ?? current.end_time)
   assertStartBeforeEnd(startTime, endTime, 'Custom availability')
+  assertDateInsideRange(onDate, await getMyAvailableRange())
 
   const existing = await getMyCustomSlots()
   assertNoCustomOverlap(onDate, startTime, endTime, existing, id)
@@ -675,6 +733,8 @@ export async function loadMyAvailabilityBoard(): Promise<AvailabilityBoard> {
     interviewerProfileId: settings.id,
     timezone: settings.timezone,
     bookingBufferMin: settings.bookingBufferMin,
+    availableFrom: settings.availableFrom,
+    availableUntil: settings.availableUntil,
     availability,
     customSlots,
     blockedTimes,

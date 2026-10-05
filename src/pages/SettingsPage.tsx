@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
+import { DeleteAccountCard } from '../components/settings/DeleteAccountCard.tsx'
 import { NotificationPreferencesSection } from '../components/settings/NotificationPreferencesSection.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Card, ErrorState, FieldLabel, PageHeader, Skeleton, TextInput } from '../components/ui/primitives.tsx'
@@ -119,6 +120,7 @@ export function SettingsPage() {
           </Button>
         </form>
       </Card>
+      <DeleteAccountCard />
     </div>
   )
 }

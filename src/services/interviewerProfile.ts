@@ -373,6 +373,79 @@ export async function getInterviewerSkills(interviewerProfileId?: string): Promi
   return unique((data ?? []).map((row) => row.skill))
 }
 
+export type InterviewerSkillRecord = { id: string; skill: string }
+
+export const SKILL_REQUIRED = 'Enter a skill name.'
+export const SKILL_TOO_LONG = 'Keep skill names under 60 characters.'
+export const SKILL_DUPLICATE = 'You already have this skill on your profile.'
+const SKILL_SAVE_FAILED = 'Could not save the skill. Try again.'
+const SKILL_MAX_LENGTH = 60
+
+/** Trims and collapses whitespace; canonical naming is applied by the database. */
+export function cleanSkillInput(value: string) {
+  const skill = value.replace(/\s+/g, ' ').trim()
+  if (!skill) throw new Error(SKILL_REQUIRED)
+  if (skill.length > SKILL_MAX_LENGTH) throw new Error(SKILL_TOO_LONG)
+  return skill
+}
+
+export function skillErrorMessage(error: { code?: string; message?: string } | null | undefined) {
+  if (!error) return SKILL_SAVE_FAILED
+  if (error.code === '23505' || error.message?.includes('duplicate_skill')) return SKILL_DUPLICATE
+  if (error.code === '22023' || error.message?.includes('invalid_skill')) return SKILL_REQUIRED
+  return SKILL_SAVE_FAILED
+}
+
+export async function listInterviewerSkillRows(interviewerProfileId: string): Promise<InterviewerSkillRecord[]> {
+  const { data, error } = await supabase
+    .from(TABLES.interviewerSkills)
+    .select('id, skill')
+    .eq('interviewer_profile_id', interviewerProfileId)
+    .order('skill', { ascending: true })
+  if (error) throw new Error('Could not load your skills.')
+  return (data ?? []).map((row) => ({ id: row.id, skill: row.skill }))
+}
+
+/** Adds one skill. The database stores the canonical label and skips canonical duplicates. */
+export async function addInterviewerSkill(interviewerProfileId: string, value: string): Promise<InterviewerSkillRecord> {
+  const skill = cleanSkillInput(value)
+  const { data, error } = await supabase
+    .from(TABLES.interviewerSkills)
+    .insert({ interviewer_profile_id: interviewerProfileId, skill })
+    .select('id, skill')
+  if (error) throw new Error(skillErrorMessage(error))
+  const row = data?.[0]
+  if (!row) throw new Error(SKILL_DUPLICATE)
+  return { id: row.id, skill: row.skill }
+}
+
+export async function renameInterviewerSkill(
+  interviewerProfileId: string,
+  skillId: string,
+  value: string,
+): Promise<InterviewerSkillRecord> {
+  const skill = cleanSkillInput(value)
+  const { data, error } = await supabase
+    .from(TABLES.interviewerSkills)
+    .update({ skill })
+    .eq('id', skillId)
+    .eq('interviewer_profile_id', interviewerProfileId)
+    .select('id, skill')
+  if (error) throw new Error(skillErrorMessage(error))
+  const row = data?.[0]
+  if (!row) throw new Error(SKILL_SAVE_FAILED)
+  return { id: row.id, skill: row.skill }
+}
+
+export async function deleteInterviewerSkill(interviewerProfileId: string, skillId: string): Promise<void> {
+  const { error } = await supabase
+    .from(TABLES.interviewerSkills)
+    .delete()
+    .eq('id', skillId)
+    .eq('interviewer_profile_id', interviewerProfileId)
+  if (error) throw new Error('Could not delete the skill. Try again.')
+}
+
 export async function updateInterviewerSkills(skills: string[]): Promise<string[]> {
   const account = await getInterviewerProfile()
   const next = unique(skills.map((skill) => skill.trim()).filter(Boolean))
@@ -383,8 +456,9 @@ export async function updateInterviewerSkills(skills: string[]): Promise<string[
   fail(existingError)
 
   const current = existing ?? []
-  const toDelete = current.filter((row) => !next.includes(row.skill)).map((row) => row.id)
-  const toInsert = next.filter((skill) => !current.some((row) => row.skill === skill))
+  const sameSkill = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
+  const toDelete = current.filter((row) => !next.some((skill) => sameSkill(skill, row.skill))).map((row) => row.id)
+  const toInsert = next.filter((skill) => !current.some((row) => sameSkill(row.skill, skill)))
 
   if (toDelete.length > 0) {
     const { error } = await supabase.from(TABLES.interviewerSkills).delete().in('id', toDelete)
