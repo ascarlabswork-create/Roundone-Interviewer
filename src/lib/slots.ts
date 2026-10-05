@@ -308,16 +308,17 @@ export function nextAvailableLabel(slots: BookableSlot[]) {
   return `${weekday}, ${formatClock(next.startTime)}`
 }
 
+/** First slot when a weekday is turned on — one hour; widen start/end with the clock. */
 export function defaultRangeForDay(dayOfWeek: number): { startTime: string; endTime: string } {
-  if (dayOfWeek === 6) return { startTime: '10:00', endTime: '14:00' }
-  if (dayOfWeek === 0) return { startTime: '10:00', endTime: '14:00' }
-  if (dayOfWeek === 4) return { startTime: '19:00', endTime: '22:00' }
-  return { startTime: '18:00', endTime: '21:00' }
+  if (dayOfWeek === 0 || dayOfWeek === 6) return { startTime: '10:00', endTime: '11:00' }
+  if (dayOfWeek === 4) return { startTime: '19:00', endTime: '20:00' }
+  return { startTime: '18:00', endTime: '19:00' }
 }
 
-const DAY_END_MINUTES = 22 * 60
-const MIN_RANGE_MINUTES = 60
-const PREFERRED_RANGE_MINUTES = 180
+const DAY_END_MINUTES = 23 * 60 + 59
+const MIN_RANGE_MINUTES = 15
+/** New rows from “Add time” start as a short window; length is not capped — edit freely. */
+const DEFAULT_NEW_SLOT_MINUTES = 60
 
 /** Picks the next weekly window that does not overlap existing ranges on the same day. */
 export function proposeNextWeeklyRange(
@@ -340,19 +341,22 @@ export function proposeNextWeeklyRange(
     const gapStart = booked[index].end
     const gapEnd = booked[index + 1].start
     if (gapEnd - gapStart >= MIN_RANGE_MINUTES) {
-      candidates.push({ start: gapStart, end: Math.min(gapStart + PREFERRED_RANGE_MINUTES, gapEnd) })
+      const span = Math.min(DEFAULT_NEW_SLOT_MINUTES, gapEnd - gapStart)
+      candidates.push({ start: gapStart, end: gapStart + span })
     }
   }
 
   const last = booked[booked.length - 1]
   if (last.end + MIN_RANGE_MINUTES <= DAY_END_MINUTES) {
-    candidates.push({ start: last.end, end: Math.min(last.end + PREFERRED_RANGE_MINUTES, DAY_END_MINUTES) })
+    const span = Math.min(DEFAULT_NEW_SLOT_MINUTES, DAY_END_MINUTES - last.end)
+    candidates.push({ start: last.end, end: last.end + span })
   }
 
   const first = booked[0]
   if (first.start - 8 * 60 >= MIN_RANGE_MINUTES) {
+    const span = Math.min(DEFAULT_NEW_SLOT_MINUTES, first.start - 8 * 60)
     candidates.push({
-      start: Math.max(8 * 60, first.start - PREFERRED_RANGE_MINUTES),
+      start: first.start - span,
       end: first.start,
     })
   }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../components/ui/Button.tsx'
 import { SlotBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
@@ -114,10 +114,20 @@ export function CalendarPage() {
   const [blockForm, setBlockForm] = useState<BlockForm | null>(null)
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const rangeSaveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const rangeSavePatch = useRef(new Map<string, { startTime?: string; endTime?: string }>())
 
   useEffect(() => {
     if (boardState.status === 'success') setBoard(boardState.data)
   }, [boardState.status, boardState.data])
+
+  useEffect(() => {
+    const timers = rangeSaveTimers.current
+    return () => {
+      for (const timer of timers.values()) window.clearTimeout(timer)
+      timers.clear()
+    }
+  }, [])
 
   const bookings = bookingsState.status === 'success' ? toSlotBookings(bookingsState.data) : []
   const services =
@@ -212,9 +222,8 @@ export function CalendarPage() {
     )
   }
 
-  async function onUpdateRange(id: string, patch: { startTime?: string; endTime?: string }) {
+  function onUpdateRange(id: string, patch: { startTime?: string; endTime?: string }) {
     if (!board) return
-    const previous = board
     setBoard({
       ...board,
       availability: board.availability.map((row) =>
@@ -228,13 +237,31 @@ export function CalendarPage() {
       ),
     })
     setErrors([])
+
+    const merged = { ...rangeSavePatch.current.get(id), ...patch }
+    rangeSavePatch.current.set(id, merged)
+    const pending = rangeSaveTimers.current.get(id)
+    if (pending) window.clearTimeout(pending)
+
+    rangeSaveTimers.current.set(
+      id,
+      window.setTimeout(() => {
+        rangeSaveTimers.current.delete(id)
+        const payload = rangeSavePatch.current.get(id)
+        rangeSavePatch.current.delete(id)
+        if (!payload) return
+        void persistRangeUpdate(id, payload)
+      }, 600),
+    )
+  }
+
+  async function persistRangeUpdate(id: string, patch: { startTime?: string; endTime?: string }) {
     setSaving(true)
     try {
       await updateAvailability(id, patch)
       await refreshBoard()
-      pushToast('Saved successfully')
     } catch (caught) {
-      setBoard(previous)
+      await refreshBoard()
       const message = caught instanceof Error ? caught.message : 'Could not save availability.'
       setErrors([message])
       pushToast(message)
@@ -348,8 +375,8 @@ export function CalendarPage() {
             <div>
               <h2 className="text-lg font-semibold text-navy-950">Weekly Availability</h2>
               <p className="text-sm text-slate-500">
-                Enable a day and add one or more time ranges. Use the clock to set start and end times in your timezone.
-                Weekly hours repeat only inside your available date range.
+                Enable a day and add one or more ranges. Pick any start and end time (hour, minute, AM/PM) — length is
+                up to you. Times use your profile timezone and repeat only inside your available date range.
               </p>
             </div>
             {board.availability.length === 0 ? (
@@ -378,20 +405,32 @@ export function CalendarPage() {
                     {enabled ? (
                       <div className="mt-3 space-y-2">
                         {ranges.map((range) => (
-                          <div key={range.id} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+                          <div
+                            key={range.id}
+                            className="flex flex-col gap-2 rounded-lg border border-slate-100 bg-slate-50/80 p-3 sm:flex-row sm:flex-wrap sm:items-center"
+                          >
                             <ClockTimeInput
                               id={`weekly-${range.id}-start`}
                               value={range.start_time}
                               aria-label={`${WEEKDAY_LABELS[day]} start time`}
-                              onChange={(startTime) => void onUpdateRange(range.id, { startTime })}
+                              onChange={(startTime) => onUpdateRange(range.id, { startTime })}
                             />
+                            <span className="hidden px-1 text-sm text-slate-400 sm:inline" aria-hidden>
+                              to
+                            </span>
                             <ClockTimeInput
                               id={`weekly-${range.id}-end`}
                               value={range.end_time}
                               aria-label={`${WEEKDAY_LABELS[day]} end time`}
-                              onChange={(endTime) => void onUpdateRange(range.id, { endTime })}
+                              onChange={(endTime) => onUpdateRange(range.id, { endTime })}
                             />
-                            <Button size="sm" variant="ghost" disabled={saving} onClick={() => void onRemoveRange(range.id)}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="sm:ml-auto"
+                              disabled={saving}
+                              onClick={() => void onRemoveRange(range.id)}
+                            >
                               Remove
                             </Button>
                           </div>

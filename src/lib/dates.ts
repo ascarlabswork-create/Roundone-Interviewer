@@ -129,6 +129,31 @@ export function formatClockRange(start: string, end: string) {
   return `${formatClock(start)} → ${formatClock(end)}`
 }
 
+export type ClockPeriod = 'AM' | 'PM'
+
+/** Split stored 24-hour HH:MM into 12-hour parts for manual AM/PM entry. */
+export function clockPartsFrom24h(hhmm: string): { hour12: number; minute: number; period: ClockPeriod } {
+  const safe = hhmm.trim().slice(0, 5)
+  const match = /^(\d{1,2}):(\d{2})$/.exec(safe)
+  const hour24 = match ? Number(match[1]) : 9
+  const minute = match ? Number(match[2]) : 0
+  const clampedHour = Number.isFinite(hour24) ? Math.min(23, Math.max(0, hour24)) : 9
+  const clampedMinute = Number.isFinite(minute) ? Math.min(59, Math.max(0, minute)) : 0
+  const period: ClockPeriod = clampedHour >= 12 ? 'PM' : 'AM'
+  let hour12 = clampedHour % 12
+  if (hour12 === 0) hour12 = 12
+  return { hour12, minute: clampedMinute, period }
+}
+
+/** Combine 12-hour parts into stored 24-hour HH:MM (any minute, any hour 1–12). */
+export function clock24hFromParts(hour12: number, minute: number, period: ClockPeriod): string {
+  const hour = Math.min(12, Math.max(1, Math.floor(hour12)))
+  const min = Math.min(59, Math.max(0, Math.floor(minute)))
+  let hour24 = hour % 12
+  if (period === 'PM') hour24 += 12
+  return minutesToTime(hour24 * 60 + min)
+}
+
 export function timezoneLabel(zone: string) {
   if (zone === 'Asia/Kolkata') return 'Asia/Kolkata (IST)'
   return zone

@@ -12,7 +12,7 @@ function newId() {
   return crypto.randomUUID()
 }
 
-const DEFAULT_DAY_RANGE = { startTime: '10:00', endTime: '14:00' }
+const DEFAULT_DAY_RANGE = { startTime: '10:00', endTime: '11:00' }
 
 export function validateOnboardingAvailability(
   weekly: OnboardingWeeklyRange[],
@@ -134,7 +134,7 @@ export function AvailabilityStep({
         <div>
           <h2 className="text-sm font-semibold text-navy-950">Weekly hours</h2>
           <p className="text-sm text-slate-500">
-            Turn on the days you can interview, then set start and end times with the clock.
+            Turn on the days you can interview, then set any start and end time (hour, minute, AM/PM).
           </p>
         </div>
         {weeklyError ? <p className="text-sm text-red-700">{weeklyError}</p> : null}

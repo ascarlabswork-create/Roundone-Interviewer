@@ -110,12 +110,12 @@ describe('proposeNextWeeklyRange', () => {
         ],
         { startTime: '10:00', endTime: '14:00' },
       ),
-    ).toEqual({ startTime: '14:00', endTime: '17:00' })
+    ).toEqual({ startTime: '14:00', endTime: '15:00' })
   })
 
-  it('extends after the last range when there is still room before 10pm', () => {
+  it('extends after the last range when there is still room before 11pm', () => {
     expect(
-      proposeNextWeeklyRange([{ startTime: '18:00', endTime: '21:00' }], { startTime: '10:00', endTime: '14:00' }),
+      proposeNextWeeklyRange([{ startTime: '18:00', endTime: '21:00' }], { startTime: '10:00', endTime: '11:00' }),
     ).toEqual({ startTime: '21:00', endTime: '22:00' })
   })
 })
