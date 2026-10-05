@@ -21,6 +21,8 @@ export function ClockTimeInput({
       value={value.slice(0, 5)}
       disabled={disabled}
       aria-label={ariaLabel}
+      autoComplete="off"
+      spellCheck={false}
       onChange={(event) => {
         const next = event.target.value
         if (!/^\d{2}:\d{2}$/.test(next)) return

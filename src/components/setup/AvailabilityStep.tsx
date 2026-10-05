@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { WEEKDAY_LABELS, WEEKDAY_ORDER } from '../../data/catalogs.ts'
-import { formatClockRange, minutesToTime, timeToMinutes, timezoneLabel, toISODate } from '../../lib/dates.ts'
+import { formatClockRange, timeToMinutes, timezoneLabel, toISODate } from '../../lib/dates.ts'
+import { proposeNextWeeklyRange } from '../../lib/slots.ts'
 import type { Weekday } from '../../services/interviewerAvailability.ts'
 import type { OnboardingCustomSlot, OnboardingWeeklyRange } from '../../types.ts'
 import { Button } from '../ui/Button.tsx'
@@ -11,17 +12,7 @@ function newId() {
   return crypto.randomUUID()
 }
 
-function nextRangeForDay(existing: OnboardingWeeklyRange[]) {
-  const sorted = [...existing].sort((a, b) => a.startTime.localeCompare(b.startTime))
-  if (sorted.length === 0) return { startTime: '10:00', endTime: '14:00' }
-  const last = sorted[sorted.length - 1]
-  const startMin = timeToMinutes(last.endTime)
-  const endMin = startMin + 180
-  if (endMin <= 22 * 60) {
-    return { startTime: minutesToTime(startMin), endTime: minutesToTime(endMin) }
-  }
-  return { startTime: '10:00', endTime: '14:00' }
-}
+const DEFAULT_DAY_RANGE = { startTime: '10:00', endTime: '14:00' }
 
 export function validateOnboardingAvailability(
   weekly: OnboardingWeeklyRange[],
@@ -81,6 +72,7 @@ export function AvailabilityStep({
   const [oneOffStart, setOneOffStart] = useState('10:00')
   const [oneOffEnd, setOneOffEnd] = useState('14:00')
   const [oneOffError, setOneOffError] = useState<string | null>(null)
+  const [weeklyError, setWeeklyError] = useState<string | null>(null)
 
   function toggleDay(day: Weekday, enabled: boolean) {
     if (!enabled) {
@@ -88,7 +80,8 @@ export function AvailabilityStep({
       return
     }
     if (weekly.some((item) => item.weekday === day)) return
-    const defaults = nextRangeForDay([])
+    setWeeklyError(null)
+    const defaults = proposeNextWeeklyRange([], DEFAULT_DAY_RANGE)
     onWeeklyChange([
       ...weekly,
       { id: newId(), weekday: day, startTime: defaults.startTime, endTime: defaults.endTime },
@@ -96,15 +89,24 @@ export function AvailabilityStep({
   }
 
   function updateRange(id: string, patch: Partial<Pick<OnboardingWeeklyRange, 'startTime' | 'endTime'>>) {
+    setWeeklyError(null)
     onWeeklyChange(weekly.map((item) => (item.id === id ? { ...item, ...patch } : item)))
   }
 
   function addRange(day: Weekday) {
-    const defaults = nextRangeForDay(weekly.filter((item) => item.weekday === day))
-    onWeeklyChange([
-      ...weekly,
-      { id: newId(), weekday: day, startTime: defaults.startTime, endTime: defaults.endTime },
-    ])
+    setWeeklyError(null)
+    try {
+      const defaults = proposeNextWeeklyRange(
+        weekly.filter((item) => item.weekday === day).map((item) => ({ startTime: item.startTime, endTime: item.endTime })),
+        DEFAULT_DAY_RANGE,
+      )
+      onWeeklyChange([
+        ...weekly,
+        { id: newId(), weekday: day, startTime: defaults.startTime, endTime: defaults.endTime },
+      ])
+    } catch (caught) {
+      setWeeklyError(caught instanceof Error ? caught.message : 'No open time slot on this day.')
+    }
   }
 
   function addOneOff() {
@@ -135,6 +137,7 @@ export function AvailabilityStep({
             Turn on the days you can interview, then set start and end times with the clock.
           </p>
         </div>
+        {weeklyError ? <p className="text-sm text-red-700">{weeklyError}</p> : null}
         <div className="space-y-3">
           {WEEKDAY_ORDER.map((day) => {
             const ranges = weekly.filter((item) => item.weekday === day)
@@ -153,11 +156,13 @@ export function AvailabilityStep({
                     {ranges.map((range) => (
                       <div key={range.id} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
                         <ClockTimeInput
+                          id={`setup-weekly-${range.id}-start`}
                           value={range.startTime}
                           aria-label={`${WEEKDAY_LABELS[day]} start time`}
                           onChange={(startTime) => updateRange(range.id, { startTime })}
                         />
                         <ClockTimeInput
+                          id={`setup-weekly-${range.id}-end`}
                           value={range.endTime}
                           aria-label={`${WEEKDAY_LABELS[day]} end time`}
                           onChange={(endTime) => updateRange(range.id, { endTime })}

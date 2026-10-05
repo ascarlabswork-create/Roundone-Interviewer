@@ -315,6 +315,58 @@ export function defaultRangeForDay(dayOfWeek: number): { startTime: string; endT
   return { startTime: '18:00', endTime: '21:00' }
 }
 
+const DAY_END_MINUTES = 22 * 60
+const MIN_RANGE_MINUTES = 60
+const PREFERRED_RANGE_MINUTES = 180
+
+/** Picks the next weekly window that does not overlap existing ranges on the same day. */
+export function proposeNextWeeklyRange(
+  existing: { startTime: string; endTime: string }[],
+  fallback: { startTime: string; endTime: string },
+): { startTime: string; endTime: string } {
+  const booked = existing
+    .map((range) => ({
+      start: timeToMinutes(range.startTime),
+      end: timeToMinutes(range.endTime),
+    }))
+    .filter((range) => range.end > range.start)
+    .sort((a, b) => a.start - b.start)
+
+  if (booked.length === 0) return fallback
+
+  const candidates: Interval[] = []
+
+  for (let index = 0; index < booked.length - 1; index += 1) {
+    const gapStart = booked[index].end
+    const gapEnd = booked[index + 1].start
+    if (gapEnd - gapStart >= MIN_RANGE_MINUTES) {
+      candidates.push({ start: gapStart, end: Math.min(gapStart + PREFERRED_RANGE_MINUTES, gapEnd) })
+    }
+  }
+
+  const last = booked[booked.length - 1]
+  if (last.end + MIN_RANGE_MINUTES <= DAY_END_MINUTES) {
+    candidates.push({ start: last.end, end: Math.min(last.end + PREFERRED_RANGE_MINUTES, DAY_END_MINUTES) })
+  }
+
+  const first = booked[0]
+  if (first.start - 8 * 60 >= MIN_RANGE_MINUTES) {
+    candidates.push({
+      start: Math.max(8 * 60, first.start - PREFERRED_RANGE_MINUTES),
+      end: first.start,
+    })
+  }
+
+  for (const candidate of candidates) {
+    if (candidate.end <= candidate.start) continue
+    if (!booked.some((range) => overlaps(candidate, range))) {
+      return { startTime: minutesToTime(candidate.start), endTime: minutesToTime(candidate.end) }
+    }
+  }
+
+  throw new Error('No open time slot on this day. Remove or shorten a range first.')
+}
+
 export function bookingWindowSource(
   schedule: AvailabilitySchedule,
   booking: Booking,

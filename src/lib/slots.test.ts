@@ -4,6 +4,7 @@ import {
   RANGE_START_AFTER_END,
   generateBookableSlots,
   isDateWithinRange,
+  proposeNextWeeklyRange,
   validateAvailableRange,
 } from './slots.ts'
 
@@ -96,5 +97,25 @@ describe('slot generation', () => {
     )
     expect(times(blocked, MONDAY)).toEqual(['09:00', '11:00', '14:00', '15:00'])
     expect(times(blocked, NEXT_MONDAY)).toEqual([])
+  })
+})
+
+describe('proposeNextWeeklyRange', () => {
+  it('fills the gap between morning and evening blocks instead of reusing a conflicting default', () => {
+    expect(
+      proposeNextWeeklyRange(
+        [
+          { startTime: '10:00', endTime: '14:00' },
+          { startTime: '18:00', endTime: '21:00' },
+        ],
+        { startTime: '10:00', endTime: '14:00' },
+      ),
+    ).toEqual({ startTime: '14:00', endTime: '17:00' })
+  })
+
+  it('extends after the last range when there is still room before 10pm', () => {
+    expect(
+      proposeNextWeeklyRange([{ startTime: '18:00', endTime: '21:00' }], { startTime: '10:00', endTime: '14:00' }),
+    ).toEqual({ startTime: '21:00', endTime: '22:00' })
   })
 })

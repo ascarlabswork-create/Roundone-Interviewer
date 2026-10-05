@@ -24,7 +24,6 @@ import {
   nextDateWithWeekday,
   sameDay,
   startOfWeek,
-  timeToMinutes,
   timezoneLabel,
   toISODate,
   weekdayShort,
@@ -35,6 +34,7 @@ import {
   generateBookableSlots,
   generateUpcomingSlots,
   isDateWithinRange,
+  proposeNextWeeklyRange,
   validateAvailableRange,
 } from '../lib/slots.ts'
 import { useAsync } from '../lib/useAsync.ts'
@@ -189,7 +189,20 @@ export function CalendarPage() {
 
   async function onAddRange(day: Weekday) {
     if (!board) return
-    const next = nextRangeForDay(day, board)
+    let next: { startTime: string; endTime: string }
+    try {
+      next = proposeNextWeeklyRange(
+        board.availability
+          .filter((item) => item.weekday === day)
+          .map((item) => ({ startTime: item.start_time, endTime: item.end_time })),
+        defaultRangeForDay(day),
+      )
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'No open time slot on this day.'
+      setErrors([message])
+      pushToast(message)
+      return
+    }
     await runMutation(() =>
       createAvailability({
         weekday: day,
@@ -200,7 +213,34 @@ export function CalendarPage() {
   }
 
   async function onUpdateRange(id: string, patch: { startTime?: string; endTime?: string }) {
-    await runMutation(() => updateAvailability(id, patch))
+    if (!board) return
+    const previous = board
+    setBoard({
+      ...board,
+      availability: board.availability.map((row) =>
+        row.id === id
+          ? {
+              ...row,
+              start_time: patch.startTime ?? row.start_time,
+              end_time: patch.endTime ?? row.end_time,
+            }
+          : row,
+      ),
+    })
+    setErrors([])
+    setSaving(true)
+    try {
+      await updateAvailability(id, patch)
+      await refreshBoard()
+      pushToast('Saved successfully')
+    } catch (caught) {
+      setBoard(previous)
+      const message = caught instanceof Error ? caught.message : 'Could not save availability.'
+      setErrors([message])
+      pushToast(message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function onRemoveRange(id: string) {
@@ -340,14 +380,14 @@ export function CalendarPage() {
                         {ranges.map((range) => (
                           <div key={range.id} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
                             <ClockTimeInput
+                              id={`weekly-${range.id}-start`}
                               value={range.start_time}
-                              disabled={saving}
                               aria-label={`${WEEKDAY_LABELS[day]} start time`}
                               onChange={(startTime) => void onUpdateRange(range.id, { startTime })}
                             />
                             <ClockTimeInput
+                              id={`weekly-${range.id}-end`}
                               value={range.end_time}
-                              disabled={saving}
                               aria-label={`${WEEKDAY_LABELS[day]} end time`}
                               onChange={(endTime) => void onUpdateRange(range.id, { endTime })}
                             />
@@ -890,20 +930,6 @@ function toSchedule(board: AvailabilityBoard, defaultDurationMin: number): Avail
       timezone: board.timezone,
     })),
   }
-}
-
-function nextRangeForDay(day: Weekday, board: AvailabilityBoard) {
-  const existing = board.availability
-    .filter((item) => item.weekday === day)
-    .sort((a, b) => a.start_time.localeCompare(b.start_time))
-  if (existing.length === 0) return defaultRangeForDay(day)
-  const last = existing[existing.length - 1]
-  const startMin = timeToMinutes(last.end_time)
-  const endMin = startMin + 180
-  if (endMin <= 22 * 60) {
-    return { startTime: minutesToTime(startMin), endTime: minutesToTime(endMin) }
-  }
-  return { startTime: '10:00', endTime: '14:00' }
 }
 
 function Legend({ color, label }: { color: string; label: string }) {
