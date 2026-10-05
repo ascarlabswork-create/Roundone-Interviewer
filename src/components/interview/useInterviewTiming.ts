@@ -49,6 +49,7 @@ export function useInterviewTiming(sessionId: string, refreshKey: unknown): Inte
   const serverNow = localNow + timing.serverOffsetMs
   const phase: InterviewTimingPhase =
     timing.phase === 'closed' ? 'closed' : timing.sessionEnded ? 'ended' : interviewPhase(timing.schedule, serverNow)
-  const canJoin = phase === 'live' && canEnterCall(timing.schedule, serverNow, timing.hasJoined)
+  const canJoin =
+    (phase === 'lobby' || phase === 'live') && canEnterCall(timing.schedule, serverNow, timing.hasJoined)
   return { timing, error, serverNow, phase, canJoin, reload }
 }

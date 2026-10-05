@@ -12,12 +12,13 @@ const timingRow = {
   status: 'confirmed',
   phase: 'lobby',
   lobby_opens_at: '2026-10-06T07:30:00+00:00',
+  call_opens_at: '2026-10-06T07:45:00+00:00',
   starts_at: '2026-10-06T08:00:00+00:00',
   join_deadline: '2026-10-06T08:15:00+00:00',
   ends_at: '2026-10-06T08:30:00+00:00',
   duration_min: 30,
   server_now: '2026-10-06T07:45:00.100+00:00',
-  can_join: false,
+  can_join: true,
   has_joined: false,
   session_started_at: null,
   session_ended_at: null,
@@ -34,11 +35,12 @@ describe('parseInterviewTiming', () => {
     const timing = parseInterviewTiming(timingRow, localStart, localStart + 200)
     expect(timing.phase).toBe('lobby')
     expect(timing.schedule.startsAt).toBe(Date.parse('2026-10-06T08:00:00Z'))
+    expect(timing.schedule.callOpensAt).toBe(Date.parse('2026-10-06T07:45:00Z'))
     expect(timing.schedule.joinDeadline).toBe(Date.parse('2026-10-06T08:15:00Z'))
     expect(timing.schedule.endsAt).toBe(Date.parse('2026-10-06T08:30:00Z'))
     expect(timing.serverOffsetMs).toBe(-3 * 3_600_000)
     expect(timing.roundTripMs).toBe(200)
-    expect(timing.canJoin).toBe(false)
+    expect(timing.canJoin).toBe(true)
     expect(timing.candidateInLobby).toBe(true)
     expect(timing.sessionEnded).toBe(false)
   })
@@ -51,6 +53,13 @@ describe('parseInterviewTiming', () => {
     )
     expect(timing.noShowRole).toBe('candidate')
     expect(timing.candidatePresence).toBe('left')
+  })
+
+  it('derives call_opens_at 15 minutes before start when the server omits it', () => {
+    const { call_opens_at: _omitted, ...withoutCallOpens } = timingRow
+    void _omitted
+    const timing = parseInterviewTiming(withoutCallOpens, 0, 0)
+    expect(timing.schedule.callOpensAt).toBe(Date.parse('2026-10-06T07:45:00Z'))
   })
 
   it('rejects malformed responses', () => {
@@ -72,7 +81,14 @@ describe('interviewJoinState', () => {
 
   it('shows confirmed/waiting the day before, the lobby 30 minutes early, and the call at the start', () => {
     expect(interviewJoinState(booking, session, new Date('2026-10-05T08:00:00Z')).kind).toBe('waiting')
-    expect(interviewJoinState(booking, session, new Date('2026-10-06T07:30:00Z')).kind).toBe('lobby')
+    expect(interviewJoinState(booking, session, new Date('2026-10-06T07:30:00Z'))).toEqual({
+      kind: 'lobby',
+      roomOpen: false,
+    })
+    expect(interviewJoinState(booking, session, new Date('2026-10-06T07:45:00Z'))).toEqual({
+      kind: 'lobby',
+      roomOpen: true,
+    })
     expect(interviewJoinState(booking, session, new Date('2026-10-06T08:00:00Z')).kind).toBe('ready')
     expect(interviewJoinState(booking, session, new Date('2026-10-06T08:30:00Z')).kind).toBe('unavailable')
   })

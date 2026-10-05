@@ -180,7 +180,7 @@ export function InterviewRoomPage() {
 
 /**
  * Chooses the screen from the server clock: confirmed (before the lobby), pre-interview
- * lobby, live call (only after Start Interview at/after the start), or scheduled end.
+ * lobby, live call (LiveKit from 15 minutes before start), or scheduled end.
  */
 function InterviewGate({
   booking,
@@ -225,7 +225,7 @@ function InterviewGate({
     return <LoadingScreen />
   }
 
-  if (inCall && phase !== 'scheduled' && phase !== 'lobby') {
+  if (inCall && canJoin) {
     return (
       <LiveCallRoom
         booking={booking}
@@ -255,13 +255,13 @@ function InterviewGate({
   }
 
   if (phase === 'scheduled') {
-    const lobbyOpens = formatTimeInZone(new Date(timing.schedule.lobbyOpensAt).toISOString(), booking.displayTimezone)
+    const roomOpens = formatTimeInZone(new Date(timing.schedule.callOpensAt).toISOString(), booking.displayTimezone)
     return (
       <StatusScreen
         tone="success"
         icon={<CheckCircle2 className="h-6 w-6" />}
         title="Interview confirmed"
-        body={`Scheduled for ${interviewStartsAtCopy(booking)}. The pre-interview lobby opens at ${lobbyOpens} (in ${formatCountdown(timing.schedule.lobbyOpensAt - serverNow)}).`}
+        body={`Scheduled for ${interviewStartsAtCopy(booking)}. Interview room opens at ${roomOpens} (in ${formatCountdown(timing.schedule.callOpensAt - serverNow)}).`}
         actions={<BackToBookings tab="upcoming" />}
       />
     )
@@ -496,6 +496,7 @@ function LiveCallRoom({
   const [endError, setEndError] = useState<string | null>(null)
   const [notes, setNotes] = useState('')
   const autoActionRef = useRef<'no_show' | 'scheduled_end' | null>(null)
+  const promotedRef = useRef(false)
 
   const handlers = useMemo(
     () => ({
@@ -520,6 +521,17 @@ function LiveCallRoom({
   const started = booking.status === 'in_progress' || Boolean(session.startedAt)
   const canUseMedia = snapshot.phase !== 'left'
   const knocking = snapshot.admission === 'requested'
+
+  useEffect(() => {
+    if (serverNow < timing.schedule.startsAt || started || promotedRef.current) return
+    promotedRef.current = true
+    void beginInterviewCall(session.id)
+      .then(() => onStarted())
+      .catch((caught: unknown) => {
+        promotedRef.current = false
+        setRecordError(caught instanceof Error ? caught.message : 'Could not record that the interview started.')
+      })
+  }, [serverNow, timing.schedule.startsAt, started, session.id, onStarted])
 
   useEffect(() => {
     if (!controller) return
@@ -645,6 +657,15 @@ function LiveCallRoom({
               {admissionError}
             </p>
           ) : null}
+          {serverNow < schedule.startsAt ? (
+            <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80">
+              Interview room is open. You can join early and wait for the candidate.
+            </p>
+          ) : (
+            <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80">
+              Interview has started.
+            </p>
+          )}
           {knocking ? <AdmissionBanner candidateName={candidateName} onDecide={decide} /> : null}
           {lateJoinOpen && !knocking ? (
             <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">
@@ -996,12 +1017,17 @@ function AudioTrackView({ track }: { track: CallTrack }) {
   useEffect(() => {
     const element = ref.current
     if (!element) return
+    element.autoplay = true
+    element.muted = false
+    element.volume = 1
     track.attach(element)
+    element.muted = false
+    element.volume = 1
     return () => {
       track.detach(element)
     }
   }, [track])
-  return <audio ref={ref} autoPlay className="hidden" />
+  return <audio ref={ref} autoPlay />
 }
 
 function Control({

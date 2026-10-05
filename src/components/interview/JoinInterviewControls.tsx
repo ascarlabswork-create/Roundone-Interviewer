@@ -29,17 +29,16 @@ export function JoinInterviewControls({
   const state = interviewJoinState(booking, session ?? null)
   if (state.kind === 'waiting') {
     if (!showWaiting) return null
-    const lobbyOpens = formatTimeInZone(new Date(state.lobbyOpensAtMs).toISOString(), booking.displayTimezone)
+    const roomOpens = formatTimeInZone(new Date(state.callOpensAtMs).toISOString(), booking.displayTimezone)
     return (
       <p className="text-sm text-slate-600">
-        Interview starts at {interviewStartsAtCopy(booking)}. The lobby opens at {lobbyOpens}.
+        Interview starts at {interviewStartsAtCopy(booking)}. Interview room opens at {roomOpens}.
       </p>
     )
   }
   if (state.kind !== 'ready' && state.kind !== 'lobby') return null
 
-  const inProgress = booking.status === 'in_progress' || Boolean(session?.startedAt)
-  const label = state.kind === 'lobby' ? 'Open Lobby' : inProgress ? 'Join Interview' : 'Start Interview'
+  const label = state.kind === 'lobby' && !state.roomOpen ? 'Open Lobby' : 'Join Interview'
 
   return (
     <Link to={`/interviewer/interview/${session?.id ?? booking.id}`}>

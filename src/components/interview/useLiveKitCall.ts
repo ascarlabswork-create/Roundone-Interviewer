@@ -1,4 +1,4 @@
-import { Room, VideoPresets, createLocalAudioTrack, createLocalVideoTrack } from 'livekit-client'
+import { Room, VideoPresets, createLocalAudioTrack, createLocalVideoTrack, type LocalAudioTrack } from 'livekit-client'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { requestInterviewToken } from '../../services/interviewCall.ts'
 import {
@@ -9,19 +9,67 @@ import {
   type LocalMedia,
   type LocalMediaTrack,
 } from '../../services/interviewCallController.ts'
+import {
+  attachInterviewerAudioDebug,
+  logInterviewerAudio,
+  logMicrophoneEnvironment,
+  watchLocalAudioTrack,
+  wrapPublishTrack,
+} from './interviewerAudioDebug.ts'
+
+const AUDIO_CAPTURE_OPTIONS = { echoCancellation: true, noiseSuppression: true, autoGainControl: true } as const
+const AUDIO_RETRY_MS = 400
 
 function createLiveKitRoom(): CallRoom {
-  return new Room({ adaptiveStream: true, dynacast: true }) as unknown as CallRoom
+  const room = new Room({ adaptiveStream: true, dynacast: true })
+  attachInterviewerAudioDebug(room)
+  wrapPublishTrack(room)
+  return room as unknown as CallRoom
+}
+
+function errorFrom(error: unknown) {
+  return error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+}
+
+async function captureMicrophone(): Promise<LocalAudioTrack> {
+  await logMicrophoneEnvironment()
+  const track = await createLocalAudioTrack(AUDIO_CAPTURE_OPTIONS)
+  watchLocalAudioTrack(track)
+  return track
+}
+
+async function captureMicrophoneWithRetry(): Promise<LocalAudioTrack> {
+  try {
+    return await captureMicrophone()
+  } catch (firstError) {
+    logInterviewerAudio('getUserMedia audio failed; retrying once', { error: errorFrom(firstError) })
+    await new Promise((resolve) => setTimeout(resolve, AUDIO_RETRY_MS))
+    try {
+      return await captureMicrophone()
+    } catch (secondError) {
+      logInterviewerAudio('getUserMedia audio failed after retry', { error: errorFrom(secondError) })
+      throw secondError
+    }
+  }
 }
 
 async function createLiveKitMedia(want: { audio: boolean; video: boolean }): Promise<LocalMedia> {
   const [audio, video] = await Promise.allSettled([
-    want.audio
-      ? createLocalAudioTrack({ echoCancellation: true, noiseSuppression: true, autoGainControl: true })
-      : Promise.resolve(null),
+    want.audio ? captureMicrophoneWithRetry() : Promise.resolve(null),
     want.video ? createLocalVideoTrack({ resolution: VideoPresets.h720.resolution }) : Promise.resolve(null),
   ])
   const failed = [audio, video].find((result) => result.status === 'rejected')
+  if (audio.status === 'rejected') {
+    logInterviewerAudio('microphone capture unavailable; camera may still publish', { error: errorFrom(audio.reason) })
+  }
+  if (audio.status === 'fulfilled' && audio.value) {
+    logInterviewerAudio('mic track ready for publish', {
+      source: audio.value.source,
+      isMuted: audio.value.isMuted,
+      readyState: audio.value.mediaStreamTrack.readyState,
+      enabled: audio.value.mediaStreamTrack.enabled,
+    })
+  }
   return {
     audio: audio.status === 'fulfilled' ? (audio.value as unknown as LocalMediaTrack | null) : null,
     video: video.status === 'fulfilled' ? (video.value as unknown as LocalMediaTrack | null) : null,

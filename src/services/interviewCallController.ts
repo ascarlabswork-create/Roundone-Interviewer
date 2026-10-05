@@ -298,6 +298,9 @@ export class InterviewCallController {
     if (media.video) this.video = media.video
     if (media.error) this.setMediaError(media.error)
     else this.update({ mediaError: null })
+    // Admit can happen while the microphone is still opening. Publish once it exists
+    // and the room is connected — LiveKit will stop a track that times out unpublished.
+    await this.publishLocalMedia()
   }
 
   private stopLocalMedia() {
@@ -310,7 +313,25 @@ export class InterviewCallController {
 
   private async publishLocalMedia() {
     const room = this.room
-    if (!room || this.snapshot.admission !== 'admitted') return
+    const hasAudio = Boolean(this.audio)
+    const hasVideo = Boolean(this.video)
+    if (!room || !this.inRoom || this.snapshot.admission !== 'admitted') {
+      console.info('[INTERVIEWER AUDIO] publish skipped', {
+        hasRoom: Boolean(room),
+        inRoom: this.inRoom,
+        admission: this.snapshot.admission,
+        hasAudio,
+        hasVideo,
+        audioMuted: this.audio?.isMuted ?? null,
+      })
+      return
+    }
+    console.info('[INTERVIEWER AUDIO] publish starting', {
+      hasAudio,
+      hasVideo,
+      audioMuted: this.audio?.isMuted ?? null,
+      alreadyPublished: this.published.size,
+    })
     for (const track of [this.audio, this.video]) {
       if (!track || this.published.has(track)) continue
       try {
@@ -322,6 +343,11 @@ export class InterviewCallController {
         this.setMediaError(error)
       }
     }
+    console.info('[INTERVIEWER AUDIO] publish finished', {
+      publishedCount: this.published.size,
+      publishedAudio: this.audio ? this.published.has(this.audio) : false,
+      publishedVideo: this.video ? this.published.has(this.video) : false,
+    })
   }
 
   private async unpublishLocalMedia() {
@@ -446,6 +472,12 @@ export class InterviewCallController {
   }
 
   async toggleMic(): Promise<void> {
+    console.info('[INTERVIEWER AUDIO] toggleMic', {
+      hasAudio: Boolean(this.audio),
+      isMuted: this.audio?.isMuted ?? null,
+      admission: this.snapshot.admission,
+      inRoom: this.inRoom,
+    })
     if (!this.audio) {
       await this.retryMedia()
       return

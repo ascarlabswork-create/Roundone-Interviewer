@@ -124,17 +124,19 @@ export function buildDashboardAttentionItems(input: {
     )
     if (soon.length > 0) {
       const first = soon[0]
-      const joinKind = interviewJoinState(first, input.sessions?.get(first.id) ?? null, now).kind
+      const joinState = interviewJoinState(first, input.sessions?.get(first.id) ?? null, now)
+      const joinKind = joinState.kind
+      const roomOpen = joinKind === 'ready' || (joinKind === 'lobby' && joinState.roomOpen)
       const open = joinKind === 'ready' || joinKind === 'lobby'
       items.push({
         id: 'upcoming-soon',
-        title: joinKind === 'ready' ? 'Interview has started' : joinKind === 'lobby' ? 'Interview lobby is open' : 'Upcoming interview',
+        title: joinKind === 'ready' ? 'Interview has started' : roomOpen ? 'Interview room is open' : joinKind === 'lobby' ? 'Interview lobby is open' : 'Upcoming interview',
         detail:
           soon.length === 1
             ? `${first.candidate.name} · ${first.serviceName}`
             : `${soon.length} confirmed interviews start within the next 2 hours.`,
         href: open ? `/interviewer/interview/${first.id}` : '/interviewer/bookings?tab=upcoming',
-        actionLabel: joinKind === 'ready' ? 'Start Interview' : joinKind === 'lobby' ? 'Open Lobby' : 'View Bookings',
+        actionLabel: roomOpen ? 'Join Interview' : joinKind === 'lobby' ? 'Open Lobby' : 'View Bookings',
       })
     }
 

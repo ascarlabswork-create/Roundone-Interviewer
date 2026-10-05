@@ -1,6 +1,7 @@
 -- Rollback-only verification of the interview timing lifecycle
--- (migrations 20261005093438_interview_timing_lifecycle and
--- 20261005094703_interview_late_join_deadline_any_status).
+-- (migrations 20261005093438_interview_timing_lifecycle,
+-- 20261005094703_interview_late_join_deadline_any_status, and
+-- 20261006083000_interview_early_join_window).
 --
 -- Creates a throwaway booking for an existing interviewer/candidate, moves its start time
 -- relative to now() (constant inside the transaction) and calls the real RPCs as each user.
@@ -112,6 +113,45 @@ BEGIN
   r := r || pg_temp.check_result('-29m: begin denied', pg_temp.as_call(v_interviewer, q_begin), 'interview_not_started');
   r := r || pg_temp.check_result('-29m: still confirmed',
     (SELECT status::text FROM public.bookings WHERE id = v_booking), 'confirmed');
+
+  -- 3. 16 minutes before start: still no LiveKit token. 14 minutes before: same room,
+  --    presence recorded, booking stays confirmed (not in_progress) until the scheduled start.
+  PERFORM pg_temp.move_start(v_booking, interval '16 minutes');
+  r := r || pg_temp.check_result('-16m: phase', pg_temp.as_call(v_interviewer, q_timing), 'lobby');
+  r := r || pg_temp.check_result('-16m: token denied', pg_temp.as_call(v_interviewer, q_token), 'interview_not_started');
+  r := r || pg_temp.check_result('-16m: candidate token denied', pg_temp.as_call(v_candidate, q_token), 'interview_not_started');
+  r := r || pg_temp.check_result('-16m: begin denied', pg_temp.as_call(v_interviewer, q_begin), 'interview_not_started');
+
+  PERFORM pg_temp.move_start(v_booking, interval '14 minutes');
+  r := r || pg_temp.check_result('-14m: phase', pg_temp.as_call(v_interviewer, q_timing), 'lobby');
+  r := r || pg_temp.check_result('-14m: interviewer token', pg_temp.as_call(v_interviewer, q_token), 'room_name');
+  r := r || pg_temp.check_result('-14m: candidate token', pg_temp.as_call(v_candidate, q_token), 'room_name');
+  BEGIN
+    r := r || pg_temp.check_result('-14m: begin', pg_temp.as_call(v_interviewer, q_begin), '{');
+    r := r || pg_temp.check_result('-14m: still confirmed',
+      (SELECT status::text FROM public.bookings WHERE id = v_booking), 'confirmed');
+    r := r || pg_temp.check_result('-14m: started_at null',
+      (SELECT (started_at IS NULL)::text FROM public.interview_sessions WHERE id = v_session), 'true');
+    r := r || pg_temp.check_result('-14m: no call_opened',
+      (SELECT count(*)::text FROM public.session_events WHERE session_id = v_session AND event_type = 'call_opened'), '0');
+    r := r || pg_temp.check_result('-14m: joined event',
+      (SELECT count(*)::text FROM public.session_events WHERE session_id = v_session AND event_type = 'participant_joined'), '1');
+    PERFORM pg_temp.move_start(v_booking, interval '0');
+    r := r || pg_temp.check_result('early then start: begin', pg_temp.as_call(v_interviewer, q_begin), '{');
+    r := r || pg_temp.check_result('early then start: in_progress',
+      (SELECT status::text FROM public.bookings WHERE id = v_booking), 'in_progress');
+    r := r || pg_temp.check_result('early then start: started_at set',
+      (SELECT (started_at IS NOT NULL)::text FROM public.interview_sessions WHERE id = v_session), 'true');
+    r := r || pg_temp.check_result('early then start: call_opened',
+      (SELECT count(*)::text FROM public.session_events WHERE session_id = v_session AND event_type = 'call_opened'), '1');
+    r := r || pg_temp.check_result('early then start: ends not extended',
+      pg_temp.as_call(v_interviewer, format(
+        'SELECT extract(epoch FROM ((public.get_interview_timing(%L)->>''ends_at'')::timestamptz - (public.get_interview_timing(%L)->>''starts_at'')::timestamptz))::int::text',
+        v_session, v_session)), '1800');
+    RAISE EXCEPTION 'undo_scenario';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'undo_scenario' THEN RAISE; END IF;
+  END;
 
   -- 9/10. Cancelled and superseded (rescheduled) bookings cannot start, even at start time.
   BEGIN

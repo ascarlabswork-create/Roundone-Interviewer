@@ -20,8 +20,8 @@ export type InterviewSessionRecord = {
 
 export type InterviewJoinState =
   | { kind: 'unavailable' }
-  | { kind: 'waiting'; startsAtUtc: string; timezone: string; lobbyOpensAtMs: number }
-  | { kind: 'lobby' }
+  | { kind: 'waiting'; startsAtUtc: string; timezone: string; lobbyOpensAtMs: number; callOpensAtMs: number }
+  | { kind: 'lobby'; roomOpen: boolean }
   | { kind: 'ready' }
 
 export type InterviewSessionBundle = {
@@ -91,9 +91,12 @@ export function interviewJoinState(
       startsAtUtc: booking.startsAtUtc,
       timezone: booking.displayTimezone,
       lobbyOpensAtMs: schedule.lobbyOpensAt,
+      callOpensAtMs: schedule.callOpensAt,
     }
   }
-  if (phase === 'lobby') return { kind: 'lobby' }
+  if (phase === 'lobby') {
+    return { kind: 'lobby', roomOpen: now.getTime() >= schedule.callOpensAt }
+  }
   if (phase === 'live') return { kind: 'ready' }
   return { kind: 'unavailable' }
 }
@@ -149,12 +152,13 @@ export function parseInterviewTiming(
   ) {
     throw new Error('Could not load the interview schedule. Try again.')
   }
+  const callOpensAt = readTime(value, 'call_opens_at') ?? startsAt - 15 * 60_000
   const presence = readString(value, 'candidate_presence')
   const noShow = readString(value, 'no_show_role')
   return {
     phase,
     status: readString(value, 'status') ?? '',
-    schedule: { lobbyOpensAt, startsAt, joinDeadline, endsAt },
+    schedule: { lobbyOpensAt, callOpensAt, startsAt, joinDeadline, endsAt },
     serverOffsetMs: serverClockOffset(serverNow, requestStartedMs, responseReceivedMs),
     roundTripMs: Math.max(0, responseReceivedMs - requestStartedMs),
     canJoin: value.can_join === true,
@@ -255,10 +259,10 @@ function mapSessionRpcError(error: { message: string; code?: string; details?: s
     return new Error('This interview session has ended.')
   }
   if (text.includes('interview_not_started')) {
-    return new Error('This interview has not started yet.')
+    return new Error('The interview room opens 15 minutes before the scheduled start.')
   }
   if (text.includes('join_window_closed') || text.includes('join_deadline_passed')) {
-    return new Error('The join window for this interview has closed.')
+    return new Error('Interview join window has closed.')
   }
   if (text.includes('join_window_open')) {
     return new Error('The candidate can still join until the late-join deadline.')
@@ -305,10 +309,9 @@ export async function resolveInterviewRoute(id: string): Promise<{
 }
 
 /**
- * Records the interviewer joining the call through the shared begin_interview_call
- * RPC (also used by the Candidate app): writes the call_opened / participant_joined
- * session events, marks the session as a LiveKit call and moves a confirmed booking
- * to in_progress.
+ * Records the interviewer joining the LiveKit room through the shared begin_interview_call
+ * RPC. Presence is stored immediately; call_opened / started_at / in_progress are applied
+ * only at the scheduled start.
  */
 export async function beginInterviewCall(sessionId: string): Promise<void> {
   const { error } = await supabase.rpc('begin_interview_call', { p_session_id: sessionId })
