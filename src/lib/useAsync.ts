@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toDisplayError } from './networkError.ts'
 
 type AsyncState<T> =
   | { status: 'loading'; data: null; error: null }
@@ -25,7 +26,7 @@ export function useAsync<T>(factory: () => Promise<T>, deps: unknown[]) {
           setState({
             status: 'error',
             data: null,
-            error: error instanceof Error ? error.message : 'Something went wrong',
+            error: error instanceof Error ? toDisplayError(error.message) : 'Something went wrong',
           })
         }
       })
