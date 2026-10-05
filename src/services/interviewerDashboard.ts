@@ -84,7 +84,8 @@ function interviewIsSoon(
   now: Date,
 ) {
   if (booking.status !== 'confirmed' && booking.status !== 'in_progress') return false
-  if (interviewJoinState(booking, session ?? null, now).kind === 'ready') return true
+  const kind = interviewJoinState(booking, session ?? null, now).kind
+  if (kind === 'ready' || kind === 'lobby') return true
   const startsAt = Date.parse(booking.startsAtUtc)
   if (Number.isNaN(startsAt)) return false
   const delta = startsAt - now.getTime()
@@ -123,16 +124,17 @@ export function buildDashboardAttentionItems(input: {
     )
     if (soon.length > 0) {
       const first = soon[0]
-      const joinReady = interviewJoinState(first, input.sessions?.get(first.id) ?? null, now).kind === 'ready'
+      const joinKind = interviewJoinState(first, input.sessions?.get(first.id) ?? null, now).kind
+      const open = joinKind === 'ready' || joinKind === 'lobby'
       items.push({
         id: 'upcoming-soon',
-        title: joinReady ? 'Interview is ready to open' : 'Upcoming interview',
+        title: joinKind === 'ready' ? 'Interview has started' : joinKind === 'lobby' ? 'Interview lobby is open' : 'Upcoming interview',
         detail:
           soon.length === 1
             ? `${first.candidate.name} · ${first.serviceName}`
             : `${soon.length} confirmed interviews start within the next 2 hours.`,
-        href: joinReady ? `/interviewer/interview/${first.id}` : '/interviewer/bookings?tab=upcoming',
-        actionLabel: joinReady ? 'Open Interview' : 'View Bookings',
+        href: open ? `/interviewer/interview/${first.id}` : '/interviewer/bookings?tab=upcoming',
+        actionLabel: joinKind === 'ready' ? 'Start Interview' : joinKind === 'lobby' ? 'Open Lobby' : 'View Bookings',
       })
     }
 

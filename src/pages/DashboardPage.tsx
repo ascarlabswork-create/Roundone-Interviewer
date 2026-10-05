@@ -23,7 +23,8 @@ import { Badge, Card, Skeleton } from '../components/ui/primitives.tsx'
 import { completedWhenLabel, formatDateShortInZone, formatTimeInZone } from '../lib/dates.ts'
 import { formatCount, formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
-import { acceptBookingAndGetCallPath } from '../services/bookingRealtime.ts'
+import { acceptBookingForInterview, type AcceptedInterview } from '../services/bookingRealtime.ts'
+import { interviewConfirmedCopy } from '../components/interview/JoinInterviewControls.tsx'
 import { loadMyAvailabilityBoard } from '../services/interviewerAvailability.ts'
 import {
   BOOKING_ALREADY_UPDATED,
@@ -139,12 +140,12 @@ export function DashboardPage() {
       availability: availability.status === 'success' ? availability.data : undefined,
     })
 
-  async function runBookingAction(id: string, action: () => Promise<unknown>, successMessage: string) {
+  async function runBookingAction(id: string, action: () => Promise<unknown>, successMessage: string | (() => string)) {
     setActingId(id)
     try {
       await action()
       void markBookingNotificationsRead(id).catch(() => {})
-      pushToast(successMessage)
+      pushToast(typeof successMessage === 'function' ? successMessage() : successMessage)
       board.reload()
       earnings.reload()
       notifications.reload()
@@ -158,15 +159,15 @@ export function DashboardPage() {
   }
 
   async function onConfirm(id: string) {
-    const accepted: { path: string | null } = { path: null }
+    const accepted: { result: AcceptedInterview | null } = { result: null }
     await runBookingAction(
       id,
       async () => {
-        accepted.path = await acceptBookingAndGetCallPath(id)
+        accepted.result = await acceptBookingForInterview(id)
       },
-      'Booking confirmed',
+      () => (accepted.result ? interviewConfirmedCopy(accepted.result.booking) : 'Interview confirmed'),
     )
-    if (accepted.path) navigate(accepted.path)
+    if (accepted.result?.lobbyOpen) navigate(accepted.result.callPath)
   }
 
   async function onReject(id: string) {

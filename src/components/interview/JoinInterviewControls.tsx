@@ -11,6 +11,10 @@ export function interviewStartsAtCopy(booking: InterviewerBooking) {
   return `${formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)} on ${formatDateLongInZone(booking.startsAtUtc, booking.displayTimezone)} (${timezoneLabel(booking.displayTimezone)})`
 }
 
+export function interviewConfirmedCopy(booking: InterviewerBooking) {
+  return `Interview confirmed · Scheduled for ${interviewStartsAtCopy(booking)}`
+}
+
 export function JoinInterviewControls({
   booking,
   session,
@@ -25,15 +29,20 @@ export function JoinInterviewControls({
   const state = interviewJoinState(booking, session ?? null)
   if (state.kind === 'waiting') {
     if (!showWaiting) return null
-    return <p className="text-sm text-slate-600">Interview starts at {interviewStartsAtCopy(booking)}</p>
+    const lobbyOpens = formatTimeInZone(new Date(state.lobbyOpensAtMs).toISOString(), booking.displayTimezone)
+    return (
+      <p className="text-sm text-slate-600">
+        Interview starts at {interviewStartsAtCopy(booking)}. The lobby opens at {lobbyOpens}.
+      </p>
+    )
   }
-  if (state.kind !== 'ready') return null
+  if (state.kind !== 'ready' && state.kind !== 'lobby') return null
 
   const inProgress = booking.status === 'in_progress' || Boolean(session?.startedAt)
-  const label = inProgress ? 'Join Interview' : 'Enter Interview'
+  const label = state.kind === 'lobby' ? 'Open Lobby' : inProgress ? 'Join Interview' : 'Start Interview'
 
   return (
-    <Link to={`/interviewer/interview/${booking.id}`}>
+    <Link to={`/interviewer/interview/${session?.id ?? booking.id}`}>
       <Button size={size}>{label}</Button>
     </Link>
   )

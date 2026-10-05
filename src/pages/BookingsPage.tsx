@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
 import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
-import { JoinInterviewControls } from '../components/interview/JoinInterviewControls.tsx'
+import { JoinInterviewControls, interviewConfirmedCopy } from '../components/interview/JoinInterviewControls.tsx'
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
 import { Badge, Card, EmptyState, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
@@ -26,7 +26,7 @@ import {
   type InterviewerBooking,
   type InterviewerBookingTab,
 } from '../services/interviewerBookings.ts'
-import { acceptBookingAndGetCallPath } from '../services/bookingRealtime.ts'
+import { acceptBookingForInterview, type AcceptedInterview } from '../services/bookingRealtime.ts'
 import { markBookingNotificationsRead } from '../services/interviewerNotifications.ts'
 import { loadMyInterviewBoard, type InterviewSessionRecord } from '../services/interviewSessions.ts'
 import { useToast } from '../state/toast.tsx'
@@ -143,12 +143,12 @@ export function BookingsPage() {
     if (nextTab && nextTab !== tab) writeParams(nextTab, found.id)
   }, [bookingParam, state.status, loadedBookings, tab, writeParams])
 
-  async function runAction(id: string, action: () => Promise<unknown>, successMessage: string) {
+  async function runAction(id: string, action: () => Promise<unknown>, successMessage: string | (() => string)) {
     setActingId(id)
     try {
       await action()
       void markBookingNotificationsRead(id).catch(() => {})
-      pushToast(successMessage)
+      pushToast(typeof successMessage === 'function' ? successMessage() : successMessage)
       setRejectId(null)
       setRejectReason('')
       state.reload()
@@ -162,15 +162,15 @@ export function BookingsPage() {
   }
 
   async function onAccept(id: string) {
-    const accepted: { path: string | null } = { path: null }
+    const accepted: { result: AcceptedInterview | null } = { result: null }
     await runAction(
       id,
       async () => {
-        accepted.path = await acceptBookingAndGetCallPath(id)
+        accepted.result = await acceptBookingForInterview(id)
       },
-      'Booking confirmed',
+      () => (accepted.result ? interviewConfirmedCopy(accepted.result.booking) : 'Interview confirmed'),
     )
-    if (accepted.path) navigate(accepted.path)
+    if (accepted.result?.lobbyOpen) navigate(accepted.result.callPath)
   }
 
   async function onCancelConfirm() {

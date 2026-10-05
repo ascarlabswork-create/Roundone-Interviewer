@@ -21,6 +21,8 @@ export type CallErrorKind =
   | 'not_authorized'
   | 'not_found'
   | 'not_joinable'
+  | 'not_started'
+  | 'join_closed'
   | 'session_ended'
   | 'not_configured'
   | 'connection'
@@ -41,6 +43,8 @@ const CALL_ERROR_MESSAGES: Record<CallErrorKind, string> = {
   not_authorized: 'You are not a participant in this interview.',
   not_found: 'This interview session could not be found.',
   not_joinable: 'This interview is not open for joining. Only confirmed bookings can start a call.',
+  not_started: 'The interview has not started yet. You can join at the scheduled start time.',
+  join_closed: 'The join window closed 15 minutes after the scheduled start.',
   session_ended: 'This interview session has ended.',
   not_configured: 'Video calling is not configured yet. Please contact support.',
   connection: 'Could not connect to the interview call. Check your connection and try again.',
@@ -56,6 +60,9 @@ const ERROR_CODE_KINDS: Record<string, CallErrorKind> = {
   not_authorized: 'not_authorized',
   session_not_found: 'not_found',
   booking_not_confirmed: 'not_joinable',
+  INTERVIEW_NOT_STARTED: 'not_started',
+  JOIN_WINDOW_CLOSED: 'join_closed',
+  JOIN_DEADLINE_PASSED: 'join_closed',
   session_expired: 'session_ended',
   unconfigured: 'not_configured',
 }
@@ -121,6 +128,22 @@ export async function requestInterviewToken(
     throw callError(tokenErrorKind(code, status))
   }
   return parseTokenResponse(result.data, sessionId)
+}
+
+export const END_INTERVIEW_CALL_FUNCTION = 'end-interview-call'
+
+/** Closes the LiveKit room once the interview has ended so no one stays connected; best effort. */
+export async function closeInterviewRoom(
+  sessionId: string,
+  invoke: InvokeTokenFunction = (id) =>
+    supabase.functions.invoke(END_INTERVIEW_CALL_FUNCTION, { body: { interview_session_id: id } }),
+): Promise<boolean> {
+  try {
+    const result = await invoke(sessionId)
+    return !result.error
+  } catch {
+    return false
+  }
 }
 
 export type ParticipantRole = 'interviewer' | 'candidate' | null

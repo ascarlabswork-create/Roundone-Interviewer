@@ -1,3 +1,4 @@
+import { interviewSchedule, isLobbyOpen } from '../lib/interviewTiming.ts'
 import { supabase } from '../lib/supabase.ts'
 import { confirmBooking, type InterviewerBooking } from './interviewerBookings.ts'
 import { getInterviewSessionByBooking, type InterviewSessionRecord } from './interviewSessions.ts'
@@ -151,17 +152,32 @@ export function interviewCallPath(id: string) {
   return `/interviewer/interview/${id}`
 }
 
-/** Accepts a request and returns the call route, keyed by interview_session_id. */
-export async function acceptBookingAndGetCallPath(
+export type AcceptedInterview = {
+  booking: InterviewerBooking
+  /** Interview route keyed by interview_session_id. */
+  callPath: string
+  /** True only when the pre-interview lobby is already open; acceptance never enters the call itself. */
+  lobbyOpen: boolean
+}
+
+/** Accepts a request. The booking becomes confirmed; the interview page is only offered once its lobby opens. */
+export async function acceptBookingForInterview(
   bookingId: string,
   deps: {
     accept?: (bookingId: string) => Promise<AcceptResult>
     findSession?: (bookingId: string) => Promise<InterviewSessionRecord | null>
+    now?: () => number
   } = {},
-): Promise<string> {
+): Promise<AcceptedInterview> {
   const accept = deps.accept ?? ((id) => acceptBookingAndAwaitConfirmation(id))
   const findSession = deps.findSession ?? ((id) => getInterviewSessionByBooking(id, { retries: 6 }))
+  const now = deps.now ?? Date.now
   const { booking } = await accept(bookingId)
   const session = await findSession(booking.id)
-  return interviewCallPath(session?.id ?? booking.id)
+  const schedule = interviewSchedule(booking.startsAtUtc, booking.durationMin)
+  return {
+    booking,
+    callPath: interviewCallPath(session?.id ?? booking.id),
+    lobbyOpen: schedule ? isLobbyOpen(schedule, now()) : false,
+  }
 }

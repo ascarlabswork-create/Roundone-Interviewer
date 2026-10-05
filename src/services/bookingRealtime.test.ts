@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   acceptBookingAndAwaitConfirmation,
-  acceptBookingAndGetCallPath,
+  acceptBookingForInterview,
   watchBookingStatus,
   type RealtimeChannelLike,
   type RealtimeClientLike,
@@ -132,19 +132,36 @@ describe('acceptBookingAndAwaitConfirmation', () => {
   })
 })
 
-describe('acceptBookingAndGetCallPath', () => {
-  it('navigates to the call route keyed by interview_session_id after acceptance', async () => {
-    const path = await acceptBookingAndGetCallPath(BOOKING_ID, {
-      accept: async () => ({ booking: booking('confirmed'), confirmedVia: 'realtime' }),
-      findSession: async () => ({ id: SESSION_ID, bookingId: BOOKING_ID }) as InterviewSessionRecord,
+describe('acceptBookingForInterview', () => {
+  const START = Date.parse('2026-10-06T08:00:00.000Z')
+  const scheduled = (startsAtUtc: string) =>
+    ({ id: BOOKING_ID, status: 'confirmed', startsAtUtc, durationMin: 30 }) as InterviewerBooking
+  const session = async () => ({ id: SESSION_ID, bookingId: BOOKING_ID }) as InterviewSessionRecord
+
+  it("accepting tomorrow's interview confirms it without opening the call", async () => {
+    const result = await acceptBookingForInterview(BOOKING_ID, {
+      accept: async () => ({ booking: scheduled('2026-10-06T08:00:00.000Z'), confirmedVia: 'realtime' }),
+      findSession: session,
+      now: () => START - 24 * 60 * 60_000,
     })
-    expect(path).toBe(`/interviewer/interview/${SESSION_ID}`)
+    expect(result.booking.status).toBe('confirmed')
+    expect(result.lobbyOpen).toBe(false)
+    expect(result.callPath).toBe(`/interviewer/interview/${SESSION_ID}`)
   })
 
-  it('does not navigate when acceptance fails', async () => {
+  it('offers the lobby when accepting inside the 30-minute early window', async () => {
+    const result = await acceptBookingForInterview(BOOKING_ID, {
+      accept: async () => ({ booking: scheduled('2026-10-06T08:00:00.000Z'), confirmedVia: 'rpc' }),
+      findSession: session,
+      now: () => START - 20 * 60_000,
+    })
+    expect(result.lobbyOpen).toBe(true)
+  })
+
+  it('does not look up the session when acceptance fails', async () => {
     const findSession = vi.fn()
     await expect(
-      acceptBookingAndGetCallPath(BOOKING_ID, {
+      acceptBookingForInterview(BOOKING_ID, {
         accept: async () => {
           throw new Error('nope')
         },

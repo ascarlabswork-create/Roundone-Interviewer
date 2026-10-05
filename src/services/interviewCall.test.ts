@@ -50,6 +50,9 @@ describe('requestInterviewToken', () => {
     [403, 'session_not_found', 'not_found'],
     [403, 'booking_not_confirmed', 'not_joinable'],
     [403, 'session_expired', 'session_ended'],
+    [403, 'INTERVIEW_NOT_STARTED', 'not_started'],
+    [403, 'JOIN_WINDOW_CLOSED', 'join_closed'],
+    [403, 'JOIN_DEADLINE_PASSED', 'join_closed'],
     [503, 'unconfigured', 'not_configured'],
     [500, 'boom', 'network'],
   ] as const)('maps HTTP %s %s to %s', async (status, code, kind) => {

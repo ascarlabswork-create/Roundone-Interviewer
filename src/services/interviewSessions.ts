@@ -1,3 +1,9 @@
+import {
+  interviewPhase,
+  interviewSchedule,
+  serverClockOffset,
+  type InterviewSchedule,
+} from '../lib/interviewTiming.ts'
 import { supabase } from '../lib/supabase.ts'
 import { getFeedbackBookingIds } from './interviewerFeedback.ts'
 import { getMyBooking, getMyBookings, isBookingId, type InterviewerBooking } from './interviewerBookings.ts'
@@ -14,7 +20,8 @@ export type InterviewSessionRecord = {
 
 export type InterviewJoinState =
   | { kind: 'unavailable' }
-  | { kind: 'waiting'; startsAtUtc: string; timezone: string }
+  | { kind: 'waiting'; startsAtUtc: string; timezone: string; lobbyOpensAtMs: number }
+  | { kind: 'lobby' }
   | { kind: 'ready' }
 
 export type InterviewSessionBundle = {
@@ -23,7 +30,6 @@ export type InterviewSessionBundle = {
 }
 
 const SESSION_SELECT = 'id, booking_id, provider, join_token_hash, started_at, ended_at'
-const JOIN_CLOCK_SKEW_MS = 60_000
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -67,6 +73,7 @@ function isJoinableStatus(status: InterviewerBooking['status']) {
   return status === 'confirmed' || status === 'in_progress'
 }
 
+/** Which entry point to show for a booking; the server re-checks every call entry against its own clock. */
 export function interviewJoinState(
   booking: InterviewerBooking,
   session: InterviewSessionRecord | null,
@@ -75,14 +82,107 @@ export function interviewJoinState(
   if (!session || session.endedAt || !isJoinableStatus(booking.status)) {
     return { kind: 'unavailable' }
   }
-  if (booking.status === 'in_progress' || session.startedAt) {
-    return { kind: 'ready' }
+  const schedule = interviewSchedule(booking.startsAtUtc, booking.durationMin)
+  if (!schedule) return { kind: 'unavailable' }
+  const phase = interviewPhase(schedule, now.getTime())
+  if (phase === 'scheduled') {
+    return {
+      kind: 'waiting',
+      startsAtUtc: booking.startsAtUtc,
+      timezone: booking.displayTimezone,
+      lobbyOpensAtMs: schedule.lobbyOpensAt,
+    }
   }
-  const opensAt = Date.parse(booking.startsAtUtc) - JOIN_CLOCK_SKEW_MS
-  if (Number.isNaN(opensAt) || now.getTime() < opensAt) {
-    return { kind: 'waiting', startsAtUtc: booking.startsAtUtc, timezone: booking.displayTimezone }
+  if (phase === 'lobby') return { kind: 'lobby' }
+  if (phase === 'live') return { kind: 'ready' }
+  return { kind: 'unavailable' }
+}
+
+export type InterviewTimingPhase = 'scheduled' | 'lobby' | 'live' | 'ended' | 'closed'
+export type NoShowRole = 'candidate' | 'interviewer'
+
+export type InterviewTiming = {
+  phase: InterviewTimingPhase
+  status: string
+  schedule: InterviewSchedule
+  /** Add to Date.now() to get the server clock. */
+  serverOffsetMs: number
+  roundTripMs: number
+  canJoin: boolean
+  hasJoined: boolean
+  sessionEnded: boolean
+  candidateJoined: boolean
+  candidatePresence: 'in_call' | 'left' | null
+  candidateInLobby: boolean
+  admission: string | null
+  noShowRole: NoShowRole | null
+}
+
+const TIMING_PHASES: InterviewTimingPhase[] = ['scheduled', 'lobby', 'live', 'ended', 'closed']
+
+function readTime(row: Record<string, unknown>, key: string) {
+  const value = readString(row, key)
+  const ms = value ? Date.parse(value) : Number.NaN
+  return Number.isNaN(ms) ? null : ms
+}
+
+export function parseInterviewTiming(
+  value: unknown,
+  requestStartedMs: number,
+  responseReceivedMs: number,
+): InterviewTiming {
+  if (!isRecord(value)) throw new Error('Could not load the interview schedule. Try again.')
+  const phase = readString(value, 'phase') as InterviewTimingPhase | null
+  const lobbyOpensAt = readTime(value, 'lobby_opens_at')
+  const startsAt = readTime(value, 'starts_at')
+  const joinDeadline = readTime(value, 'join_deadline')
+  const endsAt = readTime(value, 'ends_at')
+  const serverNow = readString(value, 'server_now')
+  if (
+    !phase ||
+    !TIMING_PHASES.includes(phase) ||
+    lobbyOpensAt === null ||
+    startsAt === null ||
+    joinDeadline === null ||
+    endsAt === null ||
+    !serverNow
+  ) {
+    throw new Error('Could not load the interview schedule. Try again.')
   }
-  return { kind: 'ready' }
+  const presence = readString(value, 'candidate_presence')
+  const noShow = readString(value, 'no_show_role')
+  return {
+    phase,
+    status: readString(value, 'status') ?? '',
+    schedule: { lobbyOpensAt, startsAt, joinDeadline, endsAt },
+    serverOffsetMs: serverClockOffset(serverNow, requestStartedMs, responseReceivedMs),
+    roundTripMs: Math.max(0, responseReceivedMs - requestStartedMs),
+    canJoin: value.can_join === true,
+    hasJoined: value.has_joined === true,
+    sessionEnded: readString(value, 'session_ended_at') !== null,
+    candidateJoined: value.candidate_joined === true,
+    candidatePresence: presence === 'in_call' || presence === 'left' ? presence : null,
+    candidateInLobby: value.candidate_in_lobby === true,
+    admission: readString(value, 'admission'),
+    noShowRole: noShow === 'candidate' || noShow === 'interviewer' ? noShow : null,
+  }
+}
+
+/** Server-clock schedule and participant status for one session (participants only). */
+export async function getInterviewTiming(sessionId: string): Promise<InterviewTiming> {
+  const startedMs = Date.now()
+  const { data, error } = await supabase.rpc('get_interview_timing', { p_session_id: sessionId })
+  const receivedMs = Date.now()
+  if (error) throw mapSessionRpcError(error)
+  return parseInterviewTiming(data, startedMs, receivedMs)
+}
+
+/** Records that the candidate missed the late-join deadline; the server verifies the deadline and attendance. */
+export async function markInterviewNoShow(sessionId: string): Promise<NoShowRole> {
+  const { data, error } = await supabase.rpc('mark_interview_no_show', { p_session_id: sessionId })
+  if (error) throw mapSessionRpcError(error)
+  const absent = isRecord(data) ? readString(data, 'absent_role') : null
+  return absent === 'interviewer' ? 'interviewer' : 'candidate'
 }
 
 export async function getInterviewSession(bookingId: string): Promise<{
@@ -154,6 +254,21 @@ function mapSessionRpcError(error: { message: string; code?: string; details?: s
   if (text.includes('session_expired')) {
     return new Error('This interview session has ended.')
   }
+  if (text.includes('interview_not_started')) {
+    return new Error('This interview has not started yet.')
+  }
+  if (text.includes('join_window_closed') || text.includes('join_deadline_passed')) {
+    return new Error('The join window for this interview has closed.')
+  }
+  if (text.includes('join_window_open')) {
+    return new Error('The candidate can still join until the late-join deadline.')
+  }
+  if (text.includes('participant_joined')) {
+    return new Error('The candidate joined this interview, so it cannot be marked as a no-show.')
+  }
+  if (text.includes('lobby_not_open')) {
+    return new Error('The pre-interview lobby is not open.')
+  }
   if (text.includes('not_authorized') || error.code === '42501') {
     return new Error('You can only update your own interview sessions.')
   }
@@ -200,7 +315,7 @@ export async function beginInterviewCall(sessionId: string): Promise<void> {
   if (error) throw mapSessionRpcError(error)
 }
 
-export type InterviewCallEvent = 'participant_left' | 'call_ended'
+export type InterviewCallEvent = 'participant_left' | 'call_ended' | 'lobby_entered'
 
 export async function recordInterviewCallEvent(sessionId: string, event: InterviewCallEvent): Promise<void> {
   const { error } = await supabase.rpc('record_interview_call_event', { p_session_id: sessionId, p_event: event })

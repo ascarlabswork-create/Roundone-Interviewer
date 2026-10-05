@@ -19,22 +19,30 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { interviewStartsAtCopy } from '../components/interview/JoinInterviewControls.tsx'
+import { PreInterviewLobby } from '../components/interview/PreInterviewLobby.tsx'
+import { useInterviewTiming } from '../components/interview/useInterviewTiming.ts'
 import { useLiveKitCall } from '../components/interview/useLiveKitCall.ts'
 import { Logo } from '../components/layout/Logo.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Skeleton } from '../components/ui/primitives.tsx'
 import { formatDateShortInZone, formatTimeInZone, timezoneLabel } from '../lib/dates.ts'
+import { formatCountdown } from '../lib/interviewTiming.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import { watchBookingStatus } from '../services/bookingRealtime.ts'
 import { decideInterviewAdmission, watchInterviewAdmission } from '../services/interviewAdmission.ts'
+import { closeInterviewRoom } from '../services/interviewCall.ts'
 import type { CallSnapshot, CallTrack } from '../services/interviewCallController.ts'
 import type { InterviewerBooking } from '../services/interviewerBookings.ts'
 import {
   beginInterviewCall,
   endInterviewSession,
+  getInterviewTiming,
+  markInterviewNoShow,
   recordInterviewCallEvent,
   resolveInterviewRoute,
   type InterviewSessionRecord,
+  type InterviewTiming,
 } from '../services/interviewSessions.ts'
 
 type RoomBundle = { booking: InterviewerBooking; session: InterviewSessionRecord | null }
@@ -132,8 +140,12 @@ export function InterviewRoomPage() {
     )
   }
 
+  if (booking.status === 'no_show') {
+    return <NoShowScreen booking={booking} sessionId={session?.id ?? null} />
+  }
+
   if ((booking.status === 'confirmed' || booking.status === 'in_progress') && session) {
-    return <LiveCallRoom key={session.id} booking={booking} session={session} onStarted={refresh} />
+    return <InterviewGate key={session.id} booking={booking} session={session} onChanged={refresh} />
   }
 
   if (booking.status === 'confirmed' || booking.status === 'in_progress') {
@@ -162,6 +174,213 @@ export function InterviewRoomPage() {
       title="Interview Not Available"
       body={`This booking is marked as ${booking.status} and cannot be opened.`}
       actions={<BackToBookings />}
+    />
+  )
+}
+
+/**
+ * Chooses the screen from the server clock: confirmed (before the lobby), pre-interview
+ * lobby, live call (only after Start Interview at/after the start), or scheduled end.
+ */
+function InterviewGate({
+  booking,
+  session,
+  onChanged,
+}: {
+  booking: InterviewerBooking
+  session: InterviewSessionRecord
+  onChanged: () => Promise<void>
+}) {
+  const clock = useInterviewTiming(session.id, booking.status)
+  const [inCall, setInCall] = useState(false)
+  const { timing, serverNow, phase, canJoin, reload } = clock
+
+  const onStarted = useCallback(async () => {
+    await Promise.all([onChanged(), reload()])
+  }, [onChanged, reload])
+  const onClosed = useCallback(async () => {
+    await Promise.all([onChanged(), reload()])
+    setInCall(false)
+  }, [onChanged, reload])
+
+  if (!timing || serverNow === null || !phase) {
+    if (clock.error) {
+      return (
+        <StatusScreen
+          tone="error"
+          icon={<AlertCircle className="h-6 w-6" />}
+          title="Unable to Open Interview"
+          body={clock.error}
+          actions={
+            <>
+              <Button onClick={() => void reload()} fullWidth>
+                Try Again
+              </Button>
+              <BackToBookings />
+            </>
+          }
+        />
+      )
+    }
+    return <LoadingScreen />
+  }
+
+  if (inCall && phase !== 'scheduled' && phase !== 'lobby') {
+    return (
+      <LiveCallRoom
+        booking={booking}
+        session={session}
+        timing={timing}
+        serverNow={serverNow}
+        onStarted={onStarted}
+        onClosed={onClosed}
+      />
+    )
+  }
+
+  if (phase === 'closed') {
+    return (
+      <StatusScreen
+        tone="neutral"
+        icon={<AlertCircle className="h-6 w-6" />}
+        title="Interview Not Available"
+        body={`This booking is marked as ${timing.status || booking.status} and cannot be opened.`}
+        actions={<BackToBookings />}
+      />
+    )
+  }
+
+  if (phase === 'ended') {
+    return <ScheduledEndScreen booking={booking} session={session} timing={timing} onChanged={onChanged} />
+  }
+
+  if (phase === 'scheduled') {
+    const lobbyOpens = formatTimeInZone(new Date(timing.schedule.lobbyOpensAt).toISOString(), booking.displayTimezone)
+    return (
+      <StatusScreen
+        tone="success"
+        icon={<CheckCircle2 className="h-6 w-6" />}
+        title="Interview confirmed"
+        body={`Scheduled for ${interviewStartsAtCopy(booking)}. The pre-interview lobby opens at ${lobbyOpens} (in ${formatCountdown(timing.schedule.lobbyOpensAt - serverNow)}).`}
+        actions={<BackToBookings tab="upcoming" />}
+      />
+    )
+  }
+
+  return (
+    <PreInterviewLobby
+      booking={booking}
+      sessionId={session.id}
+      timing={timing}
+      serverNow={serverNow}
+      phase={phase}
+      canJoin={canJoin}
+      onStart={() => setInCall(true)}
+    />
+  )
+}
+
+function NoShowScreen({ booking, sessionId }: { booking: InterviewerBooking; sessionId: string | null }) {
+  const [absent, setAbsent] = useState<'candidate' | 'interviewer' | null>(null)
+  useEffect(() => {
+    if (!sessionId) return
+    void closeInterviewRoom(sessionId)
+    getInterviewTiming(sessionId)
+      .then((timing) => setAbsent(timing.noShowRole))
+      .catch(() => setAbsent(null))
+  }, [sessionId])
+  return (
+    <StatusScreen
+      tone="warning"
+      icon={<UserX className="h-6 w-6" />}
+      title={absent === 'interviewer' ? 'Recorded as interviewer no-show' : 'Candidate did not join'}
+      body={
+        absent === 'interviewer'
+          ? 'You did not join before the late-join deadline, so this interview was recorded as a no-show.'
+          : `${booking.candidate.name} did not join before the late-join deadline. The interview was recorded as a no-show.`
+      }
+      actions={<BackToBookings tab="cancelled" />}
+    />
+  )
+}
+
+/** Opened after the scheduled end while the booking is still open: finish it through the normal completion flow. */
+function ScheduledEndScreen({
+  booking,
+  session,
+  timing,
+  onChanged,
+}: {
+  booking: InterviewerBooking
+  session: InterviewSessionRecord
+  timing: InterviewTiming
+  onChanged: () => Promise<void>
+}) {
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function complete() {
+    setBusy(true)
+    setError(null)
+    try {
+      await endInterviewSession(booking.id)
+      void closeInterviewRoom(session.id)
+      navigate(`/interviewer/feedback/${booking.id}`)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not complete this interview.')
+      setBusy(false)
+    }
+  }
+
+  async function recordNoShow() {
+    setBusy(true)
+    setError(null)
+    try {
+      await markInterviewNoShow(session.id)
+      await onChanged()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not record the no-show.')
+      setBusy(false)
+    }
+  }
+
+  if (!timing.hasJoined) {
+    return (
+      <StatusScreen
+        tone="neutral"
+        icon={<Clock className="h-6 w-6" />}
+        title="Scheduled time has ended"
+        body="This interview ended at its scheduled time. You did not join the call before the join deadline."
+        actions={<BackToBookings />}
+      />
+    )
+  }
+
+  return (
+    <StatusScreen
+      tone="success"
+      icon={<CheckCircle2 className="h-6 w-6" />}
+      title="Scheduled time has ended"
+      body={
+        timing.candidateJoined
+          ? 'The call has closed. Complete the interview to write your feedback.'
+          : `${booking.candidate.name} never joined the call. Record a no-show, or complete the interview if it took place.`
+      }
+      actions={
+        <>
+          <Button onClick={() => void complete()} disabled={busy} fullWidth>
+            Complete & give feedback
+          </Button>
+          {!timing.candidateJoined ? (
+            <Button variant="outline" onClick={() => void recordNoShow()} disabled={busy} fullWidth>
+              Record candidate no-show
+            </Button>
+          ) : null}
+          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          <BackToBookings />
+        </>
+      }
     />
   )
 }
@@ -232,20 +451,6 @@ function BackToBookings({ tab }: { tab?: string }) {
   )
 }
 
-function formatInterviewClock(totalSeconds: number) {
-  const safe = Math.max(0, Math.floor(totalSeconds))
-  const mm = String(Math.floor(safe / 60)).padStart(2, '0')
-  const ss = String(safe % 60).padStart(2, '0')
-  return `${mm}:${ss}`
-}
-
-function remainingInterviewSeconds(durationMin: number, startedAtIso: string, nowMs = Date.now()) {
-  if (!Number.isFinite(durationMin) || durationMin <= 0) return null
-  const startedAtMs = Date.parse(startedAtIso)
-  if (Number.isNaN(startedAtMs)) return null
-  return Math.max(0, durationMin * 60 - Math.floor((nowMs - startedAtMs) / 1000))
-}
-
 function playKnockChime() {
   try {
     const context = new AudioContext()
@@ -273,18 +478,24 @@ function playKnockChime() {
 function LiveCallRoom({
   booking,
   session,
+  timing,
+  serverNow,
   onStarted,
+  onClosed,
 }: {
   booking: InterviewerBooking
   session: InterviewSessionRecord
+  timing: InterviewTiming
+  serverNow: number
   onStarted: () => Promise<void>
+  onClosed: () => Promise<void>
 }) {
   const navigate = useNavigate()
   const [recordError, setRecordError] = useState<string | null>(null)
   const [ending, setEnding] = useState(false)
   const [endError, setEndError] = useState<string | null>(null)
   const [notes, setNotes] = useState('')
-  const [nowMs, setNowMs] = useState(() => Date.now())
+  const autoActionRef = useRef<'no_show' | 'scheduled_end' | null>(null)
 
   const handlers = useMemo(
     () => ({
@@ -334,37 +545,61 @@ function LiveCallRoom({
     })
   }
 
-  useEffect(() => {
-    if (!session.startedAt) return
-    const timer = window.setInterval(() => setNowMs(Date.now()), 1000)
-    return () => window.clearInterval(timer)
-  }, [session.startedAt])
-
-  const remainingSeconds = useMemo(
-    () => (session.startedAt ? remainingInterviewSeconds(booking.durationMin, session.startedAt, nowMs) : null),
-    [booking.durationMin, session.startedAt, nowMs],
-  )
+  const { schedule } = timing
+  const remainingSeconds = Math.max(0, Math.ceil((schedule.endsAt - serverNow) / 1000))
+  const candidateEverJoined = timing.candidateJoined || snapshot.candidate.presence !== 'waiting'
+  const candidateKnocked =
+    knocking || snapshot.admission === 'admitted' || timing.admission === 'waiting' || timing.admission === 'admitted'
+  const lateJoinOpen = !candidateEverJoined && serverNow <= schedule.joinDeadline
+  const candidateMissedDeadline =
+    !candidateEverJoined && !candidateKnocked && serverNow > schedule.joinDeadline && serverNow < schedule.endsAt
 
   function leaveCall() {
     controller?.leave()
     navigate('/interviewer/bookings?tab=upcoming')
   }
 
-  async function endInterview() {
+  const endInterview = useCallback(async () => {
     setEnding(true)
     setEndError(null)
     controller?.leave()
     try {
       await recordInterviewCallEvent(session.id, 'call_ended').catch(() => {})
       await endInterviewSession(booking.id)
+      void closeInterviewRoom(session.id)
       navigate(`/interviewer/feedback/${booking.id}`)
     } catch (caught) {
       setEndError(caught instanceof Error ? caught.message : 'Could not complete this interview.')
       setEnding(false)
     }
-  }
+  }, [controller, session.id, booking.id, navigate])
+
+  useEffect(() => {
+    if (!candidateMissedDeadline || !started || autoActionRef.current) return
+    autoActionRef.current = 'no_show'
+    controller?.leave()
+    markInterviewNoShow(session.id)
+      .then(() => closeInterviewRoom(session.id))
+      .catch(() => {})
+      .finally(() => void onClosed())
+  }, [candidateMissedDeadline, started, controller, session.id, onClosed])
+
+  useEffect(() => {
+    if (serverNow < schedule.endsAt || autoActionRef.current) return
+    autoActionRef.current = 'scheduled_end'
+    if (started && candidateEverJoined) {
+      void endInterview()
+      return
+    }
+    controller?.leave()
+    void recordInterviewCallEvent(session.id, 'call_ended')
+      .catch(() => {})
+      .then(() => closeInterviewRoom(session.id))
+      .finally(() => void onClosed())
+  }, [serverNow, schedule.endsAt, started, candidateEverJoined, endInterview, controller, session.id, onClosed])
 
   const candidateName = snapshot.candidate.name ?? booking.candidate.name
+  const deadlineCopy = formatTimeInZone(new Date(schedule.joinDeadline).toISOString(), booking.displayTimezone)
 
   return (
     <div className="flex min-h-svh flex-col bg-navy-950 text-white">
@@ -381,16 +616,14 @@ function LiveCallRoom({
         </div>
         <div className="flex items-center gap-2">
           <ConnectionBadge phase={snapshot.phase} />
-          {remainingSeconds !== null ? (
-            <span
-              className={`rounded-md px-3 py-1 font-mono text-sm ${
-                remainingSeconds === 0 ? 'bg-amber-500/20 text-amber-200' : 'bg-white/10 text-white'
-              }`}
-              title={remainingSeconds === 0 ? 'Scheduled duration has elapsed' : `${booking.durationMin} minute session`}
-            >
-              {formatInterviewClock(remainingSeconds)}
-            </span>
-          ) : null}
+          <span
+            className={`rounded-md px-3 py-1 font-mono text-sm ${
+              remainingSeconds <= 300 ? 'bg-amber-500/20 text-amber-200' : 'bg-white/10 text-white'
+            }`}
+            title={`Ends at the scheduled time (${booking.durationMin} minute session)`}
+          >
+            {formatCountdown(remainingSeconds * 1000)}
+          </span>
         </div>
       </header>
 
@@ -413,6 +646,17 @@ function LiveCallRoom({
             </p>
           ) : null}
           {knocking ? <AdmissionBanner candidateName={candidateName} onDecide={decide} /> : null}
+          {lateJoinOpen && !knocking ? (
+            <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">
+              {candidateName} can still join until {deadlineCopy} ({formatCountdown(schedule.joinDeadline - serverNow)} left).
+              The interview still ends at the scheduled time.
+            </p>
+          ) : null}
+          {remainingSeconds <= 300 && remainingSeconds > 0 ? (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              The call ends automatically at the scheduled time.
+            </p>
+          ) : null}
           <div className="relative min-h-72 flex-1 overflow-hidden rounded-xl bg-navy-800">
             <RemoteStage snapshot={snapshot} candidateName={candidateName} onDecide={decide} />
             <div className="absolute bottom-3 right-3 h-28 w-40 overflow-hidden rounded-lg border border-white/20 bg-navy-900 shadow-lg sm:h-36 sm:w-52">
