@@ -236,6 +236,55 @@ describe('InterviewCallController lobby', () => {
     })
   })
 
+  it('publishes the microphone when it opens after the candidate was already admitted', async () => {
+    let releaseMedia: () => void = () => {}
+    const mediaReady = new Promise<void>((resolve) => {
+      releaseMedia = resolve
+    })
+    const room = new FakeRoom()
+    const controller = new InterviewCallController({
+      sessionId: SESSION_ID,
+      fetchToken: async () => token,
+      createRoom: () => room,
+      createLocalMedia: async () => {
+        await mediaReady
+        return { audio: new FakeLocalTrack('local-mic'), video: new FakeLocalTrack('local-camera'), error: null }
+      },
+    })
+    const joining = controller.join()
+    await vi.waitFor(() => expect(room.connectArgs).not.toBeNull())
+    await controller.admit()
+    expect(room.localParticipant.published.size).toBe(0)
+    releaseMedia()
+    await joining
+    expect(room.localParticipant.published.size).toBe(2)
+    expect(controller.getSnapshot()).toMatchObject({ admission: 'admitted', live: true, micEnabled: true })
+  })
+
+  it('does not publish while connecting even if the interviewer already admitted', async () => {
+    const { room, controller } = setup()
+    let releaseConnect = () => {}
+    const held = new Promise<void>((resolve) => {
+      releaseConnect = resolve
+    })
+    const connect = room.connect.bind(room)
+    room.connect = async (url, jwt, options) => {
+      room.connectArgs = [url, jwt, options]
+      await held
+      await connect(url, jwt, options)
+    }
+
+    const joining = controller.join()
+    await vi.waitFor(() => expect(room.connectArgs).not.toBeNull())
+    await controller.admit()
+    expect(room.localParticipant.published.size).toBe(0)
+
+    releaseConnect()
+    await joining
+    expect(room.localParticipant.published.size).toBe(2)
+    expect(controller.getSnapshot()).toMatchObject({ admission: 'admitted', live: true, micEnabled: true })
+  })
+
   it('admitting publishes local media and subscribes to the candidate both ways', async () => {
     const { room, controller } = setup()
     await controller.join()

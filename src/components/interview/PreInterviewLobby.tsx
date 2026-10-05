@@ -3,7 +3,11 @@ import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { formatDateLongInZone, formatTimeInZone, timezoneLabel } from '../../lib/dates.ts'
 import { candidateStatusCopy } from '../../lib/interviewLobby.ts'
-import { formatCountdown } from '../../lib/interviewTiming.ts'
+import {
+  formatCountdown,
+  interviewRoomAccess,
+  interviewRoomStatusCopy,
+} from '../../lib/interviewTiming.ts'
 import type { InterviewerBooking } from '../../services/interviewerBookings.ts'
 import { recordInterviewCallEvent, type InterviewTiming } from '../../services/interviewSessions.ts'
 import { Logo } from '../layout/Logo.tsx'
@@ -15,16 +19,15 @@ function atTime(ms: number, timezone: string) {
 }
 
 /**
- * Pre-interview lobby: opens 30 minutes before the start. Shows the schedule, a countdown,
- * device checks and candidate status. It never connects to the shared LiveKit room; the
- * Start Interview action only unlocks at the scheduled start on the server clock.
+ * Pre-interview lobby: opens 30 minutes before the start for device checks. LiveKit join
+ * unlocks 15 minutes before the scheduled start on the server clock. Official start and
+ * end do not move.
  */
 export function PreInterviewLobby({
   booking,
   sessionId,
   timing,
   serverNow,
-  phase,
   canJoin,
   onStart,
 }: {
@@ -32,12 +35,15 @@ export function PreInterviewLobby({
   sessionId: string
   timing: InterviewTiming
   serverNow: number
-  phase: 'lobby' | 'live'
+  phase?: 'lobby' | 'live'
   canJoin: boolean
   onStart: () => void
 }) {
   const { schedule } = timing
   const timezone = booking.displayTimezone
+  const access = interviewRoomAccess(schedule, serverNow, timing.hasJoined)
+  const roomOpensCopy = atTime(schedule.callOpensAt, timezone)
+  const statusCopy = interviewRoomStatusCopy(access, roomOpensCopy)
 
   useEffect(() => {
     void recordInterviewCallEvent(sessionId, 'lobby_entered').catch(() => {})
@@ -58,7 +64,8 @@ export function PreInterviewLobby({
         <section aria-label="Device checks">
           <h1 className="text-lg font-semibold">Check your setup</h1>
           <p className="mb-4 mt-1 text-sm text-white/60">
-            Nothing is shared with the candidate until you start the interview.
+            Nothing is shared with the candidate until you join the interview room. The interview still starts at{' '}
+            {startsAtCopy}.
           </p>
           <DeviceChecks latencyMs={timing.roundTripMs} />
         </section>
@@ -67,6 +74,7 @@ export function PreInterviewLobby({
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <p className="text-sm text-white/60">{booking.serviceName}</p>
             <h2 className="mt-1 text-xl font-semibold">Interview starts at {startsAtCopy}</h2>
+            <p className="mt-1 text-sm text-white/80">{statusCopy}</p>
             <p className="mt-1 text-sm text-white/70">
               {formatDateLongInZone(booking.startsAtUtc, timezone)} · {timezoneLabel(timezone)}
             </p>
@@ -87,16 +95,24 @@ export function PreInterviewLobby({
             </dl>
 
             <div className="mt-5 rounded-xl bg-white/5 p-4 text-center">
-              {phase === 'lobby' ? (
+              {access === 'not_open' ? (
                 <>
-                  <p className="text-xs uppercase tracking-wide text-white/50">Starts in</p>
+                  <p className="text-xs uppercase tracking-wide text-white/50">Room opens in</p>
+                  <p className="mt-1 font-mono text-3xl font-semibold" aria-live="off">
+                    {formatCountdown(schedule.callOpensAt - serverNow)}
+                  </p>
+                </>
+              ) : access === 'early' ? (
+                <>
+                  <p className="text-xs uppercase tracking-wide text-emerald-300">Room open</p>
                   <p className="mt-1 font-mono text-3xl font-semibold" aria-live="off">
                     {formatCountdown(schedule.startsAt - serverNow)}
                   </p>
+                  <p className="mt-1 text-xs text-white/60">until scheduled start</p>
                 </>
               ) : canJoin ? (
                 <>
-                  <p className="text-xs uppercase tracking-wide text-emerald-300">Interview time</p>
+                  <p className="text-xs uppercase tracking-wide text-emerald-300">Interview has started.</p>
                   <p className="mt-1 text-sm text-white/80">
                     {serverNow <= schedule.joinDeadline
                       ? `Join by ${deadlineCopy} · ${formatCountdown(schedule.joinDeadline - serverNow)} left`
@@ -105,7 +121,7 @@ export function PreInterviewLobby({
                 </>
               ) : (
                 <>
-                  <p className="text-xs uppercase tracking-wide text-red-300">Join window closed</p>
+                  <p className="text-xs uppercase tracking-wide text-red-300">No new participants can join.</p>
                   <p className="mt-1 text-sm text-white/80">New entry closed at {deadlineCopy}.</p>
                 </>
               )}
@@ -122,16 +138,20 @@ export function PreInterviewLobby({
             </div>
           </div>
 
-          {phase === 'live' && !canJoin ? (
+          {access === 'join_closed' ? (
             <Link to="/interviewer/bookings?tab=upcoming">
               <Button fullWidth variant="outline">
                 Back to Bookings
               </Button>
             </Link>
           ) : (
-            <Button fullWidth size="lg" disabled={phase !== 'live' || !canJoin} onClick={onStart}>
-              {phase === 'live' ? <PlayCircle className="h-5 w-5" /> : <Lock className="h-4 w-4" />}
-              {phase === 'live' ? (timing.hasJoined ? 'Rejoin Interview' : 'Start Interview') : `Start Interview at ${startsAtCopy}`}
+            <Button fullWidth size="lg" disabled={!canJoin} onClick={onStart}>
+              {canJoin ? <PlayCircle className="h-5 w-5" /> : <Lock className="h-4 w-4" />}
+              {canJoin
+                ? timing.hasJoined
+                  ? 'Rejoin Interview'
+                  : 'Join Interview'
+                : `Interview room opens at ${roomOpensCopy}`}
             </Button>
           )}
         </aside>

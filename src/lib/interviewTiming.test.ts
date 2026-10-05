@@ -3,6 +3,8 @@ import {
   canEnterCall,
   formatCountdown,
   interviewPhase,
+  interviewRoomAccess,
+  interviewRoomStatusCopy,
   interviewSchedule,
   isLobbyOpen,
   serverClockOffset,
@@ -12,9 +14,10 @@ const START = '2026-10-06T08:00:00.000Z'
 const at = (hhmmss: string) => Date.parse(`2026-10-06T${hhmmss}.000Z`)
 
 describe('interviewSchedule', () => {
-  it('builds the 7:30 lobby / 8:00 start / 8:15 deadline / 8:30 end schedule for a 30 minute service', () => {
+  it('builds the 7:30 lobby / 7:45 room-open / 8:00 start / 8:15 deadline / 8:30 end schedule for a 30 minute service', () => {
     expect(interviewSchedule(START, 30)).toEqual({
       lobbyOpensAt: at('07:30:00'),
+      callOpensAt: at('07:45:00'),
       startsAt: at('08:00:00'),
       joinDeadline: at('08:15:00'),
       endsAt: at('08:30:00'),
@@ -62,13 +65,22 @@ describe('interviewPhase', () => {
 describe('canEnterCall', () => {
   const schedule = interviewSchedule(START, 30)!
 
-  it('blocks entry before the start, even from the lobby', () => {
-    expect(canEnterCall(schedule, at('07:59:59'), false)).toBe(false)
+  it('blocks LiveKit entry before the 15 minute early-join window, even from the lobby', () => {
+    expect(canEnterCall(schedule, at('07:30:00'), false)).toBe(false)
+    expect(canEnterCall(schedule, at('07:44:59'), false)).toBe(false)
   })
 
-  it('allows entry at the start and within the 15 minute grace period', () => {
+  it('allows entry from 15 minutes before the start through the 15 minute grace period', () => {
+    expect(canEnterCall(schedule, at('07:45:00'), false)).toBe(true)
+    expect(canEnterCall(schedule, at('07:59:59'), false)).toBe(true)
     expect(canEnterCall(schedule, at('08:00:00'), false)).toBe(true)
     expect(canEnterCall(schedule, at('08:15:00'), false)).toBe(true)
+  })
+
+  it('does not move the scheduled start or end when someone joins early', () => {
+    expect(schedule.startsAt).toBe(at('08:00:00'))
+    expect(schedule.endsAt).toBe(at('08:30:00'))
+    expect(canEnterCall(schedule, at('07:45:00'), false)).toBe(true)
   })
 
   it('blocks new entry after the grace deadline but lets a participant who already joined reconnect', () => {
@@ -79,6 +91,30 @@ describe('canEnterCall', () => {
   it('does not extend the end for a late joiner', () => {
     expect(canEnterCall(schedule, at('08:30:00'), true)).toBe(false)
     expect(schedule.endsAt).toBe(at('08:30:00'))
+  })
+})
+
+describe('interviewRoomAccess', () => {
+  const schedule = interviewSchedule(START, 30)!
+
+  it('describes the interviewer join window against the scheduled clock', () => {
+    expect(interviewRoomAccess(schedule, at('07:44:00'), false)).toBe('not_open')
+    expect(interviewRoomAccess(schedule, at('07:45:00'), false)).toBe('early')
+    expect(interviewRoomAccess(schedule, at('07:59:00'), false)).toBe('early')
+    expect(interviewRoomAccess(schedule, at('08:00:00'), false)).toBe('started')
+    expect(interviewRoomAccess(schedule, at('08:14:00'), false)).toBe('started')
+    expect(interviewRoomAccess(schedule, at('08:15:01'), false)).toBe('join_closed')
+    expect(interviewRoomAccess(schedule, at('08:20:00'), true)).toBe('started')
+    expect(interviewRoomAccess(schedule, at('08:30:00'), true)).toBe('ended')
+  })
+
+  it('uses the required interviewer copy', () => {
+    expect(interviewRoomStatusCopy('not_open', '2:15 AM')).toBe('Interview room opens at 2:15 AM.')
+    expect(interviewRoomStatusCopy('early', '2:15 AM')).toBe(
+      'Interview room is open. You can join early and wait for the other participant.',
+    )
+    expect(interviewRoomStatusCopy('started', '2:15 AM')).toBe('Interview has started.')
+    expect(interviewRoomStatusCopy('join_closed', '2:15 AM')).toBe('No new participants can join.')
   })
 })
 
