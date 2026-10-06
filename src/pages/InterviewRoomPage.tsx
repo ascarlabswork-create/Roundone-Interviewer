@@ -4,36 +4,48 @@ import {
   Clock,
   Loader2,
   LogOut,
+  Maximize2,
+  MessageSquare,
   Mic,
   MicOff,
+  Minimize2,
+  NotebookPen,
   PhoneOff,
   RefreshCw,
   ShieldAlert,
-  UserCheck,
   UserRound,
   UserX,
   Video,
   VideoOff,
   Volume2,
   WifiOff,
+  X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { InterviewChatPanel } from '../components/interview/InterviewChatPanel.tsx'
+import { InterviewNotesPanel } from '../components/interview/InterviewNotesPanel.tsx'
 import { interviewStartsAtCopy } from '../components/interview/JoinInterviewControls.tsx'
 import { PreInterviewLobby } from '../components/interview/PreInterviewLobby.tsx'
+import { useInterviewChat } from '../components/interview/useInterviewChat.ts'
+import { useInterviewFullscreen } from '../components/interview/useInterviewFullscreen.ts'
+import { useInterviewNotes } from '../components/interview/useInterviewNotes.ts'
+import { useInterviewRecording } from '../components/interview/useInterviewRecording.ts'
 import { useInterviewTiming } from '../components/interview/useInterviewTiming.ts'
 import { useLiveKitCall } from '../components/interview/useLiveKitCall.ts'
 import { Logo } from '../components/layout/Logo.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Skeleton } from '../components/ui/primitives.tsx'
+import { cn } from '../lib/cn.ts'
 import { formatDateShortInZone, formatTimeInZone, timezoneLabel } from '../lib/dates.ts'
 import { formatCountdown } from '../lib/interviewTiming.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import { watchBookingStatus } from '../services/bookingRealtime.ts'
-import { decideInterviewAdmission, watchInterviewAdmission } from '../services/interviewAdmission.ts'
+import { watchInterviewAdmission } from '../services/interviewAdmission.ts'
 import { closeInterviewRoom } from '../services/interviewCall.ts'
 import type { CallSnapshot, CallTrack } from '../services/interviewCallController.ts'
 import type { InterviewerBooking } from '../services/interviewerBookings.ts'
+import { useSession } from '../state/session.tsx'
 import {
   beginInterviewCall,
   endInterviewSession,
@@ -491,10 +503,16 @@ function LiveCallRoom({
   onClosed: () => Promise<void>
 }) {
   const navigate = useNavigate()
+  const { user } = useSession()
+  const roomRef = useRef<HTMLDivElement>(null)
+  const fullscreen = useInterviewFullscreen(roomRef)
+  const chat = useInterviewChat(session.id, user?.id ?? null)
+  const notes = useInterviewNotes(session.id)
+  const recording = useInterviewRecording(session.id)
+  const [panel, setPanel] = useState<'chat' | 'notes' | null>(null)
   const [recordError, setRecordError] = useState<string | null>(null)
   const [ending, setEnding] = useState(false)
   const [endError, setEndError] = useState<string | null>(null)
-  const [notes, setNotes] = useState('')
   const autoActionRef = useRef<'no_show' | 'scheduled_end' | null>(null)
   const promotedRef = useRef(false)
 
@@ -516,11 +534,14 @@ function LiveCallRoom({
     [session.id, onStarted],
   )
   const { snapshot, controller } = useLiveKitCall(session.id, handlers)
-  const [admissionError, setAdmissionError] = useState<string | null>(null)
 
   const started = booking.status === 'in_progress' || Boolean(session.startedAt)
   const canUseMedia = snapshot.phase !== 'left'
   const knocking = snapshot.admission === 'requested'
+
+  useEffect(() => {
+    chat.setOpen(panel === 'chat')
+  }, [panel, chat.setOpen])
 
   useEffect(() => {
     if (serverNow < timing.schedule.startsAt || started || promotedRef.current) return
@@ -548,15 +569,6 @@ function LiveCallRoom({
     }
   }, [knocking, booking.candidate.name])
 
-  function decide(admit: boolean) {
-    if (!controller) return
-    setAdmissionError(null)
-    void (admit ? controller.admit() : controller.deny())
-    decideInterviewAdmission(session.id, admit).catch((caught: unknown) => {
-      setAdmissionError(caught instanceof Error ? caught.message : 'Could not save your admission decision.')
-    })
-  }
-
   const { schedule } = timing
   const remainingSeconds = Math.max(0, Math.ceil((schedule.endsAt - serverNow) / 1000))
   const candidateEverJoined = timing.candidateJoined || snapshot.candidate.presence !== 'waiting'
@@ -571,11 +583,19 @@ function LiveCallRoom({
     navigate('/interviewer/bookings?tab=upcoming')
   }
 
+  const recordingStopRef = useRef(recording.stop)
+  const recordingActiveRef = useRef(recording.active)
+  useEffect(() => {
+    recordingStopRef.current = recording.stop
+    recordingActiveRef.current = recording.active
+  }, [recording.stop, recording.active])
+
   const endInterview = useCallback(async () => {
     setEnding(true)
     setEndError(null)
     controller?.leave()
     try {
+      if (recordingActiveRef.current) await recordingStopRef.current().catch(() => {})
       await recordInterviewCallEvent(session.id, 'call_ended').catch(() => {})
       await endInterviewSession(booking.id)
       void closeInterviewRoom(session.id)
@@ -612,21 +632,36 @@ function LiveCallRoom({
 
   const candidateName = snapshot.candidate.name ?? booking.candidate.name
   const deadlineCopy = formatTimeInZone(new Date(schedule.joinDeadline).toISOString(), booking.displayTimezone)
+  const panelOpen = panel !== null
 
   return (
-    <div className="flex min-h-svh flex-col bg-navy-950 text-white">
+    <div
+      ref={roomRef}
+      className={cn(
+        'flex flex-col bg-navy-950 text-white',
+        fullscreen.active ? 'fixed inset-0 z-[80] h-dvh overflow-hidden' : 'min-h-svh',
+      )}
+    >
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div className="flex items-center gap-3">
-          <Logo inverted to="/interviewer/dashboard" />
+          {fullscreen.active ? null : <Logo inverted to="/interviewer/dashboard" />}
           <div className="hidden text-sm sm:block">
             <p className="font-medium">{booking.candidate.name}</p>
-            <p className="text-xs text-white/60">
-              {booking.serviceName} · {formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)} ·{' '}
-              {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)} ({timezoneLabel(booking.displayTimezone)})
-            </p>
+            {fullscreen.active ? null : (
+              <p className="text-xs text-white/60">
+                {booking.serviceName} · {formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)} ·{' '}
+                {formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)} ({timezoneLabel(booking.displayTimezone)})
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {recording.active ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-3 py-1 text-xs font-semibold text-red-100">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-red-400" />
+              Recording
+            </span>
+          ) : null}
           <ConnectionBadge phase={snapshot.phase} />
           <span
             className={`rounded-md px-3 py-1 font-mono text-sm ${
@@ -636,11 +671,16 @@ function LiveCallRoom({
           >
             {formatCountdown(remainingSeconds * 1000)}
           </span>
+          {fullscreen.active ? (
+            <button type="button" onClick={() => void fullscreen.exit()} className="rounded-full bg-white/10 px-3 py-1 text-xs">
+              Exit full screen
+            </button>
+          ) : null}
         </div>
       </header>
 
-      <div className="grid flex-1 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="flex min-h-0 flex-col gap-3">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
           <CallAlerts
             snapshot={snapshot}
             onRetry={() => void controller?.retry()}
@@ -648,41 +688,34 @@ function LiveCallRoom({
             onEnableAudio={() => void controller?.startAudio()}
           />
           {recordError ? (
-            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-              {recordError}
-            </p>
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">{recordError}</p>
           ) : null}
-          {admissionError ? (
-            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-              {admissionError}
-            </p>
+          {recording.error ? (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">{recording.error}</p>
           ) : null}
-          {serverNow < schedule.startsAt ? (
+          {fullscreen.active ? null : serverNow < schedule.startsAt ? (
             <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80">
               Interview room is open. You can join early and wait for the candidate.
             </p>
           ) : (
-            <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80">
-              Interview has started.
-            </p>
+            <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80">Interview has started.</p>
           )}
-          {knocking ? <AdmissionBanner candidateName={candidateName} onDecide={decide} /> : null}
-          {lateJoinOpen && !knocking ? (
+          {fullscreen.active || !lateJoinOpen ? null : (
             <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">
               {candidateName} can still join until {deadlineCopy} ({formatCountdown(schedule.joinDeadline - serverNow)} left).
               The interview still ends at the scheduled time.
             </p>
-          ) : null}
-          {remainingSeconds <= 300 && remainingSeconds > 0 ? (
+          )}
+          {fullscreen.active || remainingSeconds > 300 || remainingSeconds <= 0 ? null : (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
               The call ends automatically at the scheduled time.
             </p>
-          ) : null}
-          <div className="relative min-h-72 flex-1 overflow-hidden rounded-xl bg-navy-800">
-            <RemoteStage snapshot={snapshot} candidateName={candidateName} onDecide={decide} />
-            <div className="absolute bottom-3 right-3 h-28 w-40 overflow-hidden rounded-lg border border-white/20 bg-navy-900 shadow-lg sm:h-36 sm:w-52">
+          )}
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-navy-800">
+            <RemoteStage snapshot={snapshot} candidateName={candidateName} />
+            <div className="absolute bottom-3 left-3 h-28 w-40 overflow-hidden rounded-lg border border-white/20 bg-navy-900 shadow-lg sm:h-36 sm:w-52">
               {snapshot.localVideoTrack ? (
-                <VideoTrackView track={snapshot.localVideoTrack} mirrored />
+                <VideoTrackView track={snapshot.localVideoTrack} mirrored fit="cover" />
               ) : (
                 <div className="flex h-full items-center justify-center text-xs text-white/60">
                   <VideoOff className="mr-1.5 h-3.5 w-3.5" />
@@ -695,51 +728,121 @@ function LiveCallRoom({
           {snapshot.candidate.audioTrack ? <AudioTrackView track={snapshot.candidate.audioTrack} /> : null}
         </div>
 
-        <aside className="rounded-xl bg-white p-4 text-slate-800">
-          <h2 className="font-semibold text-navy-950">Private interviewer notes</h2>
-          <p className="mt-1 text-xs text-slate-500">The candidate cannot see this pane.</p>
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            className="mt-2 min-h-40 w-full rounded-lg border border-slate-200 p-3 text-sm"
-            placeholder="Observations, follow-up questions…"
-          />
-          <h3 className="mt-4 text-sm font-semibold text-navy-950">Evaluation checklist</h3>
-          <ul className="mt-2 space-y-2 text-sm text-slate-700">
-            {['Clarify constraints', 'Talk through approach', 'Handle follow-ups', 'Summarize trade-offs', 'Leave 5 minutes for feedback'].map(
-              (item) => (
-                <li key={item}>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
-                    {item}
-                  </label>
-                </li>
-              ),
+        {panelOpen ? (
+          <aside className="relative hidden w-80 shrink-0 overflow-hidden border-l border-white/10 bg-white shadow-2xl lg:flex lg:flex-col">
+            <button
+              type="button"
+              className="absolute right-2 top-2 z-10 rounded-full p-1 text-slate-500 hover:bg-slate-100"
+              onClick={() => setPanel(null)}
+              aria-label="Close panel"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {panel === 'chat' ? (
+              <InterviewChatPanel
+                selfUserId={user?.id ?? null}
+                candidateName={candidateName}
+                messages={chat.messages}
+                sending={chat.sending}
+                error={chat.error}
+                onSend={chat.send}
+              />
+            ) : (
+              <InterviewNotesPanel
+                value={notes.value}
+                saveState={notes.saveState}
+                error={notes.error}
+                onChange={notes.update}
+                onSave={() => void notes.save()}
+              />
             )}
-          </ul>
-        </aside>
+          </aside>
+        ) : null}
+
+        {panelOpen ? (
+          <div className="absolute inset-0 z-30 flex flex-col bg-black/50 lg:hidden">
+            <button type="button" className="h-16 shrink-0" aria-label="Close panel" onClick={() => setPanel(null)} />
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-t-2xl bg-white">
+              <button
+                type="button"
+                className="absolute right-2 top-2 z-10 rounded-full p-1 text-slate-500 hover:bg-slate-100"
+                onClick={() => setPanel(null)}
+                aria-label="Close panel"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              {panel === 'chat' ? (
+                <InterviewChatPanel
+                  selfUserId={user?.id ?? null}
+                  candidateName={candidateName}
+                  messages={chat.messages}
+                  sending={chat.sending}
+                  error={chat.error}
+                  onSend={chat.send}
+                />
+              ) : (
+                <InterviewNotesPanel
+                  value={notes.value}
+                  saveState={notes.saveState}
+                  error={notes.error}
+                  onChange={notes.update}
+                  onSave={() => void notes.save()}
+                />
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2 border-t border-white/10 px-4 py-3">
         <Control
-          label={snapshot.micEnabled ? 'Mute' : 'Unmute'}
-          active={snapshot.micEnabled}
+          label="Microphone"
+          pressed={snapshot.micEnabled}
+          danger={!snapshot.micEnabled}
           disabled={!canUseMedia}
           onClick={() => void controller?.toggleMic()}
         >
           {snapshot.micEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
         </Control>
         <Control
-          label={snapshot.cameraEnabled ? 'Stop video' : 'Start video'}
-          active={snapshot.cameraEnabled}
+          label="Camera"
+          pressed={snapshot.cameraEnabled}
+          danger={!snapshot.cameraEnabled}
           disabled={!canUseMedia}
           onClick={() => void controller?.toggleCamera()}
         >
           {snapshot.cameraEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
         </Control>
-        <Button variant="outline" onClick={leaveCall} disabled={ending}>
+        <Control
+          label="Chat"
+          pressed={panel === 'chat'}
+          badge={chat.unread}
+          onClick={() => setPanel((current) => (current === 'chat' ? null : 'chat'))}
+        >
+          <MessageSquare className="h-4 w-4" />
+        </Control>
+        <Control
+          label="Notes"
+          pressed={panel === 'notes'}
+          onClick={() => setPanel((current) => (current === 'notes' ? null : 'notes'))}
+        >
+          <NotebookPen className="h-4 w-4" />
+        </Control>
+        <Control label="Full Screen" pressed={fullscreen.active} onClick={() => fullscreen.toggle()}>
+          {fullscreen.active ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </Control>
+        <Control
+          label={recording.active ? 'Stop Recording' : 'Record'}
+          pressed={recording.active}
+          danger={recording.active}
+          disabled={recording.busy || ending}
+          onClick={() => void (recording.active ? recording.stop() : recording.start())}
+        >
+          <span className={`h-3 w-3 rounded-full ${recording.active ? 'bg-white' : 'bg-red-400'}`} />
+        </Control>
+        <Button variant="outline" onClick={leaveCall} disabled={ending} className="border-white/20 bg-transparent text-white hover:border-white">
           <LogOut className="h-4 w-4" />
-          Leave call
+          Leave
         </Button>
         {started ? (
           <Button variant="danger" onClick={() => void endInterview()} disabled={ending}>
@@ -773,82 +876,23 @@ function ConnectionBadge({ phase }: { phase: CallSnapshot['phase'] }) {
   )
 }
 
-function AdmissionBanner({ candidateName, onDecide }: { candidateName: string; onDecide: (admit: boolean) => void }) {
-  return (
-    <div
-      role="alertdialog"
-      aria-label={`${candidateName} wants to join`}
-      className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-2 text-sm text-emerald-50"
-    >
-      <UserRound className="h-4 w-4" />
-      <span className="flex-1">
-        <strong>{candidateName}</strong> wants to join this interview.
-      </span>
-      <Button size="sm" variant="outline" onClick={() => onDecide(false)}>
-        <UserX className="h-3.5 w-3.5" />
-        Decline
-      </Button>
-      <Button size="sm" onClick={() => onDecide(true)}>
-        <UserCheck className="h-3.5 w-3.5" />
-        Admit
-      </Button>
-    </div>
-  )
-}
-
 function RemoteStage({
   snapshot,
   candidateName,
-  onDecide,
 }: {
   snapshot: CallSnapshot
   candidateName: string
-  onDecide: (admit: boolean) => void
 }) {
-  const { candidate, phase, admission } = snapshot
+  const { candidate, phase } = snapshot
   if (phase === 'idle' || phase === 'requesting_token' || phase === 'connecting') {
     return (
       <StageMessage icon={<Loader2 className="h-6 w-6 animate-spin" />} title="Joining the interview call…" />
     )
   }
-  if (admission === 'requested') {
-    return (
-      <StageMessage
-        icon={<UserRound className="h-6 w-6" />}
-        title={`${candidateName} is waiting to join`}
-        body="They can't see or hear you until you admit them."
-      >
-        <div className="mt-2 flex gap-2">
-          <Button variant="outline" onClick={() => onDecide(false)}>
-            <UserX className="h-4 w-4" />
-            Decline
-          </Button>
-          <Button onClick={() => onDecide(true)}>
-            <UserCheck className="h-4 w-4" />
-            Admit
-          </Button>
-        </div>
-      </StageMessage>
-    )
-  }
-  if (admission === 'denied' && candidate.presence === 'joined') {
-    return (
-      <StageMessage
-        icon={<UserX className="h-6 w-6" />}
-        title={`You declined ${candidateName}`}
-        body="They are still in the lobby and can't see or hear you."
-      >
-        <Button className="mt-2" onClick={() => onDecide(true)}>
-          <UserCheck className="h-4 w-4" />
-          Admit anyway
-        </Button>
-      </StageMessage>
-    )
-  }
   if (candidate.presence === 'joined' && candidate.videoTrack) {
     return (
       <>
-        <VideoTrackView track={candidate.videoTrack} />
+        <VideoTrackView track={candidate.videoTrack} fit="contain" />
         <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded bg-black/50 px-2 py-1 text-xs">
           {candidateName}
           {candidate.micMuted ? <MicOff className="h-3 w-3 text-red-300" /> : null}
@@ -878,11 +922,7 @@ function RemoteStage({
     <StageMessage
       icon={<Clock className="h-6 w-6" />}
       title={`Waiting for ${candidateName} to join…`}
-      body={
-        admission === 'admitted'
-          ? 'They are already admitted and will connect straight in.'
-          : "You'll be asked to admit them when they arrive."
-      }
+      body="The candidate can join directly. You do not need to admit them."
     />
   )
 }
@@ -991,7 +1031,15 @@ function Alert({
   )
 }
 
-function VideoTrackView({ track, mirrored = false }: { track: CallTrack; mirrored?: boolean }) {
+function VideoTrackView({
+  track,
+  mirrored = false,
+  fit = 'cover',
+}: {
+  track: CallTrack
+  mirrored?: boolean
+  fit?: 'cover' | 'contain'
+}) {
   const ref = useRef<HTMLVideoElement>(null)
   useEffect(() => {
     const element = ref.current
@@ -1007,7 +1055,7 @@ function VideoTrackView({ track, mirrored = false }: { track: CallTrack; mirrore
       autoPlay
       playsInline
       muted
-      className={`h-full w-full object-cover ${mirrored ? '-scale-x-100' : ''}`}
+      className={`h-full w-full ${fit === 'contain' ? 'object-contain bg-navy-950' : 'object-cover'} ${mirrored ? '-scale-x-100' : ''}`}
     />
   )
 }
@@ -1034,27 +1082,36 @@ function Control({
   label,
   children,
   onClick,
-  active,
+  pressed = false,
+  danger = false,
   disabled,
+  badge,
 }: {
   label: string
   children: ReactNode
   onClick: () => void
-  active: boolean
+  pressed?: boolean
+  danger?: boolean
   disabled?: boolean
+  badge?: number
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-pressed={!active}
-      className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50 ${
-        active ? 'bg-white/10 hover:bg-white/20' : 'bg-red-500/80 hover:bg-red-500'
+      aria-pressed={pressed}
+      className={`relative inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50 ${
+        danger ? 'bg-red-500/80 hover:bg-red-500' : pressed ? 'bg-white/20 ring-1 ring-white/40' : 'bg-white/10 hover:bg-white/20'
       }`}
     >
       {children}
       <span className="hidden sm:inline">{label}</span>
+      {badge ? (
+        <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-blue-500 px-1 text-[10px] font-bold leading-4">
+          {badge > 9 ? '9+' : badge}
+        </span>
+      ) : null}
     </button>
   )
 }

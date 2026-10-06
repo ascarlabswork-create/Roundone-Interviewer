@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { AppFeedbackCard } from '../components/interview/AppFeedbackCard.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
 import { Card, ErrorState, FieldLabel, Skeleton, TextArea } from '../components/ui/primitives.tsx'
@@ -9,6 +10,7 @@ import { formatDateLongInZone, formatTimeInZone, timezoneLabel } from '../lib/da
 import { useAsync } from '../lib/useAsync.ts'
 import { cn } from '../lib/cn.ts'
 import { getMyBooking } from '../services/interviewerBookings.ts'
+import { getInterviewSessionByBooking } from '../services/interviewSessions.ts'
 import {
   FEEDBACK_ALREADY_SUBMITTED,
   READINESS_LABELS,
@@ -41,6 +43,7 @@ export function FeedbackPage() {
   const { bookingId = '' } = useParams()
   const { pushToast } = useToast()
   const bookingState = useAsync(() => getMyBooking(bookingId), [bookingId])
+  const sessionState = useAsync(() => getInterviewSessionByBooking(bookingId), [bookingId])
   const existing = useAsync(() => getMyFeedbackForBooking(bookingId), [bookingId])
   const [scores, setScores] = useState<Record<ScoreKey, number | null>>({
     overall: null,
@@ -148,6 +151,8 @@ export function FeedbackPage() {
           value={`${formatDateLongInZone(booking.startsAtUtc, booking.displayTimezone)} · ${formatTimeInZone(booking.startsAtUtc, booking.displayTimezone)} (${timezoneLabel(booking.displayTimezone)})`}
         />
       </Card>
+
+      {sessionState.status === 'success' && sessionState.data ? <AppFeedbackCard sessionId={sessionState.data.id} /> : null}
 
       {justSubmitted ? (
         <Card className="border-emerald-200 bg-emerald-50 p-5">

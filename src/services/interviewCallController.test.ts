@@ -197,17 +197,17 @@ function addCandidate(room: FakeRoom) {
 }
 
 describe('InterviewCallController lobby', () => {
-  it('joins with manual subscription and previews the camera locally without publishing', async () => {
+  it('joins subscribed and publishes immediately for a 1-to-1 interview', async () => {
     const { room, controller, fetchToken, onJoined, onLeft } = setup()
     await controller.join()
 
     expect(fetchToken).toHaveBeenCalledWith(SESSION_ID)
-    expect(room.connectArgs).toEqual([token.url, token.token, { autoSubscribe: false }])
-    expect(room.localParticipant.published.size).toBe(0)
+    expect(room.connectArgs).toEqual([token.url, token.token, { autoSubscribe: true }])
+    expect(room.localParticipant.published.size).toBe(2)
     expect(controller.getSnapshot()).toMatchObject({
       phase: 'connected',
-      admission: 'none',
-      live: false,
+      admission: 'admitted',
+      live: true,
       micEnabled: true,
       cameraEnabled: true,
       candidate: { presence: 'waiting' },
@@ -217,7 +217,7 @@ describe('InterviewCallController lobby', () => {
     expect(onLeft).not.toHaveBeenCalled()
   })
 
-  it('asks the interviewer to admit a candidate and keeps their media blocked until then', async () => {
+  it('lets the candidate in without an interviewer admit step', async () => {
     const { room, controller, onAdmissionRequested } = setup()
     await controller.join()
 
@@ -226,14 +226,16 @@ describe('InterviewCallController lobby', () => {
     const mic = candidate.publish('microphone', fakeTrack('candidate-mic'))
     room.emit('trackPublished')
 
-    expect(onAdmissionRequested).toHaveBeenCalledTimes(1)
-    expect(camera.isSubscribed).toBe(false)
-    expect(mic.isSubscribed).toBe(false)
-    expect(room.localParticipant.published.size).toBe(0)
+    expect(onAdmissionRequested).not.toHaveBeenCalled()
+    expect(camera.isSubscribed).toBe(true)
+    expect(mic.isSubscribed).toBe(true)
+    expect(room.localParticipant.published.size).toBe(2)
     expect(controller.getSnapshot()).toMatchObject({
-      admission: 'requested',
-      candidate: { presence: 'joined', name: 'Grace', videoTrack: null, audioTrack: null },
+      admission: 'admitted',
+      candidate: { presence: 'joined', name: 'Grace' },
     })
+    expect(controller.getSnapshot().candidate.videoTrack).not.toBeNull()
+    expect(controller.getSnapshot().candidate.audioTrack).not.toBeNull()
   })
 
   it('publishes the microphone when it opens after the candidate was already admitted', async () => {
@@ -305,7 +307,7 @@ describe('InterviewCallController lobby', () => {
     expect(controller.getSnapshot().candidate.audioTrack).not.toBeNull()
   })
 
-  it('declining keeps everything private and asks again when the candidate rejoins', async () => {
+  it('declining keeps everything private until the interviewer admits', async () => {
     const { room, controller, onAdmissionRequested } = setup()
     await controller.join()
     const candidate = addCandidate(room)
@@ -315,12 +317,7 @@ describe('InterviewCallController lobby', () => {
     expect(controller.getSnapshot().admission).toBe('denied')
     expect(camera.isSubscribed).toBe(false)
     expect(room.localParticipant.published.size).toBe(0)
-
-    room.remoteParticipants.delete(candidate.identity)
-    room.emit('participantDisconnected', candidate)
-    addCandidate(room)
-    expect(controller.getSnapshot().admission).toBe('requested')
-    expect(onAdmissionRequested).toHaveBeenCalledTimes(2)
+    expect(onAdmissionRequested).not.toHaveBeenCalled()
   })
 
   it('removing an admitted candidate unpublishes and unsubscribes', async () => {
@@ -349,16 +346,12 @@ describe('InterviewCallController lobby', () => {
     expect(camera.isSubscribed).toBe(true)
   })
 
-  it('treats a stored knock as a request but never downgrades an admission', async () => {
+  it('treats a stored waiting knock as already admitted for a 1-to-1 interview', async () => {
     const { controller, onAdmissionRequested } = setup()
     await controller.join()
     await controller.applyServerAdmission('waiting')
-    expect(controller.getSnapshot().admission).toBe('requested')
-    expect(onAdmissionRequested).toHaveBeenCalledTimes(1)
-
-    await controller.admit()
-    await controller.applyServerAdmission('waiting')
     expect(controller.getSnapshot().admission).toBe('admitted')
+    expect(onAdmissionRequested).not.toHaveBeenCalled()
   })
 
   it('republishes after a reconnect once the candidate was admitted', async () => {
@@ -413,9 +406,8 @@ describe('InterviewCallController media and lifecycle', () => {
 
   it('reports a publish failure without dropping the call', async () => {
     const { room, controller } = setup()
-    await controller.join()
     room.localParticipant.publishError = Object.assign(new Error('busy'), { name: 'NotReadableError' })
-    await controller.admit()
+    await controller.join()
     expect(controller.getSnapshot()).toMatchObject({ phase: 'connected', mediaError: { kind: 'device_in_use' } })
   })
 

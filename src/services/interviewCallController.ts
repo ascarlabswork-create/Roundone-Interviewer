@@ -148,7 +148,7 @@ export const INITIAL_CALL_SNAPSHOT: CallSnapshot = {
   phase: 'idle',
   error: null,
   mediaError: null,
-  admission: 'none',
+  admission: 'admitted',
   live: false,
   micEnabled: false,
   cameraEnabled: false,
@@ -187,8 +187,8 @@ export type InterviewCallDeps = {
 }
 
 /**
- * Zoom-style lobby: the interviewer previews their camera locally and nothing is
- * published or subscribed until they admit the candidate.
+ * 1-to-1 interview: both participants publish and subscribe as soon as they are
+ * authorized. There is no interviewer admit step.
  */
 export class InterviewCallController {
   private readonly deps: InterviewCallDeps
@@ -260,13 +260,13 @@ export class InterviewCallController {
     this.candidatePresent = Boolean(candidate)
     if (candidate) this.candidateEverJoined = true
 
-    const admitted = this.snapshot.admission === 'admitted'
+    const admitted = this.snapshot.admission !== 'denied'
     if (candidate) {
       for (const publication of candidate.getTrackPublications()) {
         if (publication.isSubscribed !== admitted) publication.setSubscribed?.(admitted)
       }
     }
-    if (arrived && !admitted) this.setAdmission('requested')
+    if (arrived && this.snapshot.admission === 'none') this.setAdmission('admitted')
     if (!candidate && this.snapshot.admission === 'requested') this.setAdmission('none')
 
     const camera = candidate?.getTrackPublication('camera')
@@ -315,7 +315,7 @@ export class InterviewCallController {
     const room = this.room
     const hasAudio = Boolean(this.audio)
     const hasVideo = Boolean(this.video)
-    if (!room || !this.inRoom || this.snapshot.admission !== 'admitted') {
+    if (!room || !this.inRoom || this.snapshot.admission === 'denied') {
       console.info('[INTERVIEWER AUDIO] publish skipped', {
         hasRoom: Boolean(room),
         inRoom: this.inRoom,
@@ -421,7 +421,7 @@ export class InterviewCallController {
     this.update({ phase: 'connecting' })
 
     try {
-      await room.connect(credentials.url, credentials.token, { autoSubscribe: false })
+      await room.connect(credentials.url, credentials.token, { autoSubscribe: true })
     } catch (error) {
       if (this.room !== room) return
       this.releaseRoom()
@@ -431,6 +431,7 @@ export class InterviewCallController {
     if (this.room !== room) return
 
     this.inRoom = true
+    if (this.snapshot.admission === 'none') this.setAdmission('admitted')
     this.update({ phase: 'connected' })
     this.sync()
     this.deps.onJoined?.()
@@ -456,12 +457,10 @@ export class InterviewCallController {
     this.sync()
   }
 
-  /** Applies an admission decision or knock stored in the database. */
+  /** Applies an admission decision stored in the database. 1-to-1 interviews auto-admit. */
   applyServerAdmission(status: ServerAdmissionStatus): Promise<void> {
-    if (status === 'admitted') return this.snapshot.admission === 'admitted' ? Promise.resolve() : this.admit()
     if (status === 'denied') return this.snapshot.admission === 'denied' ? Promise.resolve() : this.deny()
-    if (this.snapshot.admission !== 'admitted') this.setAdmission('requested')
-    return Promise.resolve()
+    return this.snapshot.admission === 'admitted' ? Promise.resolve() : this.admit()
   }
 
   /** Starts a fresh connection after an error, unexpected disconnect or leaving. */
