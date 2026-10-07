@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase.ts'
 import type { RealtimeClientLike } from './bookingRealtime.ts'
 import { TABLES } from './tables.ts'
 
-export const CONTROL_INTERVIEW_RECORDING_FUNCTION = 'control-interview-recording'
+export const CONTROL_INTERVIEW_RECORDING_FUNCTION = 'interview-recording'
 
 export type InterviewRecordingState = {
   recordingId: string | null
@@ -59,11 +59,11 @@ async function invokeRecording(sessionId: string, action: 'start' | 'stop'): Pro
     } catch {
       code = ''
     }
-    if (code === 'unconfigured' || error.message?.includes('503')) {
+    if (code === 'unconfigured' || code === 'recording_unconfigured' || error.message?.includes('503')) {
       return { recordingId: null, status: 'unavailable', startedAt: null, endedAt: null, unconfigured: true }
     }
     if (code === 'not_authorized') throw new Error('You are not allowed to control recording for this interview.')
-    if (code === 'recording_not_active') throw new Error('Recording is not active.')
+    if (code === 'recording_not_active' || code === 'not_recording') throw new Error('Recording is not active.')
     throw new Error('Could not update recording.')
   }
   const status = parseRecordingStatus(isRecord(data) ? data.status : null) ?? 'idle'
