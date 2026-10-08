@@ -59,6 +59,21 @@ describe('interview room extras parsers', () => {
         started_at: '2026-10-07T08:03:00.000Z',
         stopped_at: null,
       }),
-    ).toMatchObject({ status: 'recording', unconfigured: false })
+    ).toMatchObject({ status: 'recording', unconfigured: false, storagePath: null })
+  })
+
+  it('exposes a stopped recording that can be saved', () => {
+    expect(
+      parseInterviewRecordingRow({
+        id: '66666666-6666-4666-8666-666666666666',
+        status: 'stopped',
+        started_at: '2026-10-07T08:03:00.000Z',
+        stopped_at: '2026-10-07T08:20:00.000Z',
+        storage_path: 'interviews/11111111-1111-4111-8111-111111111111/file.mp4',
+      }),
+    ).toMatchObject({
+      status: 'stopped',
+      storagePath: 'interviews/11111111-1111-4111-8111-111111111111/file.mp4',
+    })
   })
 })

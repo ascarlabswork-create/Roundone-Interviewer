@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Clock,
   Loader2,
+  Download,
   LogOut,
   Maximize2,
   MessageSquare,
@@ -25,6 +26,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { InterviewChatPanel } from '../components/interview/InterviewChatPanel.tsx'
 import { InterviewNotesPanel } from '../components/interview/InterviewNotesPanel.tsx'
+import { InterviewRecordingSave } from '../components/interview/InterviewRecordingSave.tsx'
 import { interviewStartsAtCopy } from '../components/interview/JoinInterviewControls.tsx'
 import { PreInterviewLobby } from '../components/interview/PreInterviewLobby.tsx'
 import { useInterviewChat } from '../components/interview/useInterviewChat.ts'
@@ -37,6 +39,7 @@ import { Logo } from '../components/layout/Logo.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Skeleton } from '../components/ui/primitives.tsx'
 import { cn } from '../lib/cn.ts'
+import { interviewFileName } from '../lib/saveToComputer.ts'
 import { formatDateShortInZone, formatTimeInZone, timezoneLabel } from '../lib/dates.ts'
 import { formatCountdown } from '../lib/interviewTiming.ts'
 import { useAsync } from '../lib/useAsync.ts'
@@ -693,6 +696,19 @@ function LiveCallRoom({
           {recording.error ? (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">{recording.error}</p>
           ) : null}
+          {recording.canSave ? (
+            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <InterviewRecordingSave
+                compact
+                canSave={recording.canSave}
+                saving={recording.saving}
+                error={null}
+                onSave={() =>
+                  void recording.save(interviewFileName('recording', booking.candidate.name, booking.startsAtUtc))
+                }
+              />
+            </div>
+          ) : null}
           {fullscreen.active ? null : serverNow < schedule.startsAt ? (
             <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80">
               Interview room is open. You can join early and wait for the candidate.
@@ -752,8 +768,12 @@ function LiveCallRoom({
                 value={notes.value}
                 saveState={notes.saveState}
                 error={notes.error}
+                exporting={notes.exporting}
                 onChange={notes.update}
                 onSave={() => void notes.save()}
+                onSaveToComputer={() =>
+                  void notes.saveToComputer(interviewFileName('notes', booking.candidate.name, booking.startsAtUtc))
+                }
               />
             )}
           </aside>
@@ -785,8 +805,12 @@ function LiveCallRoom({
                   value={notes.value}
                   saveState={notes.saveState}
                   error={notes.error}
+                  exporting={notes.exporting}
                   onChange={notes.update}
                   onSave={() => void notes.save()}
+                  onSaveToComputer={() =>
+                    void notes.saveToComputer(interviewFileName('notes', booking.candidate.name, booking.startsAtUtc))
+                  }
                 />
               )}
             </div>
@@ -832,7 +856,15 @@ function LiveCallRoom({
           {fullscreen.active ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </Control>
         <Control
-          label={recording.active ? 'Stop Recording' : 'Record'}
+          label={
+            recording.busy
+              ? recording.active
+                ? 'Stopping…'
+                : 'Starting…'
+              : recording.active
+                ? 'Stop Recording'
+                : 'Start Recording'
+          }
           pressed={recording.active}
           danger={recording.active}
           disabled={recording.busy || ending}
@@ -840,6 +872,17 @@ function LiveCallRoom({
         >
           <span className={`h-3 w-3 rounded-full ${recording.active ? 'bg-white' : 'bg-red-400'}`} />
         </Control>
+        {recording.canSave ? (
+          <Control
+            label={recording.saving ? 'Saving…' : 'Save to computer'}
+            disabled={recording.saving || ending}
+            onClick={() =>
+              void recording.save(interviewFileName('recording', booking.candidate.name, booking.startsAtUtc))
+            }
+          >
+            <Download className="h-4 w-4" />
+          </Control>
+        ) : null}
         <Button variant="outline" onClick={leaveCall} disabled={ending} className="border-white/20 bg-transparent text-white hover:border-white">
           <LogOut className="h-4 w-4" />
           Leave

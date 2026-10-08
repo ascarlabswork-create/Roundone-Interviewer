@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { isRecordingActive } from '../../lib/interviewRoomExtras.ts'
 import {
   getLatestInterviewRecording,
+  saveInterviewRecording,
+  SaveCancelledError,
   startInterviewRecording,
   stopInterviewRecording,
   watchInterviewRecording,
@@ -13,17 +15,20 @@ const IDLE: InterviewRecordingState = {
   status: 'idle',
   startedAt: null,
   endedAt: null,
+  storagePath: null,
   unconfigured: false,
 }
 
-export function useInterviewRecording(sessionId: string) {
+export function useInterviewRecording(sessionId: string | null) {
   const [state, setState] = useState<InterviewRecordingState>(IDLE)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [saving, setSaving] = useState(false)
   const mounted = useRef(true)
 
   useEffect(() => {
     mounted.current = true
+    if (!sessionId) return
     void getLatestInterviewRecording(sessionId)
       .then((next) => {
         if (mounted.current) setState(next)
@@ -41,6 +46,7 @@ export function useInterviewRecording(sessionId: string) {
   }, [sessionId])
 
   const start = useCallback(async () => {
+    if (!sessionId) return
     setBusy(true)
     setError(null)
     try {
@@ -55,10 +61,13 @@ export function useInterviewRecording(sessionId: string) {
   }, [sessionId])
 
   const stop = useCallback(async () => {
+    if (!sessionId) return
     setBusy(true)
     setError(null)
     try {
-      setState(await stopInterviewRecording(sessionId))
+      const next = await stopInterviewRecording(sessionId)
+      setState(next)
+      if (next.status === 'failed') setError('Recording stopped, but the file could not be saved. Try recording again.')
     } catch (caught: unknown) {
       setError(caught instanceof Error ? caught.message : 'Could not stop recording.')
     } finally {
@@ -66,5 +75,29 @@ export function useInterviewRecording(sessionId: string) {
     }
   }, [sessionId])
 
-  return { state, error, busy, active: isRecordingActive(state.status), start, stop }
+  const save = useCallback(async (suggestedName?: string) => {
+    if (!sessionId) return
+    setSaving(true)
+    setError(null)
+    try {
+      await saveInterviewRecording(sessionId, suggestedName)
+    } catch (caught: unknown) {
+      if (caught instanceof SaveCancelledError) return
+      setError(caught instanceof Error ? caught.message : 'Could not save this recording.')
+    } finally {
+      setSaving(false)
+    }
+  }, [sessionId])
+
+  return {
+    state,
+    error,
+    busy,
+    saving,
+    active: isRecordingActive(state.status),
+    canSave: state.status === 'stopped' && Boolean(state.storagePath),
+    start,
+    stop,
+    save,
+  }
 }

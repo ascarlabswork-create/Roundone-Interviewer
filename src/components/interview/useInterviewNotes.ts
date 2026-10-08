@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { SaveCancelledError, saveTextToComputer } from '../../lib/saveToComputer.ts'
 import { getMyInterviewNotes, saveMyInterviewNotes } from '../../services/interviewNotes.ts'
 
 export type NotesSaveState = 'idle' | 'saving' | 'saved' | 'error'
@@ -7,6 +8,7 @@ export function useInterviewNotes(sessionId: string) {
   const [value, setValue] = useState('')
   const [saveState, setSaveState] = useState<NotesSaveState>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
   const loadedRef = useRef(false)
   const timerRef = useRef<number | null>(null)
 
@@ -63,5 +65,19 @@ export function useInterviewNotes(sessionId: string) {
     }
   }, [])
 
-  return { value, saveState, error, update, save }
+  const saveToComputer = useCallback(async (fileName: string) => {
+    if (!value.trim()) return
+    setExporting(true)
+    setError(null)
+    try {
+      await saveTextToComputer(value, fileName)
+    } catch (caught: unknown) {
+      if (caught instanceof SaveCancelledError) return
+      setError(caught instanceof Error ? caught.message : 'Could not save notes to this computer.')
+    } finally {
+      setExporting(false)
+    }
+  }, [value])
+
+  return { value, saveState, error, exporting, update, save, saveToComputer }
 }
