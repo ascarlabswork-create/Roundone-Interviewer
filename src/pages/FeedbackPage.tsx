@@ -1,6 +1,9 @@
 import { type FormEvent, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AppFeedbackCard } from '../components/interview/AppFeedbackCard.tsx'
+import { InterviewRecordingSave } from '../components/interview/InterviewRecordingSave.tsx'
+import { useInterviewRecording } from '../components/interview/useInterviewRecording.ts'
+import { interviewFileName } from '../lib/saveToComputer.ts'
 import { Button } from '../components/ui/Button.tsx'
 import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
 import { Card, ErrorState, FieldLabel, Skeleton, TextArea } from '../components/ui/primitives.tsx'
@@ -152,7 +155,16 @@ export function FeedbackPage() {
         />
       </Card>
 
-      {sessionState.status === 'success' && sessionState.data ? <AppFeedbackCard sessionId={sessionState.data.id} /> : null}
+      {sessionState.status === 'success' && sessionState.data ? (
+        <>
+          <RecordingSaveSection
+            sessionId={sessionState.data.id}
+            candidateName={booking.candidate.name}
+            startsAtUtc={booking.startsAtUtc}
+          />
+          <AppFeedbackCard sessionId={sessionState.data.id} />
+        </>
+      ) : null}
 
       {justSubmitted ? (
         <Card className="border-emerald-200 bg-emerald-50 p-5">
@@ -303,6 +315,30 @@ export function FeedbackPage() {
         </form>
       ) : null}
     </div>
+  )
+}
+
+function RecordingSaveSection({
+  sessionId,
+  candidateName,
+  startsAtUtc,
+}: {
+  sessionId: string
+  candidateName: string
+  startsAtUtc: string
+}) {
+  const recording = useInterviewRecording(sessionId)
+  const failed = recording.state.status === 'failed'
+  return (
+    <InterviewRecordingSave
+      canSave={recording.canSave}
+      saving={recording.saving}
+      error={
+        recording.error ??
+        (failed ? 'Recording stopped, but the file could not be saved. Try recording again in a future interview.' : null)
+      }
+      onSave={() => void recording.save(interviewFileName('recording', candidateName, startsAtUtc))}
+    />
   )
 }
 

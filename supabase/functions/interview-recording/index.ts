@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import {
   EgressClient,
   EncodedFileOutput,
@@ -52,37 +52,39 @@ function projectRefFromUrl(supabaseUrl: string) {
   }
 }
 
+function bearerToken(authorization: string) {
+  return authorization.replace(/^Bearer\s+/i, "").trim();
+}
+
 type RecordingStorage = {
+  mode: "dedicated_s3" | "supabase_service_role";
   endpoint: string;
   bucket: string;
   accessKey: string;
   secret: string;
   region: string;
-  sessionToken?: string;
 };
 
-function storageConfig(): RecordingStorage | null {
+function storageConfig(serviceKey: string): RecordingStorage | null {
   const endpoint = Deno.env.get("RECORDING_S3_ENDPOINT") ?? Deno.env.get("LIVEKIT_EGRESS_S3_ENDPOINT") ?? "";
   const bucket = Deno.env.get("RECORDING_S3_BUCKET") ?? Deno.env.get("LIVEKIT_EGRESS_S3_BUCKET") ?? "";
   const accessKey = Deno.env.get("RECORDING_S3_ACCESS_KEY") ?? Deno.env.get("LIVEKIT_EGRESS_S3_ACCESS_KEY") ?? "";
   const secret = Deno.env.get("RECORDING_S3_SECRET_KEY") ?? Deno.env.get("LIVEKIT_EGRESS_S3_SECRET") ?? "";
-  const region = Deno.env.get("RECORDING_S3_REGION") ?? Deno.env.get("LIVEKIT_EGRESS_S3_REGION") ?? "ap-northeast-1";
+  const dedicatedRegion = Deno.env.get("RECORDING_S3_REGION") ?? Deno.env.get("LIVEKIT_EGRESS_S3_REGION") ?? "";
   if (endpoint && bucket && accessKey && secret) {
-    return { endpoint, bucket, accessKey, secret, region };
+    return { mode: "dedicated_s3", endpoint, bucket, accessKey, secret, region: dedicatedRegion || "ap-northeast-1" };
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const ref = projectRefFromUrl(supabaseUrl);
-  if (!ref || !anonKey || !serviceKey) return null;
+  if (!ref || !serviceKey) return null;
   return {
+    mode: "supabase_service_role",
     endpoint: `https://${ref}.storage.supabase.co/storage/v1/s3`,
     bucket: RECORDING_BUCKET,
     accessKey: ref,
-    secret: anonKey,
-    region,
-    sessionToken: serviceKey,
+    secret: serviceKey,
+    region: "us-east-1",
   };
 }
 
@@ -104,6 +106,27 @@ function egressIdOf(info: unknown) {
   return "";
 }
 
+async function objectExists(admin: SupabaseClient, path: string) {
+  const { error } = await admin.storage.from(RECORDING_BUCKET).createSignedUrl(path, 30);
+  return !error;
+}
+
+async function waitForObject(admin: SupabaseClient, path: string, attempts = 20, delayMs = 1500) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (await objectExists(admin, path)) return true;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return false;
+}
+
+async function signedDownload(admin: SupabaseClient, path: string, sessionId: string) {
+  const { data, error } = await admin.storage
+    .from(RECORDING_BUCKET)
+    .createSignedUrl(path, 120, { download: `interview-${sessionId}.mp4` });
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
@@ -115,8 +138,9 @@ Deno.serve(async (req) => {
   const livekitKey = Deno.env.get("LIVEKIT_API_KEY") ?? "";
   const livekitSecret = Deno.env.get("LIVEKIT_API_SECRET") ?? "";
   const authorization = req.headers.get("Authorization") ?? "";
+  const userJwt = bearerToken(authorization);
 
-  if (!supabaseUrl || !anonKey || !authorization.toLowerCase().startsWith("bearer ")) {
+  if (!supabaseUrl || !anonKey || !userJwt) {
     return json(401, { error: "not_authenticated" });
   }
 
@@ -130,7 +154,9 @@ Deno.serve(async (req) => {
   }
 
   const sessionId = readUuid(body.interview_session_id ?? body.interviewSessionId ?? body.session_id);
-  const action = body.action === "start" || body.action === "stop" ? body.action : null;
+  const action = body.action === "start" || body.action === "stop" || body.action === "download" || body.action === "save"
+    ? body.action
+    : null;
   if (!sessionId || !action) return json(400, { error: "invalid_body" });
 
   const supabase = createClient(supabaseUrl, anonKey, {
@@ -139,6 +165,35 @@ Deno.serve(async (req) => {
   });
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) return json(401, { error: "not_authenticated" });
+
+  if (!serviceKey) {
+    console.log(JSON.stringify({ event: "interview_recording_unconfigured" }));
+    return json(503, { error: "unconfigured", status: "unavailable" });
+  }
+
+  const admin = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  if (action === "download" || action === "save") {
+    const { data: visible, error: visibleError } = await supabase
+      .from("interview_recordings")
+      .select("id, status, storage_path")
+      .eq("interview_session_id", sessionId)
+      .maybeSingle();
+    if (visibleError || !visible) return json(403, { error: "not_authorized" });
+    const path = typeof visible.storage_path === "string" ? visible.storage_path : "";
+    if (!path || !path.startsWith(`interviews/${sessionId}/`)) return json(404, { error: "recording_not_saved" });
+    const ready = await waitForObject(admin, path);
+    const url = ready ? await signedDownload(admin, path, sessionId) : null;
+    if (!url) return json(409, { error: "recording_not_saved" });
+    return json(200, {
+      status: visible.status ?? "stopped",
+      url,
+      download_url: url,
+      storage_path: path,
+    });
+  }
 
   const { data: access, error: accessError } = await supabase.rpc("assert_interview_recording_access", {
     p_session_id: sessionId,
@@ -152,22 +207,19 @@ Deno.serve(async (req) => {
   const roomName = typeof accessRow?.room_name === "string" ? accessRow.room_name : "";
   if (!roomName.startsWith("roundone-interview-")) return json(403, { error: "not_authorized" });
 
-  const storage = storageConfig();
-  if (!serviceKey || !livekitUrl.startsWith("http") || !livekitKey || !livekitSecret || !storage) {
-    console.log(JSON.stringify({ event: "interview_recording_unconfigured" }));
-    return json(503, { error: "unconfigured", status: "unavailable" });
-  }
-
-  const admin = createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
   const { data: existing, error: existingError } = await admin
     .from("interview_recordings")
-    .select("id, status, egress_id, started_at, stopped_at")
+    .select("id, status, egress_id, started_at, stopped_at, storage_path")
     .eq("interview_session_id", sessionId)
     .maybeSingle();
   if (existingError) return json(500, { error: "recording_failed" });
   const current = asRecord(existing);
+
+  const storage = storageConfig(serviceKey);
+  if (!livekitUrl.startsWith("http") || !livekitKey || !livekitSecret || !storage) {
+    console.log(JSON.stringify({ event: "interview_recording_unconfigured" }));
+    return json(503, { error: "unconfigured", status: "unavailable" });
+  }
 
   const egress = new EgressClient(livekitUrl, livekitKey, livekitSecret);
 
@@ -178,13 +230,16 @@ Deno.serve(async (req) => {
         status: "recording",
         started_at: current.started_at ?? null,
         stopped_at: null,
+        storage_path: current.storage_path ?? null,
       });
     }
     const filepath = `interviews/${sessionId}/${crypto.randomUUID()}.mp4`;
     try {
+      console.log(JSON.stringify({ event: "interview_recording_storage", mode: storage.mode }));
       const output = new EncodedFileOutput({
         fileType: EncodedFileType.MP4,
         filepath,
+        disableManifest: true,
         output: {
           case: "s3",
           value: new S3Upload({
@@ -194,7 +249,6 @@ Deno.serve(async (req) => {
             region: storage.region,
             endpoint: storage.endpoint,
             forcePathStyle: true,
-            ...(storage.sessionToken ? { sessionToken: storage.sessionToken } : {}),
           }),
         },
       });
@@ -219,7 +273,13 @@ Deno.serve(async (req) => {
         return json(500, { error: "recording_failed" });
       }
       console.log(JSON.stringify({ event: "interview_recording_started", room_name: roomName }));
-      return json(200, { recording_id: written.id, status: "recording", started_at: startedAt, stopped_at: null });
+      return json(200, {
+        recording_id: written.id,
+        status: "recording",
+        started_at: startedAt,
+        stopped_at: null,
+        storage_path: filepath,
+      });
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "egress_failed";
       console.log(JSON.stringify({ event: "interview_recording_start_failed", detail: message.slice(0, 200) }));
@@ -241,6 +301,7 @@ Deno.serve(async (req) => {
   if (current?.status !== "recording" || typeof current.egress_id !== "string" || !current.egress_id) {
     return json(409, { error: "recording_not_active" });
   }
+  const storedPath = typeof current.storage_path === "string" ? current.storage_path : "";
   try {
     await egress.stopEgress(current.egress_id);
   } catch {
@@ -250,9 +311,19 @@ Deno.serve(async (req) => {
   const stoppedAt = new Date().toISOString();
   const { error: stopError } = await admin
     .from("interview_recordings")
-    .update({ status: "stopped", stopped_at: stoppedAt, error: null })
+    .update({
+      status: "stopped",
+      stopped_at: stoppedAt,
+      error: null,
+    })
     .eq("interview_session_id", sessionId);
   if (stopError) return json(500, { error: "recording_failed" });
   console.log(JSON.stringify({ event: "interview_recording_stopped", room_name: roomName }));
-  return json(200, { recording_id: current.id ?? null, status: "stopped", stopped_at: stoppedAt });
+  return json(200, {
+    recording_id: current.id ?? null,
+    status: "stopped",
+    stopped_at: stoppedAt,
+    storage_path: storedPath || null,
+    saved: Boolean(storedPath),
+  });
 });
