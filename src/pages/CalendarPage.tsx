@@ -13,8 +13,7 @@ import {
   TextInput,
 } from '../components/ui/primitives.tsx'
 import { BUFFER_OPTIONS, INTERVIEW_TYPES, WEEKDAY_LABELS, WEEKDAY_ORDER } from '../data/catalogs.ts'
-import { SuggestedSelect } from '../components/ui/suggestions.tsx'
-import { timezoneSelectOptions } from '../lib/timezones.ts'
+import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
 import type { InterviewType } from '../data/catalogs.ts'
 import { cn } from '../lib/cn.ts'
 import {
@@ -142,8 +141,6 @@ export function CalendarPage() {
   const weekStart = addDays(startOfWeek(new Date()), weekOffset * 7)
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
   const liveSchedule = board ? toSchedule(board, previewService?.durationMin ?? 60) : null
-  const timezoneOptions = useMemo(() => timezoneSelectOptions(), [])
-
   const previewSlots = liveSchedule
     ? generateBookableSlots({
         schedule: liveSchedule,
@@ -349,11 +346,10 @@ export function CalendarPage() {
               each session shows both times so CST and IST (or any pair) line up.
             </p>
             <div className="mt-4 max-w-md">
-              <SuggestedSelect
+              <TimezoneSelect
                 id="availability-timezone"
-                options={timezoneOptions}
                 value={board.timezone}
-                customPlaceholder="Search, e.g. America/Chicago or Asia/Kolkata"
+                disabled={saving}
                 onChange={(timezone) => void onTimezoneChange(timezone)}
               />
             </div>

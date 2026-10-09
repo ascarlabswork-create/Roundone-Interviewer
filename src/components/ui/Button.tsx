@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { cn } from '../../lib/cn.ts'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'inverse'
   size?: 'sm' | 'md' | 'lg'
   fullWidth?: boolean
   children: ReactNode
@@ -17,6 +17,9 @@ const variants = {
     'border border-slate-300 bg-white text-navy-950 hover:border-navy-700 hover:text-navy-800 disabled:text-slate-400',
   ghost: 'text-navy-800 hover:bg-slate-100 disabled:text-slate-400',
   danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-slate-300',
+  /** For dark surfaces such as the interview room. */
+  inverse:
+    'border border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/20 disabled:text-white/40 focus-visible:ring-offset-navy-950',
 }
 
 const sizes = {

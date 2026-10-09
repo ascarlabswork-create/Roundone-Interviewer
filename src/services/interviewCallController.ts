@@ -392,6 +392,7 @@ export class InterviewCallController {
     })
     for (const track of [this.audio, this.video]) {
       if (!track || this.published.has(track)) continue
+      if (track === this.video && track.isMuted) continue
       try {
         await room.localParticipant.publishTrack(track)
         if (this.room !== room) return
@@ -559,12 +560,30 @@ export class InterviewCallController {
       await this.retryMedia()
       return
     }
+    const video = this.video
     try {
-      await (this.video.isMuted ? this.video.unmute() : this.video.mute())
+      if (video.isMuted) {
+        await video.unmute()
+        await this.publishLocalMedia()
+      } else {
+        await video.mute()
+        await this.unpublishVideo(video)
+      }
     } catch (error) {
       this.setMediaError(error)
     }
     this.sync()
+  }
+
+  /**
+   * Camera off removes the track from the room rather than only muting it, so the
+   * candidate's player drops the last frame instead of showing it frozen.
+   */
+  private async unpublishVideo(video: LocalMediaTrack) {
+    const room = this.room
+    if (!room || !this.published.has(video)) return
+    this.published.delete(video)
+    await room.localParticipant.unpublishTrack(video, false).catch(() => {})
   }
 
   async retryMedia(): Promise<void> {

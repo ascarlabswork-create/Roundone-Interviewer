@@ -1,11 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { formatTimezoneLabel, getTimezoneOptions, isValidTimezone } from './timezones.ts'
+import {
+  effectiveSchedulingTimezone,
+  formatTimezoneLabel,
+  getTimezoneOptions,
+  isValidTimezone,
+  normalizeTimezoneId,
+} from './timezones.ts'
 
 describe('timezones', () => {
   it('accepts common IANA ids including CST and IST', () => {
     expect(isValidTimezone('America/Chicago')).toBe(true)
     expect(isValidTimezone('Asia/Kolkata')).toBe(true)
     expect(isValidTimezone('Not/AZone')).toBe(false)
+  })
+
+  it('normalizes legacy Calcutta to Kolkata', () => {
+    expect(normalizeTimezoneId('Asia/Calcutta')).toBe('Asia/Kolkata')
+    expect(isValidTimezone('Asia/Calcutta')).toBe(true)
+  })
+
+  it('prefers interviewer timezone for scheduling display', () => {
+    expect(effectiveSchedulingTimezone('Asia/Kolkata', 'America/Chicago')).toBe('America/Chicago')
+    expect(effectiveSchedulingTimezone('', 'America/Chicago')).toBe('America/Chicago')
   })
 
   it('lists popular zones before the long tail', () => {

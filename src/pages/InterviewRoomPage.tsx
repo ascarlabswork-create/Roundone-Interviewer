@@ -942,7 +942,7 @@ function LiveCallRoom({
             <Download className="h-4 w-4" />
           </Control>
         ) : null}
-        <Button variant="outline" onClick={leaveCall} disabled={ending} className="border-white/20 bg-transparent text-white hover:border-white">
+        <Button variant="inverse" onClick={leaveCall} disabled={ending}>
           <LogOut className="h-4 w-4" />
           Leave
         </Button>

@@ -94,7 +94,7 @@ export const REVIEW_DIMENSIONS = [
   { key: 'professionalism', label: 'Professionalism' },
 ] as const
 
-/** Full IANA list (popular zones first). Prefer `timezoneSelectOptions()` for searchable dropdowns. */
+/** Full IANA list (popular zones first). Prefer `TimezoneSelect` in the UI. */
 export const TIMEZONES = getTimezoneOptions()
 
 export const BUFFER_OPTIONS = [0, 10, 15, 30] as const

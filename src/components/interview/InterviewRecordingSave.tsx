@@ -25,13 +25,7 @@ export function InterviewRecordingSave({
             <p className="text-xs text-white/80">
               Recording finished. Choose a folder and filename on this computer to keep a copy.
             </p>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onSave}
-              disabled={saving}
-              className="border-white/20 bg-transparent text-white hover:border-white"
-            >
+            <Button size="sm" variant="inverse" onClick={onSave} disabled={saving}>
               <FolderDown className="h-4 w-4" />
               {saving ? 'Saving…' : 'Save to computer'}
             </Button>

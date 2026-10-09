@@ -441,6 +441,26 @@ describe('InterviewCallController media and lifecycle', () => {
     expect(controller.getSnapshot().cameraEnabled).toBe(true)
   })
 
+  it('removes the camera from the room while it is off so the candidate never sees a frozen frame', async () => {
+    const { room, controller, media } = setup()
+    await controller.join()
+    const camera = media.created.find((track) => track.label === 'local-camera')!
+    const mic = media.created.find((track) => track.label === 'local-mic')!
+
+    await controller.toggleCamera()
+    expect(camera.isMuted).toBe(true)
+    expect(room.localParticipant.published.has(camera)).toBe(false)
+    expect(room.localParticipant.published.has(mic)).toBe(true)
+
+    await controller.retryMedia()
+    expect(room.localParticipant.published.has(camera)).toBe(false)
+
+    await controller.toggleCamera()
+    expect(camera.isMuted).toBe(false)
+    expect(room.localParticipant.published.has(camera)).toBe(true)
+    expect(controller.getSnapshot()).toMatchObject({ cameraEnabled: true, live: true })
+  })
+
   it('stays connected and reports permission denied when media is blocked, then recovers', async () => {
     const { room, controller, media } = setup({
       mediaError: Object.assign(new Error('blocked'), { name: 'NotAllowedError' }),
