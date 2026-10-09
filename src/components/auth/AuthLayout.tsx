@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { useSession } from '../../state/session.tsx'
 import { Skeleton } from '../ui/primitives.tsx'
+import { LegalFooter } from '../legal/LegalFooter.tsx'
 import { Logo } from '../layout/Logo.tsx'
 import { ToastStack } from '../layout/PublicLayout.tsx'
 import { useToast } from '../../state/toast.tsx'
@@ -27,11 +28,14 @@ export function AuthLayout() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-start overflow-y-auto bg-slate-50 px-4 py-10 sm:justify-center">
-      <Logo to="/interviewer/login" />
-      <div className={cn('mt-8 w-full', isRegister ? 'max-w-2xl' : 'max-w-md')}>
-        <Outlet />
+    <div className="flex min-h-svh flex-col overflow-y-auto bg-slate-50">
+      <div className="flex flex-1 flex-col items-center justify-start px-4 py-10 sm:justify-center">
+        <Logo to="/interviewer/login" />
+        <div className={cn('mt-8 w-full', isRegister ? 'max-w-2xl' : 'max-w-md')}>
+          <Outlet />
+        </div>
       </div>
+      <LegalFooter />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
       {location.pathname.startsWith('/interviewer/auth/callback') ? null : <GoogleOneTap />}
     </div>

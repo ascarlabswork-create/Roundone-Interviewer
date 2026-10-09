@@ -1,6 +1,7 @@
 import { Link, Outlet } from 'react-router-dom'
 import { useSession } from '../../state/session.tsx'
 import { useToast } from '../../state/toast.tsx'
+import { LegalFooter } from '../legal/LegalFooter.tsx'
 import { Button } from '../ui/Button.tsx'
 import { Logo } from './Logo.tsx'
 
@@ -26,6 +27,7 @@ export function PublicLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
+      <LegalFooter />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   )
