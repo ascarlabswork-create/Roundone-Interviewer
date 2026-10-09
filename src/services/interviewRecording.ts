@@ -98,8 +98,17 @@ export async function stopInterviewRecording(sessionId: string) {
   return invokeRecording(sessionId, 'stop')
 }
 
-export async function saveInterviewRecording(sessionId: string, suggestedName = 'interview-recording.mp4') {
-  const target = await createComputerSaveTarget(suggestedName, 'video/mp4')
+const NOT_READY_MESSAGE = 'No recording file is available to save yet. Stop recording, wait a few seconds, then try again.'
+const READY_POLL_MS = 3000
+
+export class RecordingNotReadyError extends Error {
+  constructor() {
+    super(NOT_READY_MESSAGE)
+    this.name = 'RecordingNotReadyError'
+  }
+}
+
+async function requestRecordingUrl(sessionId: string): Promise<string> {
   const { data, error } = await supabase.functions.invoke(CONTROL_INTERVIEW_RECORDING_FUNCTION, {
     body: { interview_session_id: sessionId, action: 'save' },
   })
@@ -113,7 +122,7 @@ export async function saveInterviewRecording(sessionId: string, suggestedName = 
       code = ''
     }
     if (code === 'recording_not_saved' || code === 'recording_processing' || error.message?.includes('404') || error.message?.includes('409')) {
-      throw new Error('No recording file is available to save yet. Stop recording, wait a few seconds, then try again.')
+      throw new RecordingNotReadyError()
     }
     if (code === 'not_authorized') throw new Error('You are not allowed to save this recording.')
     throw new Error('Could not save this recording.')
@@ -122,12 +131,37 @@ export async function saveInterviewRecording(sessionId: string, suggestedName = 
     (isRecord(data) && typeof data.url === 'string' && data.url) ||
     (isRecord(data) && typeof data.download_url === 'string' && data.download_url) ||
     ''
-  if (!url) {
-    throw new Error('No recording file is available to save yet. Stop recording, wait a few seconds, then try again.')
+  if (!url) throw new RecordingNotReadyError()
+  return url
+}
+
+type SaveTarget = { write(blob: Blob): Promise<void> }
+
+/** Writes the stored recording to a location the user already chose, optionally waiting for the file to finish processing. */
+export async function writeInterviewRecording(sessionId: string, target: SaveTarget, waitMs = 0) {
+  const deadline = Date.now() + waitMs
+  let url = ''
+  for (;;) {
+    try {
+      url = await requestRecordingUrl(sessionId)
+      break
+    } catch (error) {
+      if (!(error instanceof RecordingNotReadyError) || Date.now() >= deadline) throw error
+      await new Promise((resolve) => setTimeout(resolve, READY_POLL_MS))
+    }
   }
   const response = await fetch(url)
   if (!response.ok) throw new Error('Could not download this recording.')
   await target.write(await response.blob())
+}
+
+export function chooseRecordingSaveLocation(suggestedName = 'interview-recording.mp4') {
+  return createComputerSaveTarget(suggestedName, 'video/mp4')
+}
+
+export async function saveInterviewRecording(sessionId: string, suggestedName = 'interview-recording.mp4') {
+  const target = await chooseRecordingSaveLocation(suggestedName)
+  await writeInterviewRecording(sessionId, target)
 }
 
 export function watchInterviewRecording(
