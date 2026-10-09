@@ -164,8 +164,7 @@ export function DeviceChecks({ latencyMs }: { latencyMs: number | null }) {
               </Button>
               <Button
                 size="sm"
-                variant="ghost"
-                className="text-white hover:bg-white/10"
+                variant="inverse"
                 onClick={() =>
                   setSpeaker({ state: 'fail', detail: 'Check your volume and output device, then play the sound again.' })
                 }
