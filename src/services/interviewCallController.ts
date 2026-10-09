@@ -11,6 +11,7 @@ import {
   type InterviewCallToken,
   type MediaErrorKind,
 } from './interviewCall.ts'
+import { SCREEN_SHARE_MESSAGES, isRoomSignalTopic, parseHandSignal, screenShareFailure } from '../lib/roomSignaling.ts'
 
 /** Structural subset of livekit-client used by the call; keeps the controller testable. */
 export type CallTrack = {
@@ -38,10 +39,14 @@ export type CallPublication = {
   setSubscribed?(subscribed: boolean): void
 }
 
+/** LiveKit `Track.Source` values used by the interview room. */
+export type CallSource = 'camera' | 'microphone' | 'screen_share'
+
 export type CallParticipant = {
   identity: string
+  sid?: string
   name?: string
-  getTrackPublication(source: 'camera' | 'microphone'): CallPublication | undefined
+  getTrackPublication(source: CallSource): CallPublication | undefined
   getTrackPublications(): CallPublication[]
 }
 
@@ -49,13 +54,15 @@ export type CallLocalParticipant = {
   identity: string
   publishTrack(track: LocalMediaTrack): Promise<unknown>
   unpublishTrack(track: LocalMediaTrack, stopOnUnpublish?: boolean): Promise<unknown>
+  getTrackPublication?(source: CallSource): CallPublication | undefined
+  setScreenShareEnabled?(enabled: boolean, options?: { audio: boolean }): Promise<unknown>
 }
 
 export type CallRoom = {
   localParticipant: CallLocalParticipant
   remoteParticipants: Map<string, CallParticipant>
   canPlaybackAudio: boolean
-  on(event: string, listener: (arg?: unknown) => void): unknown
+  on(event: string, listener: (...args: unknown[]) => void): unknown
   removeAllListeners(): unknown
   connect(url: string, token: string, options?: { autoSubscribe: boolean }): Promise<void>
   disconnect(): Promise<void>
@@ -74,6 +81,7 @@ export const CALL_ROOM_EVENTS = {
   localTrackPublished: 'localTrackPublished',
   localTrackUnpublished: 'localTrackUnpublished',
   audioPlaybackChanged: 'audioPlaybackChanged',
+  dataReceived: 'dataReceived',
   mediaDevicesError: 'mediaDevicesError',
   reconnecting: 'reconnecting',
   reconnected: 'reconnected',
@@ -117,8 +125,10 @@ export type CandidateView = {
   name: string | null
   videoTrack: CallTrack | null
   audioTrack: CallTrack | null
+  screenTrack: CallTrack | null
   micMuted: boolean
   cameraOff: boolean
+  handRaised: boolean
 }
 
 export type CallSnapshot = {
@@ -133,6 +143,11 @@ export type CallSnapshot = {
   localVideoTrack: CallTrack | null
   candidate: CandidateView
   canPlaybackAudio: boolean
+  screenShareSupported: boolean
+  /** The interviewer's own published screen, if sharing. */
+  localScreenTrack: CallTrack | null
+  screenShareBusy: boolean
+  screenShareError: string | null
 }
 
 const EMPTY_CANDIDATE: CandidateView = {
@@ -140,8 +155,10 @@ const EMPTY_CANDIDATE: CandidateView = {
   name: null,
   videoTrack: null,
   audioTrack: null,
+  screenTrack: null,
   micMuted: true,
   cameraOff: true,
+  handRaised: false,
 }
 
 export const INITIAL_CALL_SNAPSHOT: CallSnapshot = {
@@ -155,6 +172,10 @@ export const INITIAL_CALL_SNAPSHOT: CallSnapshot = {
   localVideoTrack: null,
   candidate: EMPTY_CANDIDATE,
   canPlaybackAudio: true,
+  screenShareSupported: false,
+  localScreenTrack: null,
+  screenShareBusy: false,
+  screenShareError: null,
 }
 
 export function pickCandidateParticipant(
@@ -172,6 +193,12 @@ function visibleTrack(publication: CallPublication | undefined) {
   return publication && !publication.isMuted && publication.track ? publication.track : null
 }
 
+/** A rejoin gets a new participant sid, so state tied to the old connection is stale. */
+function isSameParticipant(participant: CallParticipant | null, ref: { identity: string; sid?: string }) {
+  if (!participant || participant.identity !== ref.identity) return false
+  return !ref.sid || !participant.sid || participant.sid === ref.sid
+}
+
 export type InterviewCallDeps = {
   sessionId: string
   fetchToken: (sessionId: string) => Promise<InterviewCallToken>
@@ -184,6 +211,10 @@ export type InterviewCallDeps = {
   onLeft?: () => void
   /** Called each time the candidate starts waiting to be admitted. */
   onAdmissionRequested?: () => void
+  /** Whether this browser can capture a screen; capture itself only starts from toggleScreenShare. */
+  canShareScreen?: () => boolean
+  /** Called when the candidate raises their hand (not when it is lowered). */
+  onCandidateHandRaised?: () => void
 }
 
 /**
@@ -204,9 +235,12 @@ export class InterviewCallController {
   private inRoom = false
   private disposed = false
   private started = false
+  /** The candidate participant whose hand is currently raised; cleared when that participant leaves. */
+  private raisedHand: { identity: string; sid?: string } | null = null
 
   constructor(deps: InterviewCallDeps) {
     this.deps = deps
+    this.snapshot = { ...INITIAL_CALL_SNAPSHOT, screenShareSupported: deps.canShareScreen?.() ?? false }
   }
 
   getSnapshot = (): CallSnapshot => this.snapshot
@@ -246,6 +280,7 @@ export class InterviewCallController {
       cameraEnabled,
       localVideoTrack: cameraEnabled ? this.video : null,
       live: this.published.size > 0,
+      localScreenTrack: visibleTrack(this.room?.localParticipant.getTrackPublication?.('screen_share')),
     }
   }
 
@@ -268,9 +303,11 @@ export class InterviewCallController {
     }
     if (arrived && this.snapshot.admission === 'none') this.setAdmission('admitted')
     if (!candidate && this.snapshot.admission === 'requested') this.setAdmission('none')
+    if (this.raisedHand && !isSameParticipant(candidate, this.raisedHand)) this.raisedHand = null
 
     const camera = candidate?.getTrackPublication('camera')
     const microphone = candidate?.getTrackPublication('microphone')
+    const screen = candidate?.getTrackPublication('screen_share')
     this.update({
       ...this.localPatch(),
       canPlaybackAudio: room.canPlaybackAudio,
@@ -279,10 +316,31 @@ export class InterviewCallController {
         name: candidate?.name?.trim() || null,
         videoTrack: admitted ? visibleTrack(camera) : null,
         audioTrack: admitted ? visibleTrack(microphone) : null,
+        screenTrack: admitted ? visibleTrack(screen) : null,
         micMuted: !microphone || microphone.isMuted,
         cameraOff: !camera || camera.isMuted,
+        handRaised: this.raisedHand !== null,
       },
     })
+  }
+
+  private receiveSignal(payload: unknown, from: unknown, topic: unknown) {
+    if (!isRoomSignalTopic(topic) || !(payload instanceof Uint8Array)) return
+    const raised = parseHandSignal(payload)
+    if (raised === null) return
+    const sender = from as CallParticipant | undefined
+    if (!sender || sender.identity === this.selfIdentity || parseParticipantRole(sender.identity) !== 'candidate') return
+    const wasRaised = this.raisedHand !== null
+    this.raisedHand = raised ? { identity: sender.identity, sid: sender.sid } : null
+    this.sync()
+    if (raised && !wasRaised) this.deps.onCandidateHandRaised?.()
+  }
+
+  /** Best effort; disconnecting also stops every local track, including the screen capture. */
+  private stopScreenShareBeforeLeaving(room: CallRoom | null) {
+    const local = room?.localParticipant
+    if (!local?.getTrackPublication?.('screen_share')) return
+    void local.setScreenShareEnabled?.(false)?.catch(() => {})
   }
 
   private async ensureLocalMedia() {
@@ -362,9 +420,11 @@ export class InterviewCallController {
 
   private releaseRoom() {
     const room = this.room
+    this.stopScreenShareBeforeLeaving(room)
     this.room = null
     this.published.clear()
     this.candidatePresent = false
+    this.raisedHand = null
     if (!room) return
     room.removeAllListeners()
     void room.disconnect().catch(() => {})
@@ -377,7 +437,12 @@ export class InterviewCallController {
   private bindRoom(room: CallRoom) {
     const sync = () => this.sync()
     for (const event of SYNC_EVENTS) room.on(event, sync)
-    room.on(CALL_ROOM_EVENTS.mediaDevicesError, (error) => this.setMediaError(error))
+    room.on(CALL_ROOM_EVENTS.dataReceived, (payload, from, _kind, topic) => this.receiveSignal(payload, from, topic))
+    room.on(CALL_ROOM_EVENTS.mediaDevicesError, (error, kind) => {
+      // LiveKit also reports screen capture failures here, without a device kind; toggleScreenShare handles those.
+      if (kind === undefined && this.snapshot.screenShareBusy) return
+      this.setMediaError(error)
+    })
     room.on(CALL_ROOM_EVENTS.reconnecting, () => this.update({ phase: 'reconnecting' }))
     room.on(CALL_ROOM_EVENTS.reconnected, () => {
       this.update({ phase: 'connected' })
@@ -508,6 +573,33 @@ export class InterviewCallController {
     this.sync()
   }
 
+  /** Opens the browser's screen picker on start; only ever called from an explicit user action. */
+  async toggleScreenShare(): Promise<void> {
+    const room = this.room
+    const local = room?.localParticipant
+    if (!room || !local || !this.inRoom || this.snapshot.screenShareBusy) return
+    const enable = !local.getTrackPublication?.('screen_share')
+    if (enable && (!this.snapshot.screenShareSupported || !local.setScreenShareEnabled)) {
+      this.update({ screenShareError: SCREEN_SHARE_MESSAGES.unsupported })
+      return
+    }
+    this.update({ screenShareBusy: true, screenShareError: null })
+    try {
+      await local.setScreenShareEnabled?.(enable, { audio: false })
+    } catch (error) {
+      if (this.room === room) {
+        this.update({ screenShareError: enable ? screenShareFailure(error) : SCREEN_SHARE_MESSAGES.stopFailed })
+      }
+    }
+    if (this.disposed) return
+    this.update({ screenShareBusy: false })
+    this.sync()
+  }
+
+  dismissScreenShareError(): void {
+    this.update({ screenShareError: null })
+  }
+
   async startAudio(): Promise<void> {
     const room = this.room
     if (!room) return
@@ -527,6 +619,7 @@ export class InterviewCallController {
         ...this.localPatch(),
         phase: 'left',
         candidate: EMPTY_CANDIDATE,
+        screenShareError: null,
       })
     }
   }
