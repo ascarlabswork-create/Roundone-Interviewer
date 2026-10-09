@@ -3,6 +3,7 @@ import { Briefcase, Clock, Eye, Languages } from 'lucide-react'
 import { Avatar, StarRating, VerifiedBadge } from '../ui/identity.tsx'
 import { Badge, Card } from '../ui/primitives.tsx'
 import { timezoneLabel } from '../../lib/dates.ts'
+import { effectiveSchedulingTimezone } from '../../lib/timezones.ts'
 import { formatCount, formatINR } from '../../lib/format.ts'
 import { isPlaceholderProfessional, type InterviewerAccount } from '../../services/interviewerProfile.ts'
 import { paiseToRupees, type InterviewerServiceRecord } from '../../services/interviewerServices.ts'
@@ -91,7 +92,9 @@ export function CandidatePreviewCard({
                   {interviewer.experience_years}+ years experience
                 </Meta>
               ) : null}
-              <Meta icon={<Clock className="h-4 w-4 text-slate-400" aria-hidden />}>{timezoneLabel(profile.timezone)}</Meta>
+              <Meta icon={<Clock className="h-4 w-4 text-slate-400" aria-hidden />}>
+                {timezoneLabel(effectiveSchedulingTimezone(profile.timezone, interviewer.timezone))}
+              </Meta>
               {interviewer.languages.length > 0 ? (
                 <Meta icon={<Languages className="h-4 w-4 text-slate-400" aria-hidden />}>
                   {interviewer.languages.join(', ')}

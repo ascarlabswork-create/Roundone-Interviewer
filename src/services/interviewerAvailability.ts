@@ -1,5 +1,5 @@
 import { BUFFER_OPTIONS, WEEKDAY_LABELS } from '../data/catalogs.ts'
-import { isValidTimezone } from '../lib/timezones.ts'
+import { isValidTimezone, normalizeTimezoneId } from '../lib/timezones.ts'
 import { formatReviewDate, fromYMD, timeToMinutes, toISODate } from '../lib/dates.ts'
 import { isDateWithinRange, validateAvailableRange } from '../lib/slots.ts'
 import { supabase } from '../lib/supabase.ts'
@@ -217,11 +217,15 @@ function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: strin
   return timeToMinutes(aStart) < timeToMinutes(bEnd) && timeToMinutes(bStart) < timeToMinutes(aEnd)
 }
 
-function assertValidTimezone(timezone: string) {
-  const trimmed = timezone.trim()
+async function assertValidTimezone(timezone: string) {
+  const trimmed = normalizeTimezoneId(timezone)
   if (!trimmed) throw new Error('Timezone is required.')
   if (!isValidTimezone(trimmed)) {
     throw new Error('Choose a valid timezone (e.g. America/Chicago or Asia/Kolkata).')
+  }
+  const { data, error } = await supabase.rpc('is_valid_server_timezone', { p_tz: trimmed })
+  if (!error && data === false) {
+    throw new Error('Choose a timezone your booking calendar supports (e.g. America/Chicago or Asia/Kolkata).')
   }
   return trimmed
 }
@@ -665,14 +669,19 @@ export async function getMyTimezone(): Promise<string> {
 }
 
 export async function updateMyTimezone(timezone: string): Promise<string> {
-  const next = assertValidTimezone(timezone)
-  const interviewerProfileId = await myInterviewerProfileId()
-  const { data, error } = await supabase
-    .from(TABLES.interviewerProfiles)
-    .update({ timezone: next })
-    .eq('id', interviewerProfileId)
-    .select('timezone')
-    .single()
+  const account = await getCurrentInterviewer()
+  const next = await assertValidTimezone(timezone)
+  const interviewerProfileId = account.interviewer.id
+  const [{ error: profileError }, { data, error }] = await Promise.all([
+    supabase.from(TABLES.profiles).update({ timezone: next }).eq('id', account.userId),
+    supabase
+      .from(TABLES.interviewerProfiles)
+      .update({ timezone: next })
+      .eq('id', interviewerProfileId)
+      .select('timezone')
+      .single(),
+  ])
+  fail(profileError)
   fail(error)
   if (!data || typeof data.timezone !== 'string' || !data.timezone.trim()) {
     throw new Error('Could not update timezone.')

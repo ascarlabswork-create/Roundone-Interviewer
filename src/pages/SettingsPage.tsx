@@ -3,10 +3,10 @@ import { DeleteAccountCard } from '../components/settings/DeleteAccountCard.tsx'
 import { NotificationPreferencesSection } from '../components/settings/NotificationPreferencesSection.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Card, ErrorState, FieldLabel, PageHeader, Skeleton, TextInput } from '../components/ui/primitives.tsx'
-import { SuggestedSelect } from '../components/ui/suggestions.tsx'
-import { TIMEZONES } from '../data/catalogs.ts'
+import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
+import { effectiveSchedulingTimezone } from '../lib/timezones.ts'
 import { updateInterviewerProfile } from '../services/interviewerProfile.ts'
 import {
   normalizeWhatsappPhone,
@@ -19,7 +19,11 @@ const FRIENDLY_SAVE_ERRORS = new Set([WHATSAPP_PHONE_INVALID, WHATSAPP_PHONE_MIS
 export function SettingsPage() {
   const { account, error, refreshAccount, status } = useSession()
   const { pushToast } = useToast()
-  const [timezone, setTimezone] = useState(account?.profile.timezone ?? 'Asia/Kolkata')
+  const [timezone, setTimezone] = useState(
+    account
+      ? effectiveSchedulingTimezone(account.profile.timezone, account.interviewer.timezone)
+      : 'Asia/Kolkata',
+  )
   const [phone, setPhone] = useState(account?.phone ?? '')
   const [whatsappPhone, setWhatsappPhone] = useState(account?.interviewer.whatsapp_phone ?? '')
   const [whatsappError, setWhatsappError] = useState<string | null>(null)
@@ -29,7 +33,7 @@ export function SettingsPage() {
 
   useEffect(() => {
     if (!account) return
-    setTimezone(account.profile.timezone)
+    setTimezone(effectiveSchedulingTimezone(account.profile.timezone, account.interviewer.timezone))
     setPhone(account.phone)
     setWhatsappPhone(account.interviewer.whatsapp_phone ?? '')
     setIsListed(account.interviewer.is_listed)
@@ -101,19 +105,16 @@ export function SettingsPage() {
           </div>
           <div>
             <FieldLabel htmlFor="tz">Timezone</FieldLabel>
-            <SuggestedSelect
-              id="tz"
-              options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
-              value={timezone}
-              onChange={setTimezone}
-              customPlaceholder="Search, e.g. America/Chicago or Asia/Kolkata"
-              required
-            />
+            <TimezoneSelect id="tz" value={timezone} onChange={setTimezone} required />
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={isListed} onChange={(event) => setIsListed(event.target.checked)} />
             List my profile to candidates
           </label>
+          <p className="-mt-2 text-xs text-slate-500">
+            When this is off, only signed-in candidates who match your skills can open your profile; turn it on for
+            public discovery.
+          </p>
           {saveError ? <p className="text-sm text-red-700">{saveError}</p> : null}
           <Button type="submit" disabled={saving}>
             {saving ? 'Saving…' : 'Save settings'}

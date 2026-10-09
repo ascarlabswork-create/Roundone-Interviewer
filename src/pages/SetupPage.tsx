@@ -6,7 +6,9 @@ import { Button } from '../components/ui/Button.tsx'
 import { Stepper } from '../components/ui/dashboard.tsx'
 import { Card, FieldLabel, TextArea, TextInput } from '../components/ui/primitives.tsx'
 import { SuggestedSelect } from '../components/ui/suggestions.tsx'
-import { INTERVIEW_TYPES, ONBOARDING_STEPS, TIMEZONES, WEEKDAY_LABELS } from '../data/catalogs.ts'
+import { INTERVIEW_TYPES, ONBOARDING_STEPS, WEEKDAY_LABELS } from '../data/catalogs.ts'
+import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
+import { effectiveSchedulingTimezone } from '../lib/timezones.ts'
 import { formatClockRange, formatReviewDate } from '../lib/dates.ts'
 import {
   loadMyAvailabilityBoard,
@@ -54,7 +56,7 @@ export function SetupPage() {
       role: account.interviewer.current_role === 'Pending' ? '' : account.interviewer.current_role,
       experienceYears: String(account.interviewer.experience_years || ''),
       professionalSummary: account.interviewer.bio || account.interviewer.headline || '',
-      timezone: account.profile.timezone,
+      timezone: effectiveSchedulingTimezone(account.profile.timezone, account.interviewer.timezone),
       languages: account.interviewer.languages.join(', '),
       phone: account.phone,
       skills: account.skills,
@@ -221,12 +223,10 @@ export function SetupPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
-                  <SuggestedSelect
+                  <TimezoneSelect
                     id="timezone"
-                    options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
                     value={draft.timezone}
                     onChange={(timezone) => update({ timezone })}
-                    customPlaceholder="Type a timezone, e.g. Europe/Berlin"
                     required
                   />
                 </div>

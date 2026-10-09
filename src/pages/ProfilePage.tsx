@@ -9,9 +9,10 @@ import { Button } from '../components/ui/Button.tsx'
 import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
 import { StarRating } from '../components/ui/identity.tsx'
 import { Badge, Card, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
-import { SuggestedSelect } from '../components/ui/suggestions.tsx'
-import { REVIEW_DIMENSIONS, TIMEZONES } from '../data/catalogs.ts'
+import { REVIEW_DIMENSIONS } from '../data/catalogs.ts'
+import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
 import { formatReviewDate, timezoneLabel } from '../lib/dates.ts'
+import { effectiveSchedulingTimezone } from '../lib/timezones.ts'
 import { formatCount, formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import { loadMyAvailabilityBoard } from '../services/interviewerAvailability.ts'
@@ -62,7 +63,7 @@ const EMPTY_FORM: ProfileForm = {
 function formFromAccount(account: InterviewerAccount): ProfileForm {
   return {
     fullName: account.profile.full_name,
-    timezone: account.profile.timezone,
+    timezone: effectiveSchedulingTimezone(account.profile.timezone, account.interviewer.timezone),
     headline: account.interviewer.headline ?? '',
     bio: account.interviewer.bio ?? '',
     currentRole: account.interviewer.current_role === 'Pending' ? '' : account.interviewer.current_role,
@@ -238,12 +239,10 @@ export function ProfilePage() {
             </div>
             <div>
               <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
-              <SuggestedSelect
+              <TimezoneSelect
                 id="timezone"
-                options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
                 value={form.timezone}
                 onChange={(timezone) => setForm({ ...form, timezone })}
-                customPlaceholder="Search, e.g. America/Chicago or Asia/Kolkata"
                 required
               />
             </div>
@@ -365,7 +364,10 @@ export function ProfilePage() {
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
               {slots.map((slot) => (
                 <li key={slot.id}>
-                  {slot.label} {timezoneLabel(account.profile.timezone)}
+                  {slot.label}{' '}
+                  {timezoneLabel(
+                    effectiveSchedulingTimezone(account.profile.timezone, account.interviewer.timezone),
+                  )}
                 </li>
               ))}
             </ul>

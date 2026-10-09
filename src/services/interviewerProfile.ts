@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase.ts'
+import { effectiveSchedulingTimezone, isValidTimezone, normalizeTimezoneId } from '../lib/timezones.ts'
 import { normalizeWhatsappPhone, WHATSAPP_PHONE_INVALID } from '../lib/whatsappPhone.ts'
 import { TABLES } from './tables.ts'
 import { claimInterviewerPersona, requireUser, updateAuthMetadata } from './auth.ts'
@@ -142,6 +143,22 @@ function mapProfile(row: {
   }
 }
 
+function assertStoredTimezone(timezone: string) {
+  const next = normalizeTimezoneId(timezone)
+  if (!next) throw new Error('Timezone is required.')
+  if (!isValidTimezone(next)) {
+    throw new Error('Choose a valid timezone (e.g. America/Chicago or Asia/Kolkata).')
+  }
+  return next
+}
+
+async function repairTimezoneSync(userId: string, interviewerId: string, canonical: string) {
+  await Promise.all([
+    supabase.from(TABLES.profiles).update({ timezone: canonical }).eq('id', userId),
+    supabase.from(TABLES.interviewerProfiles).update({ timezone: canonical }).eq('id', interviewerId),
+  ])
+}
+
 function mapInterviewer(row: {
   id: string
   profile_id: string
@@ -271,7 +288,7 @@ export async function getInterviewerProfile(options?: { retries?: number }): Pro
     if (!profileRow) {
       lastError = new Error('Your account profile is not ready yet. Try again in a moment.')
     } else {
-      const profile = mapProfile(profileRow)
+      let profile = mapProfile(profileRow)
       if (profile.role !== 'interviewer') {
         const claimed = await claimInterviewerPersona()
         if (!claimed) throw new Error(WRONG_APP_ROLE)
@@ -286,6 +303,12 @@ export async function getInterviewerProfile(options?: { retries?: number }): Pro
 
         if (interviewerRow) {
           const interviewer = mapInterviewer(interviewerRow)
+          const canonicalTimezone = effectiveSchedulingTimezone(profile.timezone, interviewer.timezone)
+          if (profile.timezone !== canonicalTimezone || interviewer.timezone !== canonicalTimezone) {
+            profile = { ...profile, timezone: canonicalTimezone }
+            interviewer.timezone = canonicalTimezone
+            void repairTimezoneSync(user.id, interviewer.id, canonicalTimezone)
+          }
           const [skills, roleRows, verifications] = await Promise.all([
             getInterviewerSkills(interviewer.id),
             getInterviewerRoleRows(interviewer.id),
@@ -325,8 +348,9 @@ export async function updateInterviewerProfile(updates: InterviewerProfileUpdate
   if (updates.fullName !== undefined) profilePatch.full_name = updates.fullName.trim()
   if (updates.avatarUrl !== undefined) profilePatch.avatar_url = updates.avatarUrl
   if (updates.timezone !== undefined) {
-    profilePatch.timezone = updates.timezone
-    interviewerPatch.timezone = updates.timezone
+    const nextTimezone = assertStoredTimezone(updates.timezone)
+    profilePatch.timezone = nextTimezone
+    interviewerPatch.timezone = nextTimezone
   }
   if (updates.headline !== undefined) interviewerPatch.headline = updates.headline
   if (updates.bio !== undefined) interviewerPatch.bio = updates.bio

@@ -34,8 +34,19 @@ function allIanaTimezones(): string[] {
   return [...set].sort((a, b) => a.localeCompare(b))
 }
 
-export function isValidTimezone(zone: string) {
+const TIMEZONE_ALIASES: Record<string, string> = {
+  'Asia/Calcutta': 'Asia/Kolkata',
+}
+
+/** Canonical IANA id for storage (trim + known alias merge). */
+export function normalizeTimezoneId(zone: string) {
   const trimmed = zone.trim()
+  if (!trimmed) return ''
+  return TIMEZONE_ALIASES[trimmed] ?? trimmed
+}
+
+export function isValidTimezone(zone: string) {
+  const trimmed = normalizeTimezoneId(zone)
   if (!trimmed) return false
   try {
     Intl.DateTimeFormat(undefined, { timeZone: trimmed })
@@ -43,6 +54,19 @@ export function isValidTimezone(zone: string) {
   } catch {
     return false
   }
+}
+
+/** Scheduling uses interviewer_profiles.timezone; keep profiles in sync for the public directory. */
+export function effectiveSchedulingTimezone(
+  profileTimezone: string,
+  interviewerTimezone: string,
+  fallback = 'Asia/Kolkata',
+) {
+  const fromInterviewer = normalizeTimezoneId(interviewerTimezone)
+  if (fromInterviewer && isValidTimezone(fromInterviewer)) return fromInterviewer
+  const fromProfile = normalizeTimezoneId(profileTimezone)
+  if (fromProfile && isValidTimezone(fromProfile)) return fromProfile
+  return fallback
 }
 
 function offsetMinutesAt(zone: string, atMs: number) {

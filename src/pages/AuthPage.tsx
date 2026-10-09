@@ -3,8 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { GoogleIcon } from '../components/ui/GoogleIcon.tsx'
 import { Card, FieldLabel, TextInput } from '../components/ui/primitives.tsx'
-import { SuggestedSelect } from '../components/ui/suggestions.tsx'
-import { TIMEZONES } from '../data/catalogs.ts'
+import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
 import { cn } from '../lib/cn.ts'
 import { defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
 import {
@@ -276,14 +275,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
             </div>
             <div>
               <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
-              <SuggestedSelect
-                id="timezone"
-                options={TIMEZONES.map((zone) => ({ value: zone.id, label: zone.label }))}
-                value={timezone}
-                onChange={setTimezone}
-                customPlaceholder="Type a timezone, e.g. Europe/Berlin"
-                required
-              />
+              <TimezoneSelect id="timezone" value={timezone} onChange={setTimezone} required />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
