@@ -4,6 +4,7 @@ import {
   Clock,
   Loader2,
   Download,
+  Hand,
   LogOut,
   Maximize2,
   MessageSquare,
@@ -13,6 +14,8 @@ import {
   NotebookPen,
   PhoneOff,
   RefreshCw,
+  ScreenShare,
+  ScreenShareOff,
   ShieldAlert,
   UserRound,
   UserX,
@@ -533,10 +536,15 @@ function LiveCallRoom({
         void recordInterviewCallEvent(session.id, 'participant_left').catch(() => {})
       },
       onAdmissionRequested: playKnockChime,
+      onCandidateHandRaised: playKnockChime,
     }),
     [session.id, onStarted],
   )
   const { snapshot, controller } = useLiveKitCall(session.id, handlers)
+  const [dismissedScreen, setDismissedScreen] = useState<CallTrack | null>(null)
+  const sharedScreen = snapshot.candidate.screenTrack ?? snapshot.localScreenTrack
+  const showScreen = sharedScreen !== null && sharedScreen !== dismissedScreen
+  const sharingScreen = snapshot.localScreenTrack !== null
 
   const started = booking.status === 'in_progress' || Boolean(session.startedAt)
   const canUseMedia = snapshot.phase !== 'left'
@@ -689,6 +697,7 @@ function LiveCallRoom({
             onRetry={() => void controller?.retry()}
             onRetryMedia={() => void controller?.retryMedia()}
             onEnableAudio={() => void controller?.startAudio()}
+            onDismissScreenShareError={() => controller?.dismissScreenShareError()}
           />
           {recordError ? (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">{recordError}</p>
@@ -728,7 +737,37 @@ function LiveCallRoom({
             </p>
           )}
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-navy-800">
-            <RemoteStage snapshot={snapshot} candidateName={candidateName} />
+            {sharedScreen && showScreen ? (
+              <ScreenStage
+                track={sharedScreen}
+                sharedByCandidate={sharedScreen === snapshot.candidate.screenTrack}
+                candidate={snapshot.candidate}
+                candidateName={candidateName}
+                onShowCameras={() => setDismissedScreen(sharedScreen)}
+              />
+            ) : (
+              <>
+                <RemoteStage snapshot={snapshot} candidateName={candidateName} />
+                {sharedScreen ? (
+                  <StageToggle onClick={() => setDismissedScreen(null)}>
+                    <ScreenShare className="h-3.5 w-3.5" />
+                    Show shared screen
+                  </StageToggle>
+                ) : null}
+              </>
+            )}
+            <div
+              role="status"
+              aria-live="polite"
+              className="pointer-events-none absolute inset-x-3 top-12 z-20 flex justify-center"
+            >
+              {snapshot.candidate.handRaised ? (
+                <p className="inline-flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-500/90 px-3 py-1.5 text-sm font-medium text-amber-950 shadow-lg">
+                  <Hand className="h-4 w-4" aria-hidden />
+                  {candidateName} raised their hand.
+                </p>
+              ) : null}
+            </div>
             <div className="absolute bottom-3 left-3 h-28 w-40 overflow-hidden rounded-lg border border-white/20 bg-navy-900 shadow-lg sm:h-36 sm:w-52">
               {snapshot.localVideoTrack ? (
                 <VideoTrackView track={snapshot.localVideoTrack} mirrored fit="cover" />
@@ -838,6 +877,26 @@ function LiveCallRoom({
           {snapshot.cameraEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
         </Control>
         <Control
+          label={
+            snapshot.screenShareBusy
+              ? sharingScreen
+                ? 'Stopping…'
+                : 'Starting…'
+              : sharingScreen
+                ? 'Stop Sharing'
+                : 'Share Screen'
+          }
+          title={snapshot.screenShareSupported ? undefined : 'Screen sharing is not supported in this browser.'}
+          pressed={sharingScreen}
+          disabled={
+            snapshot.screenShareBusy ||
+            (!sharingScreen && (snapshot.phase !== 'connected' || !snapshot.screenShareSupported))
+          }
+          onClick={() => void controller?.toggleScreenShare()}
+        >
+          {sharingScreen ? <ScreenShareOff className="h-4 w-4" /> : <ScreenShare className="h-4 w-4" />}
+        </Control>
+        <Control
           label="Chat"
           pressed={panel === 'chat'}
           badge={chat.unread}
@@ -939,6 +998,7 @@ function RemoteStage({
         <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded bg-black/50 px-2 py-1 text-xs">
           {candidateName}
           {candidate.micMuted ? <MicOff className="h-3 w-3 text-red-300" /> : null}
+          {candidate.handRaised ? <HandChip /> : null}
         </span>
       </>
     )
@@ -949,7 +1009,9 @@ function RemoteStage({
         icon={<UserRound className="h-6 w-6" />}
         title={`${candidateName} joined`}
         body={candidate.micMuted ? 'Camera and microphone are off.' : 'Camera is off.'}
-      />
+      >
+        {candidate.handRaised ? <HandChip /> : null}
+      </StageMessage>
     )
   }
   if (candidate.presence === 'left') {
@@ -967,6 +1029,72 @@ function RemoteStage({
       title={`Waiting for ${candidateName} to join…`}
       body="The candidate can join directly. You do not need to admit them."
     />
+  )
+}
+
+function ScreenStage({
+  track,
+  sharedByCandidate,
+  candidate,
+  candidateName,
+  onShowCameras,
+}: {
+  track: CallTrack
+  sharedByCandidate: boolean
+  candidate: CallSnapshot['candidate']
+  candidateName: string
+  onShowCameras: () => void
+}) {
+  return (
+    <>
+      <VideoTrackView track={track} fit="contain" />
+      <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded bg-black/50 px-2 py-1 text-xs">
+        <ScreenShare className="h-3 w-3" />
+        {sharedByCandidate ? `${candidateName} is sharing their screen` : 'You are sharing your screen'}
+      </span>
+      <StageToggle onClick={onShowCameras}>
+        <Video className="h-3.5 w-3.5" />
+        Show cameras
+      </StageToggle>
+      {candidate.presence === 'joined' ? (
+        <div className="absolute bottom-3 right-3 h-28 w-40 overflow-hidden rounded-lg border border-white/20 bg-navy-900 shadow-lg sm:h-36 sm:w-52">
+          {candidate.videoTrack ? (
+            <VideoTrackView track={candidate.videoTrack} fit="cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-white/60">
+              <VideoOff className="mr-1.5 h-3.5 w-3.5" />
+              Camera off
+            </div>
+          )}
+          <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px]">
+            {candidateName}
+            {candidate.micMuted ? <MicOff className="h-3 w-3 text-red-300" /> : null}
+            {candidate.handRaised ? <HandChip /> : null}
+          </span>
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+function StageToggle({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs hover:bg-black/80"
+    >
+      {children}
+    </button>
+  )
+}
+
+function HandChip() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950">
+      <Hand className="h-3 w-3" aria-hidden />
+      Hand raised
+    </span>
   )
 }
 
@@ -996,11 +1124,13 @@ function CallAlerts({
   onRetry,
   onRetryMedia,
   onEnableAudio,
+  onDismissScreenShareError,
 }: {
   snapshot: CallSnapshot
   onRetry: () => void
   onRetryMedia: () => void
   onEnableAudio: () => void
+  onDismissScreenShareError: () => void
 }) {
   const alerts: ReactNode[] = []
   if (snapshot.phase === 'left') {
@@ -1046,6 +1176,20 @@ function CallAlerts({
         <Button size="sm" onClick={onEnableAudio}>
           Enable audio
         </Button>
+      </Alert>,
+    )
+  }
+  if (snapshot.screenShareError) {
+    alerts.push(
+      <Alert key="screen" tone="warning" icon={<ScreenShareOff className="h-4 w-4" />} message={snapshot.screenShareError}>
+        <button
+          type="button"
+          onClick={onDismissScreenShareError}
+          className="rounded-full p-1 hover:bg-white/10"
+          aria-label="Dismiss screen sharing message"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </Alert>,
     )
   }
@@ -1129,6 +1273,7 @@ function Control({
   danger = false,
   disabled,
   badge,
+  title,
 }: {
   label: string
   children: ReactNode
@@ -1137,12 +1282,14 @@ function Control({
   danger?: boolean
   disabled?: boolean
   badge?: number
+  title?: string
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       aria-pressed={pressed}
       className={`relative inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50 ${
         danger ? 'bg-red-500/80 hover:bg-red-500' : pressed ? 'bg-white/20 ring-1 ring-white/40' : 'bg-white/10 hover:bg-white/20'

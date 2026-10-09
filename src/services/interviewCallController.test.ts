@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { ROOM_SIGNAL_TOPIC, SCREEN_SHARE_MESSAGES, encodeHandSignal } from '../lib/roomSignaling.ts'
 import { callError, type InterviewCallToken } from './interviewCall.ts'
 import {
   InterviewCallController,
@@ -7,6 +8,7 @@ import {
   type CallParticipant,
   type CallPublication,
   type CallRoom,
+  type CallSource,
   type CallTrack,
   type LocalMedia,
   type LocalMediaTrack,
@@ -58,21 +60,21 @@ class FakeLocalTrack implements LocalMediaTrack {
   }
 }
 
-type Source = 'camera' | 'microphone'
-
 type FakePublication = CallPublication & { isSubscribed: boolean }
 
 class FakeParticipant implements CallParticipant {
   readonly identity: string
+  readonly sid: string
   name?: string
-  publications = new Map<Source, FakePublication>()
+  publications = new Map<CallSource, FakePublication>()
 
-  constructor(identity: string, name?: string) {
+  constructor(identity: string, name?: string, sid = 'PA_1') {
     this.identity = identity
     this.name = name
+    this.sid = sid
   }
 
-  getTrackPublication(source: Source) {
+  getTrackPublication(source: CallSource) {
     return this.publications.get(source)
   }
 
@@ -81,7 +83,7 @@ class FakeParticipant implements CallParticipant {
   }
 
   /** Mirrors LiveKit: a remote track only exists once it is subscribed. */
-  publish(source: Source, track: CallTrack, isMuted = false) {
+  publish(source: CallSource, track: CallTrack, isMuted = false) {
     const publication: FakePublication = {
       isMuted,
       isSubscribed: false,
@@ -101,6 +103,12 @@ class FakeLocalParticipant implements CallLocalParticipant {
   readonly identity = SELF
   published = new Set<LocalMediaTrack>()
   publishError: Error | null = null
+  screen: CallPublication | undefined
+  screenShareCalls: Array<[boolean, { audio: boolean } | undefined]> = []
+  screenShareError: Error | null = null
+  /** Lets a test hold the browser picker open. */
+  screenShareGate: Promise<void> | null = null
+  onScreenShareChange: () => void = () => {}
 
   async publishTrack(track: LocalMediaTrack) {
     if (this.publishError) throw this.publishError
@@ -110,18 +118,37 @@ class FakeLocalParticipant implements CallLocalParticipant {
   async unpublishTrack(track: LocalMediaTrack) {
     this.published.delete(track)
   }
+
+  getTrackPublication(source: CallSource) {
+    return source === 'screen_share' ? this.screen : undefined
+  }
+
+  async setScreenShareEnabled(enabled: boolean, options?: { audio: boolean }) {
+    this.screenShareCalls.push([enabled, options])
+    if (this.screenShareGate) await this.screenShareGate
+    if (this.screenShareError) throw this.screenShareError
+    this.screen = enabled ? { isMuted: false, track: fakeTrack('local-screen') } : undefined
+    this.onScreenShareChange()
+  }
 }
+
+type Listener = (...args: unknown[]) => void
 
 class FakeRoom implements CallRoom {
   localParticipant = new FakeLocalParticipant()
   remoteParticipants = new Map<string, CallParticipant>()
   canPlaybackAudio = true
-  listeners = new Map<string, Set<(arg?: unknown) => void>>()
+  listeners = new Map<string, Set<Listener>>()
   connectArgs: [string, string, { autoSubscribe: boolean } | undefined] | null = null
   connectError: Error | null = null
   disconnects = 0
 
-  on(event: string, listener: (arg?: unknown) => void) {
+  constructor() {
+    this.localParticipant.onScreenShareChange = () =>
+      this.emit(this.localParticipant.screen ? 'localTrackPublished' : 'localTrackUnpublished')
+  }
+
+  on(event: string, listener: Listener) {
     const set = this.listeners.get(event) ?? new Set()
     set.add(listener)
     this.listeners.set(event, set)
@@ -133,8 +160,8 @@ class FakeRoom implements CallRoom {
     return this
   }
 
-  emit(event: string, arg?: unknown) {
-    for (const listener of this.listeners.get(event) ?? []) listener(arg)
+  emit(event: string, ...args: unknown[]) {
+    for (const listener of this.listeners.get(event) ?? []) listener(...args)
   }
 
   listenerCount() {
@@ -160,6 +187,7 @@ class FakeRoom implements CallRoom {
 type SetupOptions = {
   fetchToken: (id: string) => Promise<InterviewCallToken>
   mediaError: unknown
+  canShareScreen: boolean
 }
 
 function setup(overrides: Partial<SetupOptions> = {}) {
@@ -168,6 +196,7 @@ function setup(overrides: Partial<SetupOptions> = {}) {
   const onJoined = vi.fn()
   const onLeft = vi.fn()
   const onAdmissionRequested = vi.fn()
+  const onCandidateHandRaised = vi.fn()
   const fetchToken = vi.fn(overrides.fetchToken ?? (async () => token))
   const media = { error: overrides.mediaError ?? null, created: [] as FakeLocalTrack[] }
   const createLocalMedia = vi.fn(async (want: { audio: boolean; video: boolean }): Promise<LocalMedia> => {
@@ -185,15 +214,42 @@ function setup(overrides: Partial<SetupOptions> = {}) {
     onJoined,
     onLeft,
     onAdmissionRequested,
+    canShareScreen: () => overrides.canShareScreen ?? true,
+    onCandidateHandRaised,
   })
-  return { room, createRoom, onJoined, onLeft, onAdmissionRequested, fetchToken, createLocalMedia, media, controller }
+  return {
+    room,
+    createRoom,
+    onJoined,
+    onLeft,
+    onAdmissionRequested,
+    onCandidateHandRaised,
+    fetchToken,
+    createLocalMedia,
+    media,
+    controller,
+  }
 }
 
-function addCandidate(room: FakeRoom) {
-  const candidate = new FakeParticipant(CANDIDATE, 'Grace')
+function addCandidate(room: FakeRoom, sid = 'PA_1') {
+  const candidate = new FakeParticipant(CANDIDATE, 'Grace', sid)
   room.remoteParticipants.set(candidate.identity, candidate)
   room.emit('participantConnected', candidate)
   return candidate
+}
+
+function removeCandidate(room: FakeRoom, candidate: FakeParticipant) {
+  room.remoteParticipants.delete(candidate.identity)
+  room.emit('participantDisconnected', candidate)
+}
+
+/** LiveKit `dataReceived` arguments: payload, participant, kind, topic. */
+function sendHand(room: FakeRoom, from: CallParticipant | undefined, raised: boolean, topic: string | undefined = ROOM_SIGNAL_TOPIC) {
+  room.emit('dataReceived', encodeHandSignal(raised), from, 0, topic)
+}
+
+function namedError(name: string, message = '') {
+  return Object.assign(new Error(message), { name })
 }
 
 describe('InterviewCallController lobby', () => {
@@ -524,6 +580,253 @@ describe('InterviewCallController media and lifecycle', () => {
     unsubscribe()
     await controller.toggleMic()
     expect(listener.mock.calls.length).toBe(calls)
+  })
+})
+
+describe('InterviewCallController candidate raised hand', () => {
+  it('shows the candidate raising and lowering their hand and notifies once per raise', async () => {
+    const { room, controller, onCandidateHandRaised } = setup()
+    await controller.join()
+    const candidate = addCandidate(room)
+
+    sendHand(room, candidate, true)
+    expect(controller.getSnapshot().candidate.handRaised).toBe(true)
+    expect(onCandidateHandRaised).toHaveBeenCalledTimes(1)
+
+    sendHand(room, candidate, true)
+    expect(onCandidateHandRaised).toHaveBeenCalledTimes(1)
+
+    sendHand(room, candidate, false)
+    expect(controller.getSnapshot().candidate.handRaised).toBe(false)
+
+    sendHand(room, candidate, true)
+    expect(onCandidateHandRaised).toHaveBeenCalledTimes(2)
+  })
+
+  it('never changes the call, microphone or camera when a hand is raised', async () => {
+    const { room, controller } = setup()
+    await controller.join()
+    const candidate = addCandidate(room)
+    const mic = candidate.publish('microphone', fakeTrack('candidate-mic'))
+    room.emit('trackPublished')
+
+    sendHand(room, candidate, true)
+    expect(controller.getSnapshot()).toMatchObject({
+      phase: 'connected',
+      admission: 'admitted',
+      micEnabled: true,
+      cameraEnabled: true,
+      candidate: { micMuted: false, handRaised: true },
+    })
+    expect(mic.isSubscribed).toBe(true)
+    expect(room.localParticipant.published.size).toBe(2)
+  })
+
+  it('accepts messages without a topic, like the Candidate app', async () => {
+    const { room, controller } = setup()
+    await controller.join()
+    const candidate = addCandidate(room)
+    sendHand(room, candidate, true, undefined)
+    expect(controller.getSnapshot().candidate.handRaised).toBe(true)
+  })
+
+  it('ignores other topics, malformed payloads, non-candidates and messages without a sender', async () => {
+    const { room, controller, onCandidateHandRaised } = setup()
+    await controller.join()
+    const candidate = addCandidate(room)
+    const other = new FakeParticipant('observer:1', 'Someone', 'PA_9')
+    room.remoteParticipants.set(other.identity, other)
+
+    sendHand(room, candidate, true, 'chat')
+    room.emit('dataReceived', new TextEncoder().encode('{"v":1,"type":"hand"}'), candidate, 0, ROOM_SIGNAL_TOPIC)
+    room.emit('dataReceived', new TextEncoder().encode('not json'), candidate, 0, ROOM_SIGNAL_TOPIC)
+    room.emit('dataReceived', 'not bytes', candidate, 0, ROOM_SIGNAL_TOPIC)
+    sendHand(room, other, true)
+    sendHand(room, new FakeParticipant(SELF, 'Me'), true)
+    sendHand(room, undefined, true)
+
+    expect(controller.getSnapshot().candidate.handRaised).toBe(false)
+    expect(onCandidateHandRaised).not.toHaveBeenCalled()
+  })
+
+  it('clears the hand when the candidate disconnects', async () => {
+    const { room, controller } = setup()
+    await controller.join()
+    const candidate = addCandidate(room)
+    sendHand(room, candidate, true)
+
+    removeCandidate(room, candidate)
+    expect(controller.getSnapshot().candidate).toMatchObject({ presence: 'left', handRaised: false })
+
+    addCandidate(room)
+    expect(controller.getSnapshot().candidate).toMatchObject({ presence: 'joined', handRaised: false })
+  })
+
+  it('drops a stale hand when the candidate rejoins with a new participant sid', async () => {
+    const { room, controller, onCandidateHandRaised } = setup()
+    await controller.join()
+    sendHand(room, addCandidate(room, 'PA_1'), true)
+    expect(controller.getSnapshot().candidate.handRaised).toBe(true)
+
+    const rejoined = addCandidate(room, 'PA_2')
+    expect(controller.getSnapshot().candidate.handRaised).toBe(false)
+
+    sendHand(room, rejoined, true)
+    expect(controller.getSnapshot().candidate.handRaised).toBe(true)
+    expect(onCandidateHandRaised).toHaveBeenCalledTimes(2)
+  })
+
+  it('clears the hand when we leave or the room disconnects', async () => {
+    const { room, controller } = setup()
+    await controller.join()
+    sendHand(room, addCandidate(room), true)
+    controller.leave()
+    expect(controller.getSnapshot().candidate.handRaised).toBe(false)
+
+    await controller.retry()
+    sendHand(room, addCandidate(room), true)
+    room.emit('disconnected')
+    expect(controller.getSnapshot().candidate.handRaised).toBe(false)
+
+    await controller.retry()
+    addCandidate(room)
+    expect(controller.getSnapshot().candidate.handRaised).toBe(false)
+  })
+})
+
+describe('InterviewCallController screen share', () => {
+  it('shares and stops the screen only when asked, without audio', async () => {
+    const { room, controller } = setup()
+    await controller.join()
+    expect(room.localParticipant.screenShareCalls).toEqual([])
+    expect(controller.getSnapshot()).toMatchObject({ screenShareSupported: true, localScreenTrack: null })
+
+    await controller.toggleScreenShare()
+    expect(room.localParticipant.screenShareCalls).toEqual([[true, { audio: false }]])
+    expect(controller.getSnapshot().localScreenTrack).not.toBeNull()
+    expect(controller.getSnapshot()).toMatchObject({ screenShareBusy: false, screenShareError: null })
+
+    await controller.toggleScreenShare()
+    expect(room.localParticipant.screenShareCalls.at(-1)).toEqual([false, { audio: false }])
+    expect(controller.getSnapshot().localScreenTrack).toBeNull()
+    expect(controller.getSnapshot()).toMatchObject({ micEnabled: true, cameraEnabled: true, live: true })
+  })
+
+  it('shows nothing when the picker is cancelled, even though LiveKit reports a device error', async () => {
+    const { room, controller } = setup()
+    await controller.join()
+    let release = () => {}
+    room.localParticipant.screenShareGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const cancelled = namedError('NotAllowedError', 'Permission denied')
+    room.localParticipant.screenShareError = cancelled
+
+    const sharing = controller.toggleScreenShare()
+    room.emit('mediaDevicesError', cancelled, undefined)
+    release()
+    await sharing
+
+    expect(controller.getSnapshot()).toMatchObject({
+      screenShareBusy: false,
+      screenShareError: null,
+      localScreenTrack: null,
+      mediaError: null,
+    })
+  })
+
+  it('still reports microphone and camera device errors', async () => {
+    const { room, controller } = setup()
+    await controller.join()
+    room.emit('mediaDevicesError', namedError('NotReadableError'), 'audioinput')
+    expect(controller.getSnapshot().mediaError?.kind).toBe('device_in_use')
+  })
+
+  it('explains a system-level block and can be dismissed', async () => {
+    const { room, controller } = setup()
+    await controller.join()
+    room.localParticipant.screenShareError = namedError('NotAllowedError', 'Permission denied by system')
+    await controller.toggleScreenShare()
+    expect(controller.getSnapshot()).toMatchObject({
+      screenShareError: SCREEN_SHARE_MESSAGES.blockedBySystem,
+      screenShareBusy: false,
+      localScreenTrack: null,
+    })
+
+    controller.dismissScreenShareError()
+    expect(controller.getSnapshot().screenShareError).toBeNull()
+  })
+
+  it('reports an unsupported browser without opening a picker', async () => {
+    const { room, controller } = setup({ canShareScreen: false })
+    await controller.join()
+    expect(controller.getSnapshot().screenShareSupported).toBe(false)
+    await controller.toggleScreenShare()
+    expect(room.localParticipant.screenShareCalls).toEqual([])
+    expect(controller.getSnapshot().screenShareError).toBe(SCREEN_SHARE_MESSAGES.unsupported)
+  })
+
+  it('ignores clicks while the picker is open and before connecting', async () => {
+    const { room, controller } = setup()
+    await controller.toggleScreenShare()
+    expect(room.localParticipant.screenShareCalls).toEqual([])
+
+    await controller.join()
+    let release = () => {}
+    room.localParticipant.screenShareGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const first = controller.toggleScreenShare()
+    expect(controller.getSnapshot().screenShareBusy).toBe(true)
+    await controller.toggleScreenShare()
+    release()
+    await first
+    expect(room.localParticipant.screenShareCalls).toHaveLength(1)
+    expect(controller.getSnapshot().screenShareBusy).toBe(false)
+  })
+
+  it('resyncs when the browser ends the capture', async () => {
+    const { room, controller } = setup()
+    await controller.join()
+    await controller.toggleScreenShare()
+    expect(controller.getSnapshot().localScreenTrack).not.toBeNull()
+
+    room.localParticipant.screen = undefined
+    room.emit('localTrackUnpublished')
+    expect(controller.getSnapshot().localScreenTrack).toBeNull()
+
+    await controller.toggleScreenShare()
+    expect(room.localParticipant.screenShareCalls.at(-1)?.[0]).toBe(true)
+  })
+
+  it('stops sharing when we leave', async () => {
+    const { room, controller } = setup()
+    await controller.join()
+    await controller.toggleScreenShare()
+    controller.leave()
+    expect(room.localParticipant.screenShareCalls.at(-1)?.[0]).toBe(false)
+    expect(room.disconnects).toBe(1)
+    expect(controller.getSnapshot()).toMatchObject({ phase: 'left', localScreenTrack: null, screenShareBusy: false })
+  })
+
+  it('shows the candidate screen and clears it when they stop or disconnect', async () => {
+    const { room, controller } = setup()
+    await controller.join()
+    const candidate = addCandidate(room)
+    const screen = candidate.publish('screen_share', fakeTrack('candidate-screen'))
+    room.emit('trackPublished')
+    expect(screen.isSubscribed).toBe(true)
+    expect(controller.getSnapshot().candidate.screenTrack).toBe(screen.track)
+
+    candidate.publications.delete('screen_share')
+    room.emit('trackUnpublished')
+    expect(controller.getSnapshot().candidate.screenTrack).toBeNull()
+
+    candidate.publish('screen_share', fakeTrack('candidate-screen-2'))
+    room.emit('trackPublished')
+    expect(controller.getSnapshot().candidate.screenTrack).not.toBeNull()
+    removeCandidate(room, candidate)
+    expect(controller.getSnapshot().candidate.screenTrack).toBeNull()
   })
 })
 

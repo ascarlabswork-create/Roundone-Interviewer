@@ -77,6 +77,10 @@ async function createLiveKitMedia(want: { audio: boolean; video: boolean }): Pro
   }
 }
 
+function canShareScreen() {
+  return typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function'
+}
+
 const noopSubscribe = () => () => {}
 const initialSnapshot = () => INITIAL_CALL_SNAPSHOT
 
@@ -84,6 +88,7 @@ export type LiveKitCallHandlers = {
   onJoined?: () => void
   onLeft?: () => void
   onAdmissionRequested?: () => void
+  onCandidateHandRaised?: () => void
 }
 
 /**
@@ -111,6 +116,8 @@ export function useLiveKitCall(
       onJoined: () => handlersRef.current.onJoined?.(),
       onLeft: () => handlersRef.current.onLeft?.(),
       onAdmissionRequested: () => handlersRef.current.onAdmissionRequested?.(),
+      canShareScreen,
+      onCandidateHandRaised: () => handlersRef.current.onCandidateHandRaised?.(),
     })
     setController(next)
     void next.join()
