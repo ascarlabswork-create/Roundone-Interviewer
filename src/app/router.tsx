@@ -6,7 +6,9 @@ import { RequireInterviewerAuth } from '../components/auth/RequireInterviewerAut
 import { UnknownRoute } from '../components/auth/UnknownRoute.tsx'
 import { AdminShell } from '../components/layout/AdminShell.tsx'
 import { AppShell } from '../components/layout/AppShell.tsx'
+import { LegalLayout } from '../components/layout/LegalLayout.tsx'
 import { PublicLayout } from '../components/layout/PublicLayout.tsx'
+import { LEGAL_DOCUMENTS } from '../data/legal.ts'
 import { AuthCallbackPage } from '../pages/AuthCallbackPage.tsx'
 import { BookingsPage } from '../pages/BookingsPage.tsx'
 import { CalendarPage } from '../pages/CalendarPage.tsx'
@@ -14,6 +16,7 @@ import { CandidateDetailPage } from '../pages/CandidateDetailPage.tsx'
 import { DashboardPage } from '../pages/DashboardPage.tsx'
 import { EarningsPage } from '../pages/EarningsPage.tsx'
 import { FeedbackPage } from '../pages/FeedbackPage.tsx'
+import { LegalPage } from '../pages/LegalPage.tsx'
 import { LoginPage } from '../pages/LoginPage.tsx'
 import { NotificationsPage } from '../pages/NotificationsPage.tsx'
 import { ProfilePage } from '../pages/ProfilePage.tsx'
@@ -45,6 +48,11 @@ export function AppRouter() {
           <Route path="/interviewer/login" element={<LoginPage />} />
           <Route path="/interviewer/register" element={<RegisterPage />} />
           <Route path="/interviewer/auth/callback" element={<AuthCallbackPage />} />
+        </Route>
+        <Route element={<LegalLayout />}>
+          {LEGAL_DOCUMENTS.map((legalDocument) => (
+            <Route key={legalDocument.slug} path={legalDocument.path} element={<LegalPage slug={legalDocument.slug} />} />
+          ))}
         </Route>
         <Route element={<RequireAdminAuth />}>
           <Route element={<AdminShell />}>

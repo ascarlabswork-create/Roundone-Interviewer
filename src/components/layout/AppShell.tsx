@@ -21,6 +21,7 @@ import { cn } from '../../lib/cn.ts'
 import { useSession } from '../../state/session.tsx'
 import { useToast } from '../../state/toast.tsx'
 import { initials } from '../../lib/format.ts'
+import { LegalFooter } from '../legal/LegalFooter.tsx'
 import { Logo } from './Logo.tsx'
 import { NotificationBell } from './NotificationBell.tsx'
 import { ToastStack } from './PublicLayout.tsx'
@@ -93,7 +94,7 @@ export function AppShell() {
         />
       ) : null}
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-svh min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur">
           <button type="button" className="rounded-lg p-2 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
@@ -122,6 +123,7 @@ export function AppShell() {
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />
         </main>
+        <LegalFooter />
       </div>
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
