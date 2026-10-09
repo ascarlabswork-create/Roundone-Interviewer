@@ -129,7 +129,8 @@ Deno.serve(async (req) => {
     room: roomName,
     canPublish: true,
     canSubscribe: true,
-    canPublishData: false,
+    // In-room signals such as raise hand travel as LiveKit data messages.
+    canPublishData: true,
   });
   const jwt = await token.toJwt();
 
