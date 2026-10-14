@@ -3,7 +3,7 @@
  * Every `pending` block marks a term that still needs company approval.
  */
 
-export const LEGAL_COMPANY_NAME = 'Ascar Labs India Private Limited'
+export const LEGAL_COMPANY_NAME = 'Ascar Labs Private Limited'
 export const LEGAL_PRODUCT_NAME = 'jobround.ai'
 export const LEGAL_COPYRIGHT = `© 2026 ${LEGAL_COMPANY_NAME}. All rights reserved.`
 export const PENDING_APPROVAL_LABEL = 'Pending company approval'
