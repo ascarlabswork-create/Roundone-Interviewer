@@ -62,7 +62,7 @@ describe('legal documents', () => {
 describe('LegalFooter', () => {
   it('renders the copyright and links to all legal pages', () => {
     const html = render(createElement(LegalFooter))
-    expect(LEGAL_COPYRIGHT).toBe('© 2026 Ascar Labs India Private Limited. All rights reserved.')
+    expect(LEGAL_COPYRIGHT).toBe('© 2026 Ascar Labs Private Limited. All rights reserved.')
     expect(html).toContain(LEGAL_COPYRIGHT)
     expect(html).toContain('aria-label="Legal"')
     for (const item of LEGAL_DOCUMENTS) {
