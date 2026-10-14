@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isRecordingActive } from '../../lib/interviewRoomExtras.ts'
 import {
+  chooseRecordingSaveLocation,
   getLatestInterviewRecording,
   saveInterviewRecording,
   SaveCancelledError,
   startInterviewRecording,
   stopInterviewRecording,
   watchInterviewRecording,
+  writeInterviewRecording,
   type InterviewRecordingState,
 } from '../../services/interviewRecording.ts'
+
+const FILE_READY_WAIT_MS = 3 * 60 * 1000
 
 const IDLE: InterviewRecordingState = {
   recordingId: null,
@@ -24,6 +28,7 @@ export function useInterviewRecording(sessionId: string | null) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savedCopy, setSavedCopy] = useState(false)
   const mounted = useRef(true)
 
   useEffect(() => {
@@ -75,12 +80,55 @@ export function useInterviewRecording(sessionId: string | null) {
     }
   }, [sessionId])
 
+  /**
+   * Stops recording and asks where to save it in the same click, because browsers only
+   * open the save dialog during a user action. The file is written once processing finishes.
+   * Cancelling the dialog still stops recording; the copy can be saved later.
+   */
+  const stopAndSave = useCallback(
+    async (suggestedName: string) => {
+      if (!sessionId) return
+      setBusy(true)
+      setError(null)
+      setSavedCopy(false)
+      const stopping = stopInterviewRecording(sessionId).then(
+        (next) => ({ next, failure: null as unknown }),
+        (failure: unknown) => ({ next: null, failure }),
+      )
+      const target = await chooseRecordingSaveLocation(suggestedName).catch(() => null)
+      const { next, failure } = await stopping
+      if (!mounted.current) return
+      setBusy(false)
+      if (!next) {
+        setError(failure instanceof Error ? failure.message : 'Could not stop recording.')
+        return
+      }
+      setState(next)
+      if (next.status === 'failed') {
+        setError('Recording stopped, but the file could not be saved. Try recording again.')
+        return
+      }
+      if (!target) return
+      setSaving(true)
+      try {
+        await writeInterviewRecording(sessionId, target, FILE_READY_WAIT_MS)
+        if (mounted.current) setSavedCopy(true)
+      } catch (caught: unknown) {
+        if (mounted.current) setError(caught instanceof Error ? caught.message : 'Could not save this recording.')
+      } finally {
+        if (mounted.current) setSaving(false)
+      }
+    },
+    [sessionId],
+  )
+
   const save = useCallback(async (suggestedName?: string) => {
     if (!sessionId) return
     setSaving(true)
     setError(null)
     try {
       await saveInterviewRecording(sessionId, suggestedName)
+      setSavedCopy(true)
     } catch (caught: unknown) {
       if (caught instanceof SaveCancelledError) return
       setError(caught instanceof Error ? caught.message : 'Could not save this recording.')
@@ -94,10 +142,12 @@ export function useInterviewRecording(sessionId: string | null) {
     error,
     busy,
     saving,
+    savedCopy,
     active: isRecordingActive(state.status),
     canSave: state.status === 'stopped' && Boolean(state.storagePath),
     start,
     stop,
+    stopAndSave,
     save,
   }
 }

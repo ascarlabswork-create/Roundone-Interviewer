@@ -333,6 +333,10 @@ function RecordingSaveSection({
     <InterviewRecordingSave
       canSave={recording.canSave}
       saving={recording.saving}
+      saved={recording.savedCopy}
+      finishing={
+        recording.state.status === 'stopping' || (recording.state.status === 'stopped' && !recording.state.storagePath)
+      }
       error={
         recording.error ??
         (failed ? 'Recording stopped, but the file could not be saved. Try recording again in a future interview.' : null)

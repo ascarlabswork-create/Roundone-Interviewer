@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   Clock,
   Loader2,
-  Download,
   Hand,
   LogOut,
   Maximize2,
@@ -705,12 +704,13 @@ function LiveCallRoom({
           {recording.error ? (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">{recording.error}</p>
           ) : null}
-          {recording.canSave ? (
+          {recording.canSave || recording.saving ? (
             <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
               <InterviewRecordingSave
                 compact
                 canSave={recording.canSave}
                 saving={recording.saving}
+                saved={recording.savedCopy}
                 error={null}
                 onSave={() =>
                   void recording.save(interviewFileName('recording', booking.candidate.name, booking.startsAtUtc))
@@ -926,22 +926,15 @@ function LiveCallRoom({
           }
           pressed={recording.active}
           danger={recording.active}
-          disabled={recording.busy || ending}
-          onClick={() => void (recording.active ? recording.stop() : recording.start())}
+          disabled={recording.busy || recording.saving || ending}
+          onClick={() =>
+            void (recording.active
+              ? recording.stopAndSave(interviewFileName('recording', booking.candidate.name, booking.startsAtUtc))
+              : recording.start())
+          }
         >
           <span className={`h-3 w-3 rounded-full ${recording.active ? 'bg-white' : 'bg-red-400'}`} />
         </Control>
-        {recording.canSave ? (
-          <Control
-            label={recording.saving ? 'Saving…' : 'Save to computer'}
-            disabled={recording.saving || ending}
-            onClick={() =>
-              void recording.save(interviewFileName('recording', booking.candidate.name, booking.startsAtUtc))
-            }
-          >
-            <Download className="h-4 w-4" />
-          </Control>
-        ) : null}
         <Button variant="inverse" onClick={leaveCall} disabled={ending}>
           <LogOut className="h-4 w-4" />
           Leave

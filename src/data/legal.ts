@@ -7,13 +7,15 @@ export const LEGAL_COMPANY_NAME = 'Ascar Labs India Private Limited'
 export const LEGAL_PRODUCT_NAME = 'jobround.ai'
 export const LEGAL_COPYRIGHT = `© 2026 ${LEGAL_COMPANY_NAME}. All rights reserved.`
 export const PENDING_APPROVAL_LABEL = 'Pending company approval'
+export const LEGAL_SUPPORT_EMAIL = 'support@jobround.ai'
 
-export type LegalSlug = 'privacy' | 'terms' | 'refund-policy' | 'pricing' | 'contact'
+export type LegalSlug = 'privacy' | 'terms' | 'refund-policy' | 'pricing' | 'cookies' | 'contact'
 
 export type LegalBlock =
   | { type: 'p'; text: string }
   | { type: 'list'; items: string[] }
   | { type: 'pending'; text: string }
+  | { type: 'email'; label: string; address: string }
 
 export type LegalSection = {
   id: string
@@ -33,6 +35,7 @@ export type LegalDocument = {
 const p = (text: string): LegalBlock => ({ type: 'p', text })
 const list = (...items: string[]): LegalBlock => ({ type: 'list', items })
 const pending = (text: string): LegalBlock => ({ type: 'pending', text })
+const supportEmail = (label: string): LegalBlock => ({ type: 'email', label, address: LEGAL_SUPPORT_EMAIL })
 
 const effectiveDateSection: LegalSection = {
   id: 'effective-date',
@@ -173,6 +176,7 @@ const privacy: LegalDocument = {
         p(
           'The Service uses your browser’s storage to keep you signed in and to remember in-app preferences. The Service does not use advertising or analytics trackers. If you use Google sign-in, Google may set its own cookies under its own policies.',
         ),
+        p('The Cookie Policy describes exactly what is stored in your browser and how to clear it.'),
       ],
     },
     {
@@ -207,7 +211,8 @@ const privacy: LegalDocument = {
         p(
           'You can view and correct most of your information from your profile and settings pages, and delete your account from within the app. Interviewers can also unlist their profile. For other requests, such as a copy of your data, correction of records you cannot edit, removal of a recording, or withdrawal of consent, contact us using the details on the Contact Us page.',
         ),
-        pending('Request channel, identity checks, response timelines, and the grievance redressal process.'),
+        supportEmail('Data requests'),
+        pending('Identity checks, response timelines, and the grievance redressal process.'),
       ],
     },
     {
@@ -461,6 +466,78 @@ const pricing: LegalDocument = {
   ],
 }
 
+const cookies: LegalDocument = {
+  slug: 'cookies',
+  path: '/cookies',
+  title: 'Cookie Policy',
+  footerLabel: 'Cookie Policy',
+  summary: `What ${LEGAL_PRODUCT_NAME} stores in your browser, why, and how you can clear it.`,
+  sections: [
+    {
+      id: 'what-are-cookies',
+      heading: 'Cookies and similar technologies',
+      blocks: [
+        p(
+          'Cookies are small files a website saves in your browser. Browser local storage and session storage are similar technologies that let a website keep information on your device. This policy covers all of them.',
+        ),
+      ],
+    },
+    {
+      id: 'what-we-store',
+      heading: 'What the Service stores',
+      blocks: [
+        p('The interviewer app does not set its own cookies. It uses browser storage only for what the Service needs to work:'),
+        list(
+          'Sign-in session (local storage): keeps you signed in between visits and lets the Service renew your session securely. It is removed when you sign out.',
+          'Sign-up progress (session storage): keeps the details you enter while moving between the interviewer sign-up steps. Session storage is cleared when you close the browser tab.',
+        ),
+      ],
+    },
+    {
+      id: 'no-tracking',
+      heading: 'No advertising or analytics',
+      blocks: [
+        p(
+          'The Service does not use advertising cookies, analytics cookies, or third-party tracking, and does not use browser storage to follow you across other websites.',
+        ),
+      ],
+    },
+    {
+      id: 'third-parties',
+      heading: 'Third-party cookies',
+      blocks: [
+        p(
+          'If you choose Google sign-in, you are taken to Google to sign in, and Google may set its own cookies on its websites under Google’s policies.',
+        ),
+      ],
+    },
+    {
+      id: 'consent',
+      heading: 'Why there is no cookie banner',
+      blocks: [
+        p(
+          'The storage described above is strictly necessary to provide the Service you ask for, so there are no optional cookies to accept or decline. If optional cookies, such as analytics, are added in future, this policy will be updated before they are used.',
+        ),
+      ],
+    },
+    {
+      id: 'managing',
+      heading: 'Managing and clearing storage',
+      blocks: [
+        p(
+          'You can clear cookies and site data for this website in your browser settings at any time. Clearing it signs you out and removes any unfinished sign-up details. Blocking storage for this website prevents you from signing in.',
+        ),
+      ],
+    },
+    {
+      id: 'questions',
+      heading: 'Questions',
+      blocks: [supportEmail('Email')],
+    },
+    effectiveDateSection,
+  ],
+}
+
 const contact: LegalDocument = {
   slug: 'contact',
   path: '/contact',
@@ -473,7 +550,7 @@ const contact: LegalDocument = {
       heading: 'Company',
       blocks: [
         p(`${LEGAL_PRODUCT_NAME} is operated by ${LEGAL_COMPANY_NAME}.`),
-        pending('Registered office address, corporate identification number, support email, and phone number.'),
+        pending('Registered office address, corporate identification number, and phone number.'),
       ],
     },
     {
@@ -481,9 +558,10 @@ const contact: LegalDocument = {
       heading: 'Support, refunds, and data requests',
       blocks: [
         p(
-          'Use this channel for help with your account, bookings, refunds, verification, recordings, or privacy and data requests.',
+          'Email us for help with your account, bookings, refunds, verification, recordings, or privacy and data requests.',
         ),
-        pending('Support and data-request contact channel and expected response times.'),
+        supportEmail('Email'),
+        pending('Expected response times.'),
       ],
     },
     {
@@ -505,7 +583,7 @@ const contact: LegalDocument = {
   ],
 }
 
-export const LEGAL_DOCUMENTS: readonly LegalDocument[] = [privacy, terms, refundPolicy, pricing, contact]
+export const LEGAL_DOCUMENTS: readonly LegalDocument[] = [privacy, terms, refundPolicy, pricing, cookies, contact]
 
 export function getLegalDocument(slug: LegalSlug): LegalDocument {
   const document = LEGAL_DOCUMENTS.find((item) => item.slug === slug)
