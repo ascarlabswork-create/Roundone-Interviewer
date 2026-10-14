@@ -4,18 +4,19 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { LegalFooter } from '../components/legal/LegalFooter.tsx'
 import { LegalPage } from '../pages/LegalPage.tsx'
-import { LEGAL_COPYRIGHT, LEGAL_DOCUMENTS, PENDING_APPROVAL_LABEL, getLegalDocument } from './legal.ts'
+import { LEGAL_COPYRIGHT, LEGAL_DOCUMENTS, LEGAL_SUPPORT_EMAIL, PENDING_APPROVAL_LABEL, getLegalDocument } from './legal.ts'
 
 const render = (node: ReturnType<typeof createElement>) =>
   renderToStaticMarkup(createElement(MemoryRouter, null, node))
 
 describe('legal documents', () => {
-  it('uses the same five routes as the Candidate app, in footer order', () => {
+  it('lists the legal routes in footer order', () => {
     expect(LEGAL_DOCUMENTS.map((item) => [item.path, item.footerLabel])).toEqual([
       ['/privacy', 'Privacy Policy'],
       ['/terms', 'Terms of Service'],
       ['/refund-policy', 'Refund & Cancellation Policy'],
       ['/pricing', 'Pricing & Billing Terms'],
+      ['/cookies', 'Cookie Policy'],
       ['/contact', 'Contact Us'],
     ])
   })
@@ -28,10 +29,21 @@ describe('legal documents', () => {
     }
   })
 
-  it('does not publish unapproved contact details', () => {
+  it('publishes only the approved support email and no phone numbers', () => {
     const copy = JSON.stringify(LEGAL_DOCUMENTS)
-    expect(copy).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.]+/)
+    expect(LEGAL_SUPPORT_EMAIL).toBe('support@jobround.ai')
+    expect(new Set(copy.match(/[\w.+-]+@[\w-]+\.[\w.]+/g))).toEqual(new Set([LEGAL_SUPPORT_EMAIL]))
     expect(copy).not.toMatch(/\+?\d[\d\s-]{8,}\d/)
+  })
+
+  it('links the support email on the contact page', () => {
+    const html = render(createElement(LegalPage, { slug: 'contact' }))
+    expect(html).toContain(`href="mailto:${LEGAL_SUPPORT_EMAIL}"`)
+  })
+
+  it('describes browser storage without claiming trackers on the cookie page', () => {
+    const ids = getLegalDocument('cookies').sections.map((section) => section.id)
+    expect(ids).toEqual(expect.arrayContaining(['what-we-store', 'no-tracking', 'managing', 'questions']))
   })
 
   it('marks unresolved terms on the contact page for company approval', () => {

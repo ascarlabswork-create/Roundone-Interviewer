@@ -20,6 +20,16 @@ function PendingApproval({ text }: { text: string }) {
 
 function Block({ block }: { block: LegalBlock }) {
   if (block.type === 'pending') return <PendingApproval text={block.text} />
+  if (block.type === 'email') {
+    return (
+      <p>
+        <span className="font-medium text-navy-950">{block.label}:</span>{' '}
+        <a href={`mailto:${block.address}`} className="font-medium text-blue-700 underline-offset-4 hover:underline">
+          {block.address}
+        </a>
+      </p>
+    )
+  }
   if (block.type === 'list') {
     return (
       <ul className="list-disc space-y-2 pl-5">
