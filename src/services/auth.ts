@@ -66,8 +66,11 @@ export function authErrorMessage(error: unknown): string {
   ) {
     return 'Your password must be at least 6 characters.'
   }
-  if (message.includes('rate limit') || message.includes('too many')) {
-    return 'Too many attempts. Please wait a moment and try again.'
+  if (message.includes('rate limit') || message.includes('too many') || message.includes('over_email_send')) {
+    return 'Too many email attempts. Wait a few minutes, then use Resend confirmation or Forgot password once.'
+  }
+  if (message.includes('redirect') && message.includes('not allowed')) {
+    return 'This site URL is not allowlisted in Supabase yet. Ask an admin to add https://experts.jobround.ai/** under Authentication → URL Configuration → Redirect URLs.'
   }
   if (message.includes('failed to fetch') || message.includes('network')) {
     return 'Network error. Check your connection and try again.'
@@ -141,6 +144,26 @@ export async function requireUser(): Promise<User> {
   return user
 }
 
+/**
+ * Supabase returns a user with no identities when the email is already registered
+ * (anti-enumeration). That looks like “needs confirmation” but no email is sent.
+ */
+export function interpretSignUpResponse(data: { user: User | null; session: { access_token: string } | null }): SignUpResult {
+  if (data.user && data.session) {
+    return { user: data.user, sessionCreated: true, needsEmailConfirmation: false }
+  }
+  const user = data.user
+  if (!user) {
+    throw new Error('Could not create your account. Please try again.')
+  }
+  if ((user.identities?.length ?? 0) === 0) {
+    throw new Error(
+      'An account with this email already exists. Open the Sign in tab and enter your password, or use Forgot password. If your email was never confirmed, try signing in anyway—then use Resend confirmation when prompted.',
+    )
+  }
+  return { user, sessionCreated: false, needsEmailConfirmation: true }
+}
+
 export async function signUpInterviewer(input: SignUpInterviewerInput): Promise<SignUpResult> {
   const firstName = input.firstName.trim()
   const lastName = input.lastName.trim()
@@ -173,11 +196,7 @@ export async function signUpInterviewer(input: SignUpInterviewerInput): Promise<
   })
   if (error) throw new Error(authErrorMessage(error))
 
-  return {
-    user: data.user ?? null,
-    sessionCreated: Boolean(data.session),
-    needsEmailConfirmation: Boolean(data.user) && !data.session,
-  }
+  return interpretSignUpResponse({ user: data.user, session: data.session })
 }
 
 export async function signInInterviewer(input: SignInInput) {
