@@ -90,7 +90,9 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         })
         if (result.needsEmailConfirmation) {
           setAwaitingConfirmation(true)
-          setInfo('Check your email for a confirmation link. After you confirm, sign in to continue setup.')
+          setInfo(
+            `We sent a confirmation link to ${email.trim()}. Open it on this device, then sign in to continue setup. Check spam if you do not see it within a few minutes.`,
+          )
           return
         }
         await applySignupProfile({
@@ -108,7 +110,11 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         await refreshAccount()
       }
     } catch (caught) {
-      setError(authErrorMessage(caught))
+      const message = authErrorMessage(caught)
+      setError(message)
+      if (!isRegister && isUnconfirmedEmailError(caught)) {
+        setAwaitingConfirmation(true)
+      }
     } finally {
       setSubmitting(false)
     }

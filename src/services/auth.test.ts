@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { OAUTH_CALLBACK_PATH, PASSWORD_RESET_PATH, buildAppUrl } from './auth.ts'
+import type { User } from '@supabase/supabase-js'
+import { OAUTH_CALLBACK_PATH, PASSWORD_RESET_PATH, buildAppUrl, interpretSignUpResponse } from './auth.ts'
 
 describe('buildAppUrl', () => {
   afterEach(() => {
@@ -12,5 +13,23 @@ describe('buildAppUrl', () => {
     expect(buildAppUrl(OAUTH_CALLBACK_PATH, { next: '/interviewer/setup' })).toBe(
       'https://experts.jobround.ai/interviewer/auth/callback?next=%2Finterviewer%2Fsetup',
     )
+  })
+})
+
+describe('interpretSignUpResponse', () => {
+  const baseUser = { id: 'u1', email: 'a@example.com' } as User
+
+  it('treats an existing email signup as an error instead of a fake confirmation', () => {
+    expect(() => interpretSignUpResponse({ user: { ...baseUser, identities: [] }, session: null })).toThrow(
+      /already exists/i,
+    )
+  })
+
+  it('requires confirmation when identities exist and there is no session', () => {
+    const result = interpretSignUpResponse({
+      user: { ...baseUser, identities: [{ id: 'id1' }] as User['identities'] },
+      session: null,
+    })
+    expect(result.needsEmailConfirmation).toBe(true)
   })
 })
