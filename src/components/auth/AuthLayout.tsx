@@ -37,7 +37,10 @@ export function AuthLayout() {
       </div>
       <LegalFooter />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
-      {location.pathname.startsWith('/interviewer/auth/callback') ? null : <GoogleOneTap />}
+      {location.pathname.startsWith('/interviewer/auth/callback') ||
+      location.pathname.startsWith('/interviewer/reset-password') ? null : (
+        <GoogleOneTap />
+      )}
     </div>
   )
 }

@@ -28,6 +28,7 @@ export type SignUpResult = {
 
 /** Path OAuth/redirect flows return to. Kept relative so the origin stays dynamic. */
 export const OAUTH_CALLBACK_PATH = '/interviewer/auth/callback'
+export const PASSWORD_RESET_PATH = '/interviewer/reset-password'
 
 export function isUnconfirmedEmailError(error: unknown): boolean {
   const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
@@ -95,17 +96,29 @@ function fail(error: { message: string } | null) {
 function appOrigin() {
   const configured = import.meta.env.VITE_PUBLIC_APP_URL?.trim().replace(/\/$/, '')
   if (configured) return configured
-  if (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app')) {
-    return window.location.origin
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname
+    if (host.endsWith('vercel.app') || host.endsWith('jobround.ai')) {
+      return window.location.origin
+    }
   }
-  if (import.meta.env.PROD) return 'https://roundone-interviewer.vercel.app'
+  if (import.meta.env.PROD) return 'https://experts.jobround.ai'
   return window.location.origin
 }
 
-function buildOAuthRedirect(nextPath?: string): string {
-  const url = new URL(OAUTH_CALLBACK_PATH, `${appOrigin()}/`)
-  if (nextPath) url.searchParams.set('next', nextPath)
+/** Absolute app URL for Supabase email links (confirmation, password reset). */
+export function buildAppUrl(path: string, query?: Record<string, string | undefined>) {
+  const url = new URL(path.startsWith('/') ? path : `/${path}`, `${appOrigin()}/`)
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      if (value) url.searchParams.set(key, value)
+    }
+  }
   return url.toString()
+}
+
+function buildOAuthRedirect(nextPath?: string): string {
+  return buildAppUrl(OAUTH_CALLBACK_PATH, nextPath ? { next: nextPath } : undefined)
 }
 
 export function fullNameFromParts(firstName: string, lastName: string) {
@@ -212,8 +225,16 @@ export async function sendPasswordReset(email: string) {
   const trimmed = email.trim()
   if (!trimmed) throw new Error('Enter your email above first, then choose “Forgot password?”.')
   const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
-    redirectTo: new URL('/interviewer/login', `${appOrigin()}/`).toString(),
+    redirectTo: buildAppUrl(PASSWORD_RESET_PATH),
   })
+  if (error) throw new Error(authErrorMessage(error))
+}
+
+export async function updatePassword(newPassword: string) {
+  if (newPassword.length < 6) {
+    throw new Error('Your password must be at least 6 characters.')
+  }
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) throw new Error(authErrorMessage(error))
 }
 

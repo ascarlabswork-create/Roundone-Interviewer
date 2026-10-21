@@ -21,6 +21,7 @@ import { LoginPage } from '../pages/LoginPage.tsx'
 import { NotificationsPage } from '../pages/NotificationsPage.tsx'
 import { ProfilePage } from '../pages/ProfilePage.tsx'
 import { RegisterPage } from '../pages/RegisterPage.tsx'
+import { ResetPasswordPage } from '../pages/ResetPasswordPage.tsx'
 import { ReviewsPage } from '../pages/ReviewsPage.tsx'
 import { ServicesPage } from '../pages/ServicesPage.tsx'
 import { SettingsPage } from '../pages/SettingsPage.tsx'
@@ -48,6 +49,7 @@ export function AppRouter() {
           <Route path="/interviewer/login" element={<LoginPage />} />
           <Route path="/interviewer/register" element={<RegisterPage />} />
           <Route path="/interviewer/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/interviewer/reset-password" element={<ResetPasswordPage />} />
         </Route>
         <Route element={<LegalLayout />}>
           {LEGAL_DOCUMENTS.map((legalDocument) => (
