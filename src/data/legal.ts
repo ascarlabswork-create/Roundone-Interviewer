@@ -174,9 +174,9 @@ const privacy: LegalDocument = {
       heading: 'Cookies and browser storage',
       blocks: [
         p(
-          'The Service uses your browser’s storage to keep you signed in, remember in-app preferences, and store your cookie consent choices. Optional analytics and marketing stay off unless you allow them in Cookie preferences. If you use Google sign-in, Google may set its own cookies under its own policies.',
+          'The Service uses your browser’s storage to keep you signed in and to remember in-app preferences. The Service does not use advertising or analytics trackers. If you use Google sign-in, Google may set its own cookies under its own policies.',
         ),
-        p('The Cookie Policy describes exactly what is stored in your browser, how to manage consent, and how to clear site data.'),
+        p('The Cookie Policy describes exactly what is stored in your browser and how to clear it.'),
       ],
     },
     {
@@ -490,7 +490,6 @@ const cookies: LegalDocument = {
         list(
           'Sign-in session (local storage): keeps you signed in between visits and lets the Service renew your session securely. It is removed when you sign out.',
           'Sign-up progress (session storage): keeps the details you enter while moving between the interviewer sign-up steps. Session storage is cleared when you close the browser tab.',
-          'Cookie preferences (local storage): remembers your optional analytics and marketing choices. Essential storage stays on regardless of this setting.',
         ),
       ],
     },
@@ -514,12 +513,11 @@ const cookies: LegalDocument = {
     },
     {
       id: 'consent',
-      heading: 'Your cookie choices',
+      heading: 'Why there is no cookie banner',
       blocks: [
         p(
-          'When you first visit, we ask for your cookie preferences. Essential storage always stays on so sign-in and core features work. Optional analytics and marketing categories stay off unless you allow them—and no optional trackers are connected in this interviewer app today.',
+          'The storage described above is strictly necessary to provide the Service you ask for, so there are no optional cookies to accept or decline. If optional cookies, such as analytics, are added in future, this policy will be updated before they are used.',
         ),
-        p('You can change your choices at any time from the Cookie preferences link in the footer.'),
       ],
     },
     {
