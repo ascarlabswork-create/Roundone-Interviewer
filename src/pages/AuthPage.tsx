@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { GoogleIcon } from '../components/ui/GoogleIcon.tsx'
-import { Card, FieldLabel, TextInput } from '../components/ui/primitives.tsx'
+import { Card, FieldLabel, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
 import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
 import { cn } from '../lib/cn.ts'
 import { defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
@@ -41,6 +41,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [submitting, setSubmitting] = useState(false)
   const [googleSubmitting, setGoogleSubmitting] = useState(false)
   const [resending, setResending] = useState(false)
+  const [resettingPassword, setResettingPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
@@ -58,7 +59,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     )
   }
 
-  const busy = submitting || googleSubmitting || resending || status === 'loading'
+  const busy = submitting || googleSubmitting || resending || resettingPassword || status === 'loading'
   const showResend = awaitingConfirmation || isUnconfirmedEmailError(error)
   const redirectError = oauthRedirectErrorMessage(params)
 
@@ -128,11 +129,14 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   async function forgotPassword() {
     setError(null)
     setInfo(null)
+    setResettingPassword(true)
     try {
       await sendPasswordReset(email)
-      setInfo('If an account exists for that email, we sent a password reset link.')
+      setInfo('If an account exists for that email, we sent a password reset link. Check your inbox and spam folder.')
     } catch (caught) {
       setError(authErrorMessage(caught))
+    } finally {
+      setResettingPassword(false)
     }
   }
 
@@ -244,13 +248,12 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 disabled={busy}
                 className="text-xs font-medium text-blue-700 hover:underline disabled:text-slate-400"
               >
-                Forgot password?
+                {resettingPassword ? 'Sending link…' : 'Forgot password?'}
               </button>
             ) : null}
           </div>
-          <TextInput
+          <PasswordInput
             id="password"
-            type="password"
             required
             minLength={6}
             autoComplete={isRegister ? 'new-password' : 'current-password'}
@@ -263,9 +266,8 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           <>
             <div>
               <FieldLabel htmlFor="confirmPassword">Confirm password</FieldLabel>
-              <TextInput
+              <PasswordInput
                 id="confirmPassword"
-                type="password"
                 required
                 minLength={6}
                 autoComplete="new-password"

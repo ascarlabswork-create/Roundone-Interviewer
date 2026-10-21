@@ -1,9 +1,10 @@
+import { GOOGLE_OAUTH_WEB_CLIENT_ID } from './googleAuthOrigins.ts'
+
 /** Google Identity Services (One Tap) helpers. The OAuth client ID is public by design. */
 const GSI_SCRIPT_URL = 'https://accounts.google.com/gsi/client'
-const DEFAULT_GOOGLE_CLIENT_ID = '36438582739-1nvehrporgsk8rvlhr76abn900g1fqra.apps.googleusercontent.com'
 
 export function googleClientId(): string {
-  return import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || DEFAULT_GOOGLE_CLIENT_ID
+  return import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || GOOGLE_OAUTH_WEB_CLIENT_ID
 }
 
 export type GoogleCredentialResponse = { credential?: string }
