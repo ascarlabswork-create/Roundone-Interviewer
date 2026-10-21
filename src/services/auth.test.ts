@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { User } from '@supabase/supabase-js'
-import { OAUTH_CALLBACK_PATH, PASSWORD_RESET_PATH, buildAppUrl, interpretSignUpResponse } from './auth.ts'
+import {
+  OAUTH_CALLBACK_PATH,
+  PASSWORD_RESET_PATH,
+  buildAppUrl,
+  buildEmailAuthRedirect,
+  interpretSignUpResponse,
+} from './auth.ts'
 
 describe('buildAppUrl', () => {
   afterEach(() => {
@@ -13,6 +19,16 @@ describe('buildAppUrl', () => {
     expect(buildAppUrl(OAUTH_CALLBACK_PATH, { next: '/interviewer/setup' })).toBe(
       'https://experts.jobround.ai/interviewer/auth/callback?next=%2Finterviewer%2Fsetup',
     )
+  })
+})
+
+describe('buildEmailAuthRedirect', () => {
+  it('uses the browser origin when available', () => {
+    vi.stubGlobal('window', { location: { origin: 'https://experts.jobround.ai' } })
+    expect(buildEmailAuthRedirect('/interviewer/setup')).toBe(
+      'https://experts.jobround.ai/interviewer/auth/callback?next=%2Finterviewer%2Fsetup',
+    )
+    vi.unstubAllGlobals()
   })
 })
 

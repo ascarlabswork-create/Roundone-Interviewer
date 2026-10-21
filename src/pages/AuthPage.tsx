@@ -329,9 +329,29 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         {info ? <p className="text-sm text-emerald-700">{info}</p> : null}
 
         {showResend ? (
-          <Button type="button" variant="outline" fullWidth disabled={busy} onClick={() => void resendConfirmation()}>
-            {resending ? 'Sending link\u2026' : 'Resend confirmation email'}
-          </Button>
+          <div className="space-y-3">
+            <Button type="button" variant="outline" fullWidth disabled={busy} onClick={() => void resendConfirmation()}>
+              {resending ? 'Sending link\u2026' : 'Resend confirmation email'}
+            </Button>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-xs leading-relaxed text-slate-600">
+              <p className="font-semibold text-slate-800">No email in a few minutes?</p>
+              <ul className="mt-2 list-disc space-y-1 pl-4">
+                <li>Check spam for mail from Supabase or jobround.ai.</li>
+                <li>Confirm the email address above is correct.</li>
+                <li>
+                  Open the <strong>Sign in</strong> tab and try <strong>Forgot password?</strong>—if that message arrives, wait and
+                  resend confirmation; if neither arrives, mail delivery must be enabled in Supabase (SMTP).
+                </li>
+                <li>
+                  Email{' '}
+                  <a href="mailto:support@jobround.ai" className="font-medium text-blue-700 underline">
+                    support@jobround.ai
+                  </a>{' '}
+                  with the address you used if you are still stuck.
+                </li>
+              </ul>
+            </div>
+          </div>
         ) : null}
 
         <Button type="submit" fullWidth disabled={busy}>
