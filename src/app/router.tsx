@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthLayout } from '../components/auth/AuthLayout.tsx'
-import { CookieConsentUI } from '../components/consent/CookieConsentUI.tsx'
 import { RequireAdminAuth } from '../components/auth/RequireAdminAuth.tsx'
 import { RequireInterviewerAuth } from '../components/auth/RequireInterviewerAuth.tsx'
 import { UnknownRoute } from '../components/auth/UnknownRoute.tsx'
@@ -96,7 +95,6 @@ export function AppRouter() {
         </Route>
         <Route path="*" element={<UnknownRoute />} />
       </Routes>
-      <CookieConsentUI />
     </BrowserRouter>
   )
 }

@@ -4,11 +4,10 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { LegalFooter } from '../components/legal/LegalFooter.tsx'
 import { LegalPage } from '../pages/LegalPage.tsx'
-import { CookieConsentProvider } from '../state/cookieConsent.tsx'
 import { LEGAL_COPYRIGHT, LEGAL_DOCUMENTS, LEGAL_SUPPORT_EMAIL, PENDING_APPROVAL_LABEL, getLegalDocument } from './legal.ts'
 
 const render = (node: ReturnType<typeof createElement>) =>
-  renderToStaticMarkup(createElement(MemoryRouter, null, createElement(CookieConsentProvider, null, node)))
+  renderToStaticMarkup(createElement(MemoryRouter, null, node))
 
 describe('legal documents', () => {
   it('lists the legal routes in footer order', () => {
@@ -70,7 +69,6 @@ describe('LegalFooter', () => {
       expect(html).toContain(`href="${item.path}"`)
     }
     expect(html).toContain('Refund &amp; Cancellation Policy')
-    expect(html).toContain('Cookie preferences')
   })
 })
 
