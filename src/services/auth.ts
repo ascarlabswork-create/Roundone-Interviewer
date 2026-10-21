@@ -124,6 +124,16 @@ function buildOAuthRedirect(nextPath?: string): string {
   return buildAppUrl(OAUTH_CALLBACK_PATH, nextPath ? { next: nextPath } : undefined)
 }
 
+/** Confirmation and reset emails should use the same origin the user signed up on. */
+export function buildEmailAuthRedirect(nextPath?: string): string {
+  if (typeof window !== 'undefined') {
+    const url = new URL(OAUTH_CALLBACK_PATH, window.location.origin)
+    if (nextPath) url.searchParams.set('next', nextPath)
+    return url.toString()
+  }
+  return buildOAuthRedirect(nextPath)
+}
+
 export function fullNameFromParts(firstName: string, lastName: string) {
   return `${firstName.trim()} ${lastName.trim()}`.trim()
 }
@@ -180,7 +190,7 @@ export async function signUpInterviewer(input: SignUpInterviewerInput): Promise<
     email: input.email.trim(),
     password: input.password,
     options: {
-      emailRedirectTo: buildOAuthRedirect('/interviewer/setup?step=professional'),
+      emailRedirectTo: buildEmailAuthRedirect('/interviewer/setup?step=professional'),
       data: {
         full_name: fullName,
         first_name: firstName,
@@ -264,7 +274,7 @@ export async function resendSignupEmail(email: string) {
     type: 'signup',
     email: trimmed,
     options: {
-      emailRedirectTo: buildOAuthRedirect('/interviewer/setup?step=professional'),
+      emailRedirectTo: buildEmailAuthRedirect('/interviewer/setup?step=professional'),
     },
   })
   if (error) throw new Error(authErrorMessage(error))
