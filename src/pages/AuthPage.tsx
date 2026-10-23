@@ -163,12 +163,12 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
 
   return (
     <Card className="p-6 sm:p-8">
-      <div className="mb-6 grid grid-cols-2 rounded-lg bg-slate-100 p-1">
+      <div className="mb-6 grid grid-cols-2 rounded-full bg-navy-950/5 p-1">
         <Link
           to={`/interviewer/login${nextQuery}`}
           className={cn(
-            'rounded-md px-3 py-2 text-center text-sm font-semibold',
-            !isRegister ? 'bg-white text-navy-950 shadow-sm' : 'text-slate-600',
+            'rounded-full px-3 py-2 text-center text-sm font-semibold transition-colors',
+            !isRegister ? 'bg-white text-navy-950 shadow-sm' : 'text-slate-600 hover:text-navy-950',
           )}
         >
           Sign in
@@ -176,16 +176,16 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         <Link
           to={`/interviewer/register${nextQuery}`}
           className={cn(
-            'rounded-md px-3 py-2 text-center text-sm font-semibold',
-            isRegister ? 'bg-white text-navy-950 shadow-sm' : 'text-slate-600',
+            'rounded-full px-3 py-2 text-center text-sm font-semibold transition-colors',
+            isRegister ? 'bg-white text-navy-950 shadow-sm' : 'text-slate-600 hover:text-navy-950',
           )}
         >
           Sign up
         </Link>
       </div>
 
-      <h1 className="text-xl font-semibold text-navy-950">
-        {isRegister ? 'Create your interviewer account' : 'Sign in'}
+      <h1 className="text-2xl font-semibold tracking-tight text-navy-950">
+        {isRegister ? 'Create your interviewer account' : 'Welcome back'}
       </h1>
       <p className="mt-1 text-sm text-slate-600">
         {isRegister
@@ -252,7 +252,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 type="button"
                 onClick={() => void forgotPassword()}
                 disabled={busy}
-                className="text-xs font-medium text-blue-700 hover:underline disabled:text-slate-400"
+                className="text-xs font-medium text-teal-700 hover:underline disabled:text-slate-400"
               >
                 {resettingPassword ? 'Sending link…' : 'Forgot password?'}
               </button>
@@ -344,7 +344,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 </li>
                 <li>
                   Email{' '}
-                  <a href="mailto:support@jobround.ai" className="font-medium text-blue-700 underline">
+                  <a href="mailto:support@jobround.ai" className="font-medium text-teal-700 underline">
                     support@jobround.ai
                   </a>{' '}
                   with the address you used if you are still stuck.

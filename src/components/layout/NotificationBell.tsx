@@ -110,7 +110,7 @@ export function NotificationBell() {
     <div className="relative" ref={rootRef}>
       <button
         type="button"
-        className="relative rounded-lg p-2 text-slate-700 hover:bg-slate-50"
+        className="relative rounded-full p-2 text-slate-700 hover:bg-navy-950/5"
         aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -118,14 +118,14 @@ export function NotificationBell() {
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 ? (
-          <span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-blue-600 px-1 text-center text-[10px] font-semibold leading-4 text-white">
+          <span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-teal-600 px-1 text-center text-[10px] font-semibold leading-4 text-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         ) : null}
       </button>
       {open ? (
         <div
-          className="absolute right-0 mt-2 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          className="absolute right-0 mt-2 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-3xl border border-navy-950/8 bg-white/95 shadow-[0_24px_60px_-24px_rgb(12_28_46/0.4)] backdrop-blur-xl"
           role="dialog"
           aria-label="Notifications"
         >
