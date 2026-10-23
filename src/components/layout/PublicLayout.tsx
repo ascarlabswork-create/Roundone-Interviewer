@@ -10,8 +10,8 @@ export function PublicLayout() {
   const { signOut } = useSession()
 
   return (
-    <div className="flex min-h-svh flex-col bg-slate-50">
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div className="flex min-h-svh flex-col bg-paper">
+      <header className="sticky top-0 z-40 border-b border-navy-950/8 bg-paper/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Logo to="/interviewer/dashboard" />
           <div className="flex items-center gap-3">
@@ -24,7 +24,7 @@ export function PublicLayout() {
           </div>
         </div>
       </header>
-      <main className="flex-1">
+      <main className="studio-grid flex-1">
         <Outlet />
       </main>
       <LegalFooter />
@@ -46,7 +46,7 @@ export function ToastStack({
         <button
           key={toast.id}
           type="button"
-          className="pointer-events-auto rounded-lg bg-navy-950 px-4 py-3 text-left text-sm text-white shadow-lg"
+          className="pointer-events-auto rounded-2xl bg-navy-950 px-4 py-3 text-left text-sm text-white shadow-lg"
           onClick={() => onDismiss(toast.id)}
         >
           {toast.message}

@@ -35,14 +35,14 @@ export function AdminShell() {
   const { toasts, dismissToast } = useToast()
 
   return (
-    <div className="min-h-svh bg-slate-100 lg:flex">
+    <div className="min-h-svh bg-paper lg:flex">
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-72 border-r border-slate-800 bg-navy-950 text-white transition-transform lg:static lg:w-64 lg:translate-x-0 xl:w-72',
+          'fixed inset-y-0 left-0 z-40 w-72 border-r border-navy-800 bg-navy-950 text-white transition-transform lg:static lg:w-64 lg:translate-x-0 xl:w-72',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="flex h-16 items-center justify-between px-4">
+        <div className="flex h-16 items-center justify-between px-5">
           <div>
             <p className="text-sm font-semibold tracking-tight">jobround.ai Admin</p>
             <p className="text-[11px] text-slate-300">Internal operations</p>
@@ -59,7 +59,7 @@ export function AdminShell() {
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium',
+                  'flex items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium transition-colors',
                   isActive ? 'bg-white text-navy-950' : 'text-slate-200 hover:bg-navy-800 hover:text-white',
                 )
               }
@@ -81,7 +81,7 @@ export function AdminShell() {
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4">
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-navy-950/8 bg-paper/80 px-4 backdrop-blur-xl">
           <button type="button" className="rounded-lg p-2 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
@@ -100,7 +100,7 @@ export function AdminShell() {
             </Button>
           </div>
         </header>
-        <main className="flex-1 px-4 py-6 sm:px-6">
+        <main className="studio-grid flex-1 px-4 py-6 sm:px-6">
           <Outlet />
         </main>
         <ToastStack toasts={toasts} onDismiss={dismissToast} />

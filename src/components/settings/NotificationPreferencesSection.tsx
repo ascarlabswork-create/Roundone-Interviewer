@@ -45,8 +45,8 @@ function PreferenceSwitch({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        'relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
-        checked ? 'bg-navy-950' : 'bg-slate-300',
+        'relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-coral-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
+        checked ? 'bg-coral-600' : 'bg-slate-300',
       )}
     >
       <span

@@ -181,7 +181,7 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-navy-950">Welcome back, {firstName}!</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-navy-950 sm:text-3xl">Welcome back, {firstName}</h1>
         <p className="mt-1 text-sm text-slate-600">Your interview operations for today.</p>
       </div>
 
@@ -269,7 +269,7 @@ export function DashboardPage() {
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy-950">Pending booking requests</h2>
-          <Link to="/interviewer/bookings?tab=pending" className="text-sm font-medium text-blue-700">
+          <Link to="/interviewer/bookings?tab=pending" className="text-sm font-medium text-coral-700 hover:text-coral-800">
             View Bookings
           </Link>
         </div>
@@ -325,7 +325,7 @@ export function DashboardPage() {
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy-950">Upcoming interviews</h2>
-          <Link to="/interviewer/bookings?tab=upcoming" className="text-sm font-medium text-blue-700">
+          <Link to="/interviewer/bookings?tab=upcoming" className="text-sm font-medium text-coral-700 hover:text-coral-800">
             View all
           </Link>
         </div>
@@ -399,7 +399,7 @@ export function DashboardPage() {
               <VisibilityLabel visibility="private" topic="Candidate Performance Feedback" />
             </div>
           </div>
-          <Link to="/interviewer/bookings?tab=completed" className="text-sm font-medium text-blue-700">
+          <Link to="/interviewer/bookings?tab=completed" className="text-sm font-medium text-coral-700 hover:text-coral-800">
             View all
           </Link>
         </div>

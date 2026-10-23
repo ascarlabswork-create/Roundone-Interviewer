@@ -16,8 +16,8 @@ export function LegalLayout() {
   }, [pathname, hash])
 
   return (
-    <div className="flex min-h-svh flex-col bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="flex min-h-svh flex-col bg-paper">
+      <header className="border-b border-navy-950/8 bg-paper/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Logo to={user ? '/interviewer/dashboard' : '/interviewer/login'} />
           <Link
@@ -28,7 +28,7 @@ export function LegalLayout() {
           </Link>
         </div>
       </header>
-      <main className="flex-1 px-4 py-10 sm:px-6 lg:px-8">
+      <main className="studio-grid flex-1 px-4 py-10 sm:px-6 lg:px-8">
         <Outlet />
       </main>
       <LegalFooter />

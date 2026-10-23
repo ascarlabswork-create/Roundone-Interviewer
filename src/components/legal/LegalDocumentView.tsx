@@ -24,7 +24,7 @@ function Block({ block }: { block: LegalBlock }) {
     return (
       <p>
         <span className="font-medium text-navy-950">{block.label}:</span>{' '}
-        <a href={`mailto:${block.address}`} className="font-medium text-blue-700 underline-offset-4 hover:underline">
+        <a href={`mailto:${block.address}`} className="font-medium text-coral-700 underline-offset-4 hover:underline">
           {block.address}
         </a>
       </p>
@@ -49,7 +49,7 @@ export function LegalDocumentView({ document }: { document: LegalDocument }) {
     <article className="mx-auto w-full max-w-3xl" aria-labelledby="legal-title">
       <header>
         <p className="text-sm font-medium text-slate-500">{LEGAL_COMPANY_NAME}</p>
-        <h1 id="legal-title" className="mt-1 text-3xl font-semibold tracking-tight text-navy-950">
+        <h1 id="legal-title" className="mt-1 text-4xl font-semibold tracking-tight text-navy-950">
           {document.title}
         </h1>
         <p className="mt-3 text-base text-slate-600">{document.summary}</p>
@@ -65,7 +65,7 @@ export function LegalDocumentView({ document }: { document: LegalDocument }) {
         <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {document.sections.map((section) => (
             <li key={section.id}>
-              <a href={`#${section.id}`} className="text-blue-700 underline-offset-4 hover:underline">
+              <a href={`#${section.id}`} className="text-coral-700 underline-offset-4 hover:underline">
                 {section.heading}
               </a>
             </li>
