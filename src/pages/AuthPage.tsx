@@ -4,7 +4,7 @@ import { Button } from '../components/ui/Button.tsx'
 import { GoogleIcon } from '../components/ui/GoogleIcon.tsx'
 import { Card, FieldLabel, PageHeader, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
 import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
-import { defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
+import { INTERVIEWER_SETUP, defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
 import {
   authErrorMessage,
   isUnconfirmedEmailError,
@@ -24,7 +24,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const isRegister = mode === 'register'
   const nextPath = safeNextPath(
     params.get('next'),
-    isRegister ? '/interviewer/setup?step=professional' : defaultHomePath(profile?.role),
+    isRegister ? INTERVIEWER_SETUP : defaultHomePath(profile?.role),
   )
   const nextQuery = `?next=${encodeURIComponent(nextPath)}`
   const [firstName, setFirstName] = useState('')
@@ -92,7 +92,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         if (result.needsEmailConfirmation) {
           setAwaitingConfirmation(true)
           setInfo(
-            `We sent a confirmation link to ${email.trim()}. Open it on this device, then sign in to continue setup. Check spam if you do not see it within a few minutes.`,
+            `We sent a confirmation link to ${email.trim()}. Open it to finish creating your interviewer account at experts.jobround.ai, then continue setup. Check spam if you do not see it within a few minutes.`,
           )
           return
         }

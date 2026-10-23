@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/primitives.tsx'
-import { defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
+import { INTERVIEWER_SETUP, defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
 import { oauthRedirectErrorMessage } from '../services/auth.ts'
 import { useSession } from '../state/session.tsx'
 
@@ -14,7 +14,7 @@ import { useSession } from '../state/session.tsx'
 export function AuthCallbackPage() {
   const { status, profile, account, error } = useSession()
   const [params] = useSearchParams()
-  const nextPath = safeNextPath(params.get('next'), defaultHomePath(profile?.role))
+  const nextPath = safeNextPath(params.get('next'), profile?.role === 'admin' ? defaultHomePath('admin') : INTERVIEWER_SETUP)
   const oauthError = oauthRedirectErrorMessage(params)
   const [timedOut, setTimedOut] = useState(false)
 
