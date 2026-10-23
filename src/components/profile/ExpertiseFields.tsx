@@ -88,7 +88,7 @@ export function ExpertiseFields({
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Popular with candidates</p>
               <button
                 type="button"
-                className="text-xs font-medium text-blue-700"
+                className="text-xs font-medium text-teal-700"
                 aria-expanded={browseSkills}
                 onClick={() => setBrowseSkills((open) => !open)}
               >

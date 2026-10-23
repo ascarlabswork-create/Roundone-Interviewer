@@ -4,17 +4,29 @@
 @theme {
   --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
 
-  --color-navy-950: #0b1f3a;
-  --color-navy-900: #102a4c;
-  --color-navy-800: #163a63;
-  --color-navy-700: #1e4d7b;
-  --color-navy-600: #2563a8;
+  --color-navy-950: #0c1c2e;
+  --color-navy-900: #13263d;
+  --color-navy-800: #1a3452;
+  --color-navy-700: #23466d;
+  --color-navy-600: #2d5a8a;
+
+  --color-teal-50: #edf8f5;
+  --color-teal-100: #d5efe8;
+  --color-teal-500: #1aa88a;
+  --color-teal-600: #12856e;
+  --color-teal-700: #0c6b59;
+
+  --color-canvas: #f3eee6;
+  --color-ink: #0c1c2e;
 
   --color-violet-50: #f5f3ff;
   --color-violet-100: #ede9fe;
   --color-violet-500: #7c3aed;
   --color-violet-600: #6d28d9;
   --color-violet-700: #5b21b6;
+
+  --shadow-lift: 0 18px 40px -24px rgb(12 28 46 / 0.38);
+  --shadow-float: 0 24px 60px -28px rgb(12 28 46 / 0.28);
 }
 
 @layer base {
@@ -25,8 +37,8 @@
   body {
     margin: 0;
     min-width: 320px;
-    background: #f8fafc;
-    color: #334155;
+    background: #f3eee6;
+    color: #3f4a57;
     font-family: var(--font-sans);
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     -webkit-font-smoothing: antialiased;
@@ -42,5 +54,26 @@
   select,
   textarea {
     font-family: inherit;
+  }
+
+  ::selection {
+    background: #d5efe8;
+    color: #0c1c2e;
+  }
+}
+
+@layer components {
+  .app-canvas {
+    background-color: #f3eee6;
+    background-image:
+      radial-gradient(1100px 560px at -8% -12%, rgb(26 168 138 / 0.16), transparent 58%),
+      radial-gradient(820px 480px at 108% -4%, rgb(217 119 6 / 0.12), transparent 52%),
+      radial-gradient(640px 380px at 48% 118%, rgb(12 28 46 / 0.07), transparent 58%);
+  }
+
+  .glass-panel {
+    background: rgb(255 255 255 / 0.78);
+    backdrop-filter: blur(18px);
+    box-shadow: var(--shadow-lift);
   }
 }

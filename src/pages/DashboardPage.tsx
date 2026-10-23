@@ -181,8 +181,11 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-navy-950">Welcome back, {firstName}!</h1>
-        <p className="mt-1 text-sm text-slate-600">Your interview operations for today.</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Interview studio</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-navy-950">Welcome back, {firstName}</h1>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+          Your bookings, sessions, and earnings — in one calm place.
+        </p>
       </div>
 
       {attention && attention.length > 0 ? (
@@ -269,7 +272,7 @@ export function DashboardPage() {
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy-950">Pending booking requests</h2>
-          <Link to="/interviewer/bookings?tab=pending" className="text-sm font-medium text-blue-700">
+          <Link to="/interviewer/bookings?tab=pending" className="text-sm font-medium text-teal-700 hover:text-teal-600">
             View Bookings
           </Link>
         </div>
@@ -325,7 +328,7 @@ export function DashboardPage() {
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy-950">Upcoming interviews</h2>
-          <Link to="/interviewer/bookings?tab=upcoming" className="text-sm font-medium text-blue-700">
+          <Link to="/interviewer/bookings?tab=upcoming" className="text-sm font-medium text-teal-700 hover:text-teal-600">
             View all
           </Link>
         </div>
@@ -399,7 +402,7 @@ export function DashboardPage() {
               <VisibilityLabel visibility="private" topic="Candidate Performance Feedback" />
             </div>
           </div>
-          <Link to="/interviewer/bookings?tab=completed" className="text-sm font-medium text-blue-700">
+          <Link to="/interviewer/bookings?tab=completed" className="text-sm font-medium text-teal-700 hover:text-teal-600">
             View all
           </Link>
         </div>

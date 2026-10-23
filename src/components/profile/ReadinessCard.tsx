@@ -80,7 +80,7 @@ export function ReadinessCard({
                     <li key={blocker}>
                       {READINESS_BLOCKER_TEXT[blocker]}{' '}
                       {href ? (
-                        <Link to={href} className="font-medium text-blue-700">
+                        <Link to={href} className="font-medium text-teal-700">
                           Fix
                         </Link>
                       ) : null}
