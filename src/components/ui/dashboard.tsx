@@ -15,10 +15,10 @@ export function MetricCard({
   loading?: boolean
 }) {
   return (
-    <div className="rounded-3xl border border-navy-950/8 bg-white/85 p-4 shadow-[0_18px_40px_-24px_rgb(12_28_46/0.28)] backdrop-blur-sm sm:p-5">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium text-slate-500">{label}</p>
-        {icon ? <span className="rounded-full bg-teal-50 p-2 text-teal-700">{icon}</span> : null}
+        {icon ? <span className="text-navy-700">{icon}</span> : null}
       </div>
       {loading ? (
         <>
@@ -53,7 +53,7 @@ export function Tabs({
           onClick={() => onChange(item.id)}
           className={cn(
             'rounded-full px-4 py-2 text-sm font-medium',
-            value === item.id ? 'bg-teal-700 text-white shadow-sm' : 'bg-white/80 text-slate-600 ring-1 ring-navy-950/10',
+            value === item.id ? 'bg-navy-950 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200',
           )}
         >
           {item.label}
@@ -80,12 +80,12 @@ export function Stepper({
           <li
             key={step.id}
             className={cn(
-              'rounded-2xl border px-3 py-2 text-xs font-medium',
+              'rounded-lg border px-3 py-2 text-xs font-medium',
               active
-                ? 'border-teal-700 bg-teal-700 text-white'
+                ? 'border-navy-950 bg-navy-950 text-white'
                 : done
-                  ? 'border-teal-200 bg-teal-50 text-teal-800'
-                  : 'border-navy-950/10 bg-white/80 text-slate-500',
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : 'border-slate-200 bg-white text-slate-500',
             )}
           >
             <span className="block text-[10px] uppercase tracking-wide opacity-80">
@@ -114,7 +114,7 @@ export function SlideOver({
   return (
     <div className="fixed inset-0 z-50 flex">
       <button type="button" className="flex-1 bg-navy-950/40" aria-label="Close panel" onClick={onClose} />
-      <aside className="h-full w-full max-w-lg overflow-y-auto rounded-l-3xl bg-white p-6 shadow-[0_24px_60px_-20px_rgb(12_28_46/0.4)]">
+      <aside className="h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-xl">
         <div className="mb-6 flex items-start justify-between gap-4">
           <h2 className="text-lg font-semibold text-navy-950">{title}</h2>
           <button type="button" className="text-sm font-medium text-slate-500" onClick={onClose}>

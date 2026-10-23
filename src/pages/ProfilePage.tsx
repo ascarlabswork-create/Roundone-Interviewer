@@ -333,7 +333,7 @@ export function ProfilePage() {
               ) : (
                 interviewTypes.map((type) => <Badge key={type}>{type}</Badge>)
               )}
-              <Link to="/interviewer/services" className="text-sm font-medium text-teal-700">
+              <Link to="/interviewer/services" className="text-sm font-medium text-blue-700">
                 Manage services
               </Link>
             </div>

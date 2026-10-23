@@ -19,7 +19,7 @@ export function CandidateDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/interviewer/bookings" className="text-sm font-medium text-teal-700">
+      <Link to="/interviewer/bookings" className="text-sm font-medium text-blue-700">
         Back to bookings
       </Link>
       <Card className="p-6">

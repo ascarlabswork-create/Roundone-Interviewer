@@ -94,7 +94,7 @@ export function ResetPasswordPage() {
       </form>
 
       <p className="mt-4 text-center text-sm text-slate-600">
-        <Link to="/interviewer/login" className="font-medium text-teal-700 hover:underline">
+        <Link to="/interviewer/login" className="font-medium text-blue-700 hover:underline">
           Back to sign in
         </Link>
       </p>

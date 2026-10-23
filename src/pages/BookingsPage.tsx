@@ -510,7 +510,7 @@ function BookingDetails({
         </div>
         <Link
           to={`/interviewer/candidates/${booking.candidate.candidateProfileId}`}
-          className="mt-3 inline-block text-sm font-medium text-teal-700 hover:text-blue-800"
+          className="mt-3 inline-block text-sm font-medium text-blue-700 hover:text-blue-800"
         >
           View interview history with this candidate
         </Link>

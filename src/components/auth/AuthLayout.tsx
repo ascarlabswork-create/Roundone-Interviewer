@@ -17,7 +17,7 @@ export function AuthLayout() {
 
   if (status === 'loading') {
     return (
-      <div className="app-canvas flex min-h-svh flex-col items-center justify-center px-4">
+      <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4">
         <Logo to="/interviewer/login" />
         <div className={cn('mt-8 w-full space-y-4', isRegister ? 'max-w-2xl' : 'max-w-md')}>
           <Skeleton className="h-10" />
@@ -28,29 +28,14 @@ export function AuthLayout() {
   }
 
   return (
-    <div className="app-canvas flex min-h-svh flex-col overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-10 px-4 py-10 lg:flex-row lg:items-center lg:gap-16 lg:px-8">
-        <div className="hidden max-w-md lg:block">
-          <Logo to="/interviewer/login" />
-          <p className="mt-8 text-xs font-semibold uppercase tracking-[0.22em] text-teal-700">For interviewers</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-navy-950">
-            Run sharper mock interviews, without the clutter.
-          </h1>
-          <p className="mt-4 text-base leading-7 text-slate-600">
-            jobround.ai is your studio for bookings, live sessions, feedback, and earnings — designed to feel calm
-            when the calendar is not.
-          </p>
-        </div>
-        <div className="flex w-full flex-1 flex-col items-center justify-start lg:items-stretch">
-          <div className="mb-6 lg:hidden">
-            <Logo to="/interviewer/login" />
-          </div>
-          <div className={cn('w-full', isRegister ? 'max-w-2xl' : 'max-w-md')}>
-            <Outlet />
-          </div>
+    <div className="flex min-h-svh flex-col overflow-y-auto bg-slate-50">
+      <div className="flex flex-1 flex-col items-center justify-start px-4 py-10 sm:justify-center">
+        <Logo to="/interviewer/login" />
+        <div className={cn('mt-8 w-full', isRegister ? 'max-w-2xl' : 'max-w-md')}>
+          <Outlet />
         </div>
       </div>
-      <LegalFooter className="border-transparent bg-transparent" />
+      <LegalFooter />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
       {location.pathname.startsWith('/interviewer/auth/callback') ||
       location.pathname.startsWith('/interviewer/reset-password') ? null : (

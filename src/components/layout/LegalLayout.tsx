@@ -16,8 +16,8 @@ export function LegalLayout() {
   }, [pathname, hash])
 
   return (
-    <div className="app-canvas flex min-h-svh flex-col">
-      <header className="mx-3 mt-3 rounded-3xl border border-navy-950/8 bg-white/80 shadow-[0_18px_40px_-24px_rgb(12_28_46/0.18)] backdrop-blur-xl">
+    <div className="flex min-h-svh flex-col bg-slate-50">
+      <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Logo to={user ? '/interviewer/dashboard' : '/interviewer/login'} />
           <Link
