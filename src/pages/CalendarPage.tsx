@@ -1110,7 +1110,7 @@ function MonthView({
                   />
                 ))}
               </div>
-              {hasSlots ? <p className="mt-2 text-[10px] text-teal-700">Bookable</p> : null}
+              {hasSlots ? <p className="mt-2 text-[10px] text-coral-700">Bookable</p> : null}
               {sameDay(day, new Date()) ? <p className="text-[10px] text-slate-400">Today</p> : null}
             </button>
           )

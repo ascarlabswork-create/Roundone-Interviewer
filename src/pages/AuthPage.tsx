@@ -2,9 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { GoogleIcon } from '../components/ui/GoogleIcon.tsx'
-import { Card, FieldLabel, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
+import { Card, FieldLabel, PageHeader, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
 import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
-import { cn } from '../lib/cn.ts'
 import { defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
 import {
   authErrorMessage,
@@ -52,10 +51,12 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
 
   if (status === 'authenticated' && user && !sessionError) {
     return (
-      <Card className="p-6 sm:p-8">
-        <h1 className="text-xl font-semibold text-navy-950">Signing you in\u2026</h1>
-        <p className="mt-1 text-sm text-slate-600">Loading your account.</p>
-      </Card>
+      <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
+        <Card className="p-6 sm:p-8">
+          <h1 className="text-xl font-semibold text-navy-950">Signing you in…</h1>
+          <p className="mt-1 text-sm text-slate-600">Loading your account.</p>
+        </Card>
+      </div>
     )
   }
 
@@ -162,38 +163,32 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   }
 
   return (
-    <Card className="p-6 sm:p-8">
-      <div className="mb-6 grid grid-cols-2 rounded-full bg-navy-950/5 p-1">
-        <Link
-          to={`/interviewer/login${nextQuery}`}
-          className={cn(
-            'rounded-full px-3 py-2 text-center text-sm font-semibold transition-colors',
-            !isRegister ? 'bg-white text-navy-950 shadow-sm' : 'text-slate-600 hover:text-navy-950',
-          )}
-        >
-          Sign in
-        </Link>
-        <Link
-          to={`/interviewer/register${nextQuery}`}
-          className={cn(
-            'rounded-full px-3 py-2 text-center text-sm font-semibold transition-colors',
-            isRegister ? 'bg-white text-navy-950 shadow-sm' : 'text-slate-600 hover:text-navy-950',
-          )}
-        >
-          Sign up
-        </Link>
+    <div className="mx-auto grid max-w-6xl items-stretch gap-6 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:py-16">
+      <div className="studio-ink hidden flex-col justify-between rounded-[2rem] p-10 text-white lg:flex">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold-400">jobround.ai</p>
+          <h2 className="mt-4 text-4xl font-semibold tracking-tight">
+            Candidates practice. You bring the hiring-side eye.
+          </h2>
+          <p className="mt-5 max-w-md text-sm leading-6 text-slate-300">
+            Sign in to run live mocks, keep bookings and notes in one place, and share feedback that actually helps
+            someone land the role.
+          </p>
+        </div>
+        <p className="text-sm text-slate-400">Built for working interviewers — not a generic admin panel.</p>
       </div>
+      <div className="mx-auto w-full max-w-md lg:mx-0 lg:max-w-none">
+      <PageHeader
+        title={isRegister ? 'Create your interviewer account' : 'Sign in'}
+        subtitle={
+          isRegister
+            ? 'We’ll save your professional details to your interviewer profile. Skills, services, and availability come next.'
+            : 'Sign in to manage bookings, sessions, and earnings.'
+        }
+      />
 
-      <h1 className="text-2xl font-semibold tracking-tight text-navy-950">
-        {isRegister ? 'Create your interviewer account' : 'Welcome back'}
-      </h1>
-      <p className="mt-1 text-sm text-slate-600">
-        {isRegister
-          ? 'We’ll save your professional details to your interviewer profile. Skills, services, and availability come next.'
-          : 'Use email and password, or continue with Google.'}
-      </p>
-
-      <form className="mt-6 space-y-4" onSubmit={submit}>
+      <Card className="mt-8 p-6 sm:p-8">
+      <form className="space-y-4" onSubmit={submit}>
         {isRegister ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -252,7 +247,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 type="button"
                 onClick={() => void forgotPassword()}
                 disabled={busy}
-                className="text-xs font-medium text-teal-700 hover:underline disabled:text-slate-400"
+                className="text-xs font-medium text-coral-700 hover:underline disabled:text-slate-400"
               >
                 {resettingPassword ? 'Sending link…' : 'Forgot password?'}
               </button>
@@ -323,6 +318,12 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           </>
         ) : null}
 
+        {!isRegister ? (
+          <p className="text-xs text-slate-500">
+            Accounts created with Google have no password. Use Continue with Google, or Forgot password to set one.
+          </p>
+        ) : null}
+
         {error || sessionError || redirectError ? (
           <p className="text-sm text-red-700">{error || sessionError || redirectError}</p>
         ) : null}
@@ -344,7 +345,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 </li>
                 <li>
                   Email{' '}
-                  <a href="mailto:support@jobround.ai" className="font-medium text-teal-700 underline">
+                  <a href="mailto:support@jobround.ai" className="font-medium text-coral-700 underline">
                     support@jobround.ai
                   </a>{' '}
                   with the address you used if you are still stuck.
@@ -355,7 +356,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         ) : null}
 
         <Button type="submit" fullWidth disabled={busy}>
-          {submitting ? 'Please wait\u2026' : isRegister ? 'Create account' : 'Sign in'}
+          {submitting ? 'Please wait\u2026' : isRegister ? 'Create account' : 'Sign In'}
         </Button>
       </form>
 
@@ -369,6 +370,26 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         <GoogleIcon className="h-4 w-4" />
         {googleSubmitting ? 'Redirecting to Google\u2026' : 'Continue with Google'}
       </Button>
+
+      <p className="mt-6 text-center text-sm text-slate-600">
+        {isRegister ? (
+          <>
+            Already have an account?{' '}
+            <Link className="font-medium text-coral-700" to={`/interviewer/login${nextQuery}`}>
+              Sign in
+            </Link>
+          </>
+        ) : (
+          <>
+            Don&apos;t have an account?{' '}
+            <Link className="font-medium text-coral-700" to={`/interviewer/register${nextQuery}`}>
+              Create Interviewer Account
+            </Link>
+          </>
+        )}
+      </p>
     </Card>
+      </div>
+    </div>
   )
 }

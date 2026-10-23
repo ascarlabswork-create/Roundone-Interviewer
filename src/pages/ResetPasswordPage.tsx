@@ -54,6 +54,7 @@ export function ResetPasswordPage() {
   }
 
   return (
+    <div className="mx-auto max-w-md px-4 py-10 sm:px-6 lg:py-16">
     <Card className="p-6 sm:p-8">
       <h1 className="text-xl font-semibold text-navy-950">Choose a new password</h1>
       <p className="mt-1 text-sm text-slate-600">
@@ -94,10 +95,11 @@ export function ResetPasswordPage() {
       </form>
 
       <p className="mt-4 text-center text-sm text-slate-600">
-        <Link to="/interviewer/login" className="font-medium text-teal-700 hover:underline">
+        <Link to="/interviewer/login" className="font-medium text-coral-700 hover:underline">
           Back to sign in
         </Link>
       </p>
     </Card>
+    </div>
   )
 }

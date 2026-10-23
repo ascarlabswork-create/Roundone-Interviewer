@@ -24,7 +24,7 @@ function Block({ block }: { block: LegalBlock }) {
     return (
       <p>
         <span className="font-medium text-navy-950">{block.label}:</span>{' '}
-        <a href={`mailto:${block.address}`} className="font-medium text-teal-700 underline-offset-4 hover:underline">
+        <a href={`mailto:${block.address}`} className="font-medium text-coral-700 underline-offset-4 hover:underline">
           {block.address}
         </a>
       </p>
@@ -65,7 +65,7 @@ export function LegalDocumentView({ document }: { document: LegalDocument }) {
         <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {document.sections.map((section) => (
             <li key={section.id}>
-              <a href={`#${section.id}`} className="text-teal-700 underline-offset-4 hover:underline">
+              <a href={`#${section.id}`} className="text-coral-700 underline-offset-4 hover:underline">
                 {section.heading}
               </a>
             </li>

@@ -9,9 +9,9 @@ export function DataTable({
   children: ReactNode
 }) {
   return (
-    <div className="hidden overflow-hidden rounded-3xl border border-navy-950/8 bg-white/85 shadow-[0_18px_40px_-24px_rgb(12_28_46/0.28)] lg:block">
+    <div className="hidden overflow-hidden rounded-2xl border border-navy-950/8 bg-white/90 shadow-[0_18px_40px_-28px_rgba(12,18,32,0.45)] lg:block">
       <table className="w-full text-left text-sm">
-        <thead className="bg-teal-50/70 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <thead className="bg-paper-deep/60 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <tr>
             {headers.map((header) => (
               <th key={header} className="px-4 py-3">
@@ -33,7 +33,7 @@ export function TableRow({
   children: ReactNode
   className?: string
 }) {
-  return <tr className={cn('bg-white/40 hover:bg-teal-50/50', className)}>{children}</tr>
+  return <tr className={cn('bg-white hover:bg-paper', className)}>{children}</tr>
 }
 
 export function Td({ children, className }: { children: ReactNode; className?: string }) {
