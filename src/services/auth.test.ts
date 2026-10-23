@@ -23,12 +23,26 @@ describe('buildAppUrl', () => {
 })
 
 describe('buildEmailAuthRedirect', () => {
-  it('uses the browser origin when available', () => {
-    vi.stubGlobal('window', { location: { origin: 'https://experts.jobround.ai' } })
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  it('uses the interviewer origin when available', () => {
+    vi.stubEnv('VITE_PUBLIC_APP_URL', 'https://experts.jobround.ai')
     expect(buildEmailAuthRedirect('/interviewer/setup')).toBe(
       'https://experts.jobround.ai/interviewer/auth/callback?next=%2Finterviewer%2Fsetup',
     )
-    vi.unstubAllGlobals()
+  })
+
+  it('never sends confirmation links to the candidate website', () => {
+    vi.stubEnv('VITE_PUBLIC_APP_URL', 'https://jobround.ai')
+    vi.stubGlobal('window', {
+      location: { origin: 'https://jobround.ai', hostname: 'jobround.ai' },
+    })
+    expect(buildEmailAuthRedirect('/candidate/login')).toBe(
+      'https://experts.jobround.ai/interviewer/auth/callback?next=%2Finterviewer%2Fsetup%3Fstep%3Dprofessional',
+    )
   })
 })
 

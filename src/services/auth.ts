@@ -29,6 +29,8 @@ export type SignUpResult = {
 /** Path OAuth/redirect flows return to. Kept relative so the origin stays dynamic. */
 export const OAUTH_CALLBACK_PATH = '/interviewer/auth/callback'
 export const PASSWORD_RESET_PATH = '/interviewer/reset-password'
+export const INTERVIEWER_PRODUCTION_ORIGIN = 'https://experts.jobround.ai'
+const EMAIL_CONFIRM_NEXT = '/interviewer/setup?step=professional'
 
 export function isUnconfirmedEmailError(error: unknown): boolean {
   const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
@@ -96,17 +98,39 @@ function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message)
 }
 
+function hostnameOf(origin: string) {
+  try {
+    return new URL(origin).hostname
+  } catch {
+    return ''
+  }
+}
+
+/** jobround.ai is the candidate app. Never send interviewer auth there. */
+function isCandidatePublicOrigin(origin: string) {
+  const host = hostnameOf(origin)
+  return host === 'jobround.ai' || host === 'www.jobround.ai'
+}
+
 function appOrigin() {
   const configured = import.meta.env.VITE_PUBLIC_APP_URL?.trim().replace(/\/$/, '')
-  if (configured) return configured
+  if (configured && !isCandidatePublicOrigin(configured)) return configured
   if (typeof window !== 'undefined') {
-    const host = window.location.hostname
-    if (host.endsWith('vercel.app') || host.endsWith('jobround.ai')) {
-      return window.location.origin
+    const origin = window.location.origin.replace(/\/$/, '')
+    if (!isCandidatePublicOrigin(origin)) {
+      const host = hostnameOf(origin)
+      if (
+        host === 'experts.jobround.ai' ||
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host.endsWith('.vercel.app')
+      ) {
+        return origin
+      }
+      if (import.meta.env.DEV) return origin
     }
   }
-  if (import.meta.env.PROD) return 'https://experts.jobround.ai'
-  return window.location.origin
+  return INTERVIEWER_PRODUCTION_ORIGIN
 }
 
 /** Absolute app URL for Supabase email links (confirmation, password reset). */
@@ -121,17 +145,15 @@ export function buildAppUrl(path: string, query?: Record<string, string | undefi
 }
 
 function buildOAuthRedirect(nextPath?: string): string {
-  return buildAppUrl(OAUTH_CALLBACK_PATH, nextPath ? { next: nextPath } : undefined)
+  const next =
+    nextPath?.startsWith('/interviewer') || nextPath?.startsWith('/admin') ? nextPath : EMAIL_CONFIRM_NEXT
+  return buildAppUrl(OAUTH_CALLBACK_PATH, { next })
 }
 
-/** Confirmation and reset emails should use the same origin the user signed up on. */
+/** Confirmation emails must return to the interviewer app, never jobround.ai/candidate. */
 export function buildEmailAuthRedirect(nextPath?: string): string {
-  if (typeof window !== 'undefined') {
-    const url = new URL(OAUTH_CALLBACK_PATH, window.location.origin)
-    if (nextPath) url.searchParams.set('next', nextPath)
-    return url.toString()
-  }
-  return buildOAuthRedirect(nextPath)
+  const next = nextPath?.startsWith('/interviewer') ? nextPath : EMAIL_CONFIRM_NEXT
+  return buildAppUrl(OAUTH_CALLBACK_PATH, { next })
 }
 
 export function fullNameFromParts(firstName: string, lastName: string) {
@@ -190,12 +212,14 @@ export async function signUpInterviewer(input: SignUpInterviewerInput): Promise<
     email: input.email.trim(),
     password: input.password,
     options: {
-      emailRedirectTo: buildEmailAuthRedirect('/interviewer/setup?step=professional'),
+      emailRedirectTo: buildEmailAuthRedirect(EMAIL_CONFIRM_NEXT),
       data: {
         full_name: fullName,
         first_name: firstName,
         last_name: lastName,
         role: 'interviewer',
+        persona: 'interviewer',
+        signup_app: 'interviewer',
         timezone: input.timezone?.trim() || 'Asia/Kolkata',
         phone: input.phone?.trim() || '',
         current_role: input.currentRole.trim(),
@@ -274,7 +298,7 @@ export async function resendSignupEmail(email: string) {
     type: 'signup',
     email: trimmed,
     options: {
-      emailRedirectTo: buildEmailAuthRedirect('/interviewer/setup?step=professional'),
+      emailRedirectTo: buildEmailAuthRedirect(EMAIL_CONFIRM_NEXT),
     },
   })
   if (error) throw new Error(authErrorMessage(error))
