@@ -5,12 +5,14 @@ describe('googleOAuthOriginAllowlist', () => {
   it('includes local dev and production interviewer origins', () => {
     const list = googleOAuthOriginAllowlist()
     expect(list).toContain('http://localhost:5174')
+    expect(list).toContain('https://jobround.ai')
     expect(list).toContain('https://experts.jobround.ai')
   })
 })
 
 describe('isGoogleIdentityOriginAllowed', () => {
-  it('allows built-in production origin', () => {
+  it('allows jobround.ai and the interviewer origin', () => {
+    expect(isGoogleIdentityOriginAllowed('https://jobround.ai')).toBe(true)
     expect(isGoogleIdentityOriginAllowed('https://experts.jobround.ai')).toBe(true)
   })
 

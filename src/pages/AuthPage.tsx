@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { GoogleContinueButton } from '../components/auth/GoogleContinueButton.tsx'
 import { Button } from '../components/ui/Button.tsx'
-import { GoogleIcon } from '../components/ui/GoogleIcon.tsx'
 import { Card, FieldLabel, PageHeader, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
 import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
 import { INTERVIEWER_SETUP, defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
@@ -12,7 +12,6 @@ import {
   resendSignupEmail,
   sendPasswordReset,
   signInInterviewer,
-  signInWithGoogle,
   signUpInterviewer,
 } from '../services/auth.ts'
 import { applySignupProfile } from '../services/interviewerProfile.ts'
@@ -38,7 +37,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [currentRole, setCurrentRole] = useState('')
   const [experienceYears, setExperienceYears] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [googleSubmitting, setGoogleSubmitting] = useState(false)
   const [resending, setResending] = useState(false)
   const [resettingPassword, setResettingPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +58,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     )
   }
 
-  const busy = submitting || googleSubmitting || resending || resettingPassword || status === 'loading'
+  const busy = submitting || resending || resettingPassword || status === 'loading'
   const showResend = awaitingConfirmation || isUnconfirmedEmailError(error)
   const redirectError = oauthRedirectErrorMessage(params)
 
@@ -118,18 +116,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
       }
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  async function continueWithGoogle() {
-    setError(null)
-    setInfo(null)
-    setGoogleSubmitting(true)
-    try {
-      await signInWithGoogle(nextPath)
-    } catch (caught) {
-      setError(authErrorMessage(caught))
-      setGoogleSubmitting(false)
     }
   }
 
@@ -366,10 +352,13 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         <span className="h-px flex-1 bg-slate-200" />
       </div>
 
-      <Button type="button" variant="outline" fullWidth disabled={busy} onClick={() => void continueWithGoogle()}>
-        <GoogleIcon className="h-4 w-4" />
-        {googleSubmitting ? 'Redirecting to Google\u2026' : 'Continue with Google'}
-      </Button>
+      <GoogleContinueButton
+        disabled={busy}
+        onError={(message) => {
+          setInfo(null)
+          setError(message)
+        }}
+      />
 
       <p className="mt-6 text-center text-sm text-slate-600">
         {isRegister ? (

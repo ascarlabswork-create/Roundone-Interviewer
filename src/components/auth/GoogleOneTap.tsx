@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { isGoogleIdentityOriginAllowed } from '../../lib/googleAuthOrigins.ts'
-import { createGoogleNonce, googleClientId, loadGoogleIdentity } from '../../lib/googleOneTap.ts'
+import { createGoogleNonce, googleIdentityConfig, loadGoogleIdentity } from '../../lib/googleOneTap.ts'
 import { authErrorMessage, signInWithGoogleIdToken } from '../../services/auth.ts'
 import { useSession } from '../../state/session.tsx'
 import { useToast } from '../../state/toast.tsx'
@@ -27,21 +27,14 @@ export function GoogleOneTap() {
         const [google, nonce] = await Promise.all([loadGoogleIdentity(), createGoogleNonce()])
         if (cancelled) return
         api = google
-        google.initialize({
-          client_id: googleClientId(),
-          nonce: nonce.hashed,
-          auto_select: false,
-          cancel_on_tap_outside: false,
-          context: 'signin',
-          itp_support: true,
-          use_fedcm_for_prompt: false,
-          callback: (response) => {
+        google.initialize(
+          googleIdentityConfig(nonce.hashed, (response) => {
             if (!response.credential) return
             signInWithGoogleIdToken(response.credential, nonce.raw).catch((caught: unknown) => {
               pushToast(authErrorMessage(caught))
             })
-          },
-        })
+          }),
+        )
         google.prompt()
       } catch {
         // One Tap is optional; the Continue with Google button still works.
