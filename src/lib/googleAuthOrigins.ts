@@ -5,11 +5,10 @@ export const GOOGLE_OAUTH_WEB_CLIENT_ID =
 export const GOOGLE_OAUTH_BUILTIN_ORIGINS = [
   'http://localhost:5174',
   'http://127.0.0.1:5174',
+  'https://jobround.ai',
+  'https://www.jobround.ai',
   'https://experts.jobround.ai',
 ] as const
-
-export const SUPABASE_GOOGLE_REDIRECT_URI =
-  'https://fhcrxjrqtojixgqemofp.supabase.co/auth/v1/callback'
 
 function extraOriginsFromEnv(): string[] {
   const raw = import.meta.env.VITE_GOOGLE_AUTHORIZED_ORIGINS?.trim()

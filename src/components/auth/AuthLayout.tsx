@@ -6,7 +6,6 @@ import { Logo } from '../layout/Logo.tsx'
 import { ToastStack } from '../layout/PublicLayout.tsx'
 import { useToast } from '../../state/toast.tsx'
 import { Button } from '../ui/Button.tsx'
-import { GoogleOneTap } from './GoogleOneTap.tsx'
 
 /** Guest-only chrome: same jobround paper header as the candidate app. */
 export function AuthLayout() {
@@ -55,10 +54,6 @@ export function AuthLayout() {
       </main>
       <LegalFooter />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
-      {location.pathname.startsWith('/interviewer/auth/callback') ||
-      location.pathname.startsWith('/interviewer/reset-password') ? null : (
-        <GoogleOneTap />
-      )}
     </div>
   )
 }

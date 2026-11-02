@@ -144,12 +144,6 @@ export function buildAppUrl(path: string, query?: Record<string, string | undefi
   return url.toString()
 }
 
-function buildOAuthRedirect(nextPath?: string): string {
-  const next =
-    nextPath?.startsWith('/interviewer') || nextPath?.startsWith('/admin') ? nextPath : EMAIL_CONFIRM_NEXT
-  return buildAppUrl(OAUTH_CALLBACK_PATH, { next })
-}
-
 /** Confirmation emails must return to the interviewer app, never jobround.ai/candidate. */
 export function buildEmailAuthRedirect(nextPath?: string): string {
   const next = nextPath?.startsWith('/interviewer') ? nextPath : EMAIL_CONFIRM_NEXT
@@ -246,20 +240,15 @@ export async function signInInterviewer(input: SignInInput) {
 }
 
 /**
- * Start Google OAuth. New Google users are created as candidates by the
- * signup trigger (OAuth cannot set role metadata). The interviewer app
+ * Google sign-in on this origin (jobround.ai / experts.jobround.ai).
+ * Uses an ID token so Google does not send users to *.supabase.co.
+ * New Google users are created as candidates by the signup trigger; this app
  * claims a brand-new empty Google account via claim_interviewer_persona.
  */
-export async function signInWithGoogle(nextPath?: string) {
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: buildOAuthRedirect(nextPath),
-      queryParams: { prompt: 'select_account' },
-    },
-  })
-  if (error) throw new Error(authErrorMessage(error))
-  return data
+export async function signInWithGoogle(_nextPath?: string) {
+  const { requestGoogleIdCredential } = await import('../lib/googleOneTap.ts')
+  const { credential, rawNonce } = await requestGoogleIdCredential()
+  return signInWithGoogleIdToken(credential, rawNonce)
 }
 
 /** Completes Google One Tap: exchanges Google's ID token for a Supabase session. */
