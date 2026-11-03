@@ -56,6 +56,17 @@ export function isValidTimezone(zone: string) {
   }
 }
 
+/** IANA zone from the user's device/location. No GPS; uses the browser locale clock. */
+export function detectBrowserTimezone(fallback = 'Asia/Kolkata') {
+  try {
+    const detected = normalizeTimezoneId(Intl.DateTimeFormat().resolvedOptions().timeZone ?? '')
+    if (detected && isValidTimezone(detected)) return detected
+  } catch {
+    // fall through
+  }
+  return fallback
+}
+
 /** Scheduling uses interviewer_profiles.timezone; keep profiles in sync for the public directory. */
 export function effectiveSchedulingTimezone(
   profileTimezone: string,

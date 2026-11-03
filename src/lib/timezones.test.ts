@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  detectBrowserTimezone,
   effectiveSchedulingTimezone,
   formatTimezoneLabel,
   getTimezoneOptions,
@@ -17,6 +18,12 @@ describe('timezones', () => {
   it('normalizes legacy Calcutta to Kolkata', () => {
     expect(normalizeTimezoneId('Asia/Calcutta')).toBe('Asia/Kolkata')
     expect(isValidTimezone('Asia/Calcutta')).toBe(true)
+  })
+
+  it('detects a valid IANA timezone from the runtime locale', () => {
+    const zone = detectBrowserTimezone()
+    expect(isValidTimezone(zone)).toBe(true)
+    expect(zone).not.toBe('')
   })
 
   it('prefers interviewer timezone for scheduling display', () => {

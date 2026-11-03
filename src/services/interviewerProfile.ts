@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase.ts'
-import { effectiveSchedulingTimezone, isValidTimezone, normalizeTimezoneId } from '../lib/timezones.ts'
+import { detectBrowserTimezone, effectiveSchedulingTimezone, isValidTimezone, normalizeTimezoneId } from '../lib/timezones.ts'
 import { normalizeWhatsappPhone, WHATSAPP_PHONE_INVALID } from '../lib/whatsappPhone.ts'
 import { TABLES } from './tables.ts'
 import { claimInterviewerPersona, requireUser, updateAuthMetadata } from './auth.ts'
@@ -225,6 +225,10 @@ export async function hydrateInterviewerSignupFromMetadata(
       updates.headline = currentRole
     }
     if (company) updates.company = company
+    const storedTimezone = current.interviewer.timezone || current.profile.timezone
+    if (!storedTimezone.trim() || storedTimezone === 'Asia/Kolkata') {
+      updates.timezone = detectBrowserTimezone()
+    }
   }
   if (years !== undefined && current.interviewer.experience_years === 0) {
     updates.experienceYears = Math.max(0, Math.round(years))
