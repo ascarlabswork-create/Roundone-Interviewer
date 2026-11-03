@@ -1,4 +1,5 @@
 import type { User } from '@supabase/supabase-js'
+import { detectBrowserTimezone } from '../lib/timezones.ts'
 import { supabase } from '../lib/supabase.ts'
 
 export type AppRole = 'candidate' | 'interviewer' | 'admin'
@@ -214,7 +215,7 @@ export async function signUpInterviewer(input: SignUpInterviewerInput): Promise<
         role: 'interviewer',
         persona: 'interviewer',
         signup_app: 'interviewer',
-        timezone: input.timezone?.trim() || 'Asia/Kolkata',
+        timezone: input.timezone?.trim() || detectBrowserTimezone(),
         phone: input.phone?.trim() || '',
         current_role: input.currentRole.trim(),
         company: input.company.trim(),

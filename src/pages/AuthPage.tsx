@@ -3,8 +3,8 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { GoogleContinueButton } from '../components/auth/GoogleContinueButton.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Card, FieldLabel, PageHeader, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
-import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
 import { INTERVIEWER_SETUP, defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
+import { detectBrowserTimezone } from '../lib/timezones.ts'
 import {
   authErrorMessage,
   isUnconfirmedEmailError,
@@ -32,7 +32,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [timezone, setTimezone] = useState('Asia/Kolkata')
   const [company, setCompany] = useState('')
   const [currentRole, setCurrentRole] = useState('')
   const [experienceYears, setExperienceYears] = useState('')
@@ -76,6 +75,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         if (!Number.isFinite(years) || years < 0) {
           throw new Error('Enter years of experience as a number.')
         }
+        const timezone = detectBrowserTimezone()
         const result = await signUpInterviewer({
           firstName,
           lastName,
@@ -261,10 +261,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
               />
-            </div>
-            <div>
-              <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
-              <TimezoneSelect id="timezone" value={timezone} onChange={setTimezone} required />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
