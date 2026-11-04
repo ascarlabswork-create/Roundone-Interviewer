@@ -3,7 +3,7 @@ import { DeleteAccountCard } from '../components/settings/DeleteAccountCard.tsx'
 import { NotificationPreferencesSection } from '../components/settings/NotificationPreferencesSection.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Card, ErrorState, FieldLabel, PageHeader, Skeleton, TextInput } from '../components/ui/primitives.tsx'
-import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
+import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
 import { effectiveSchedulingTimezone } from '../lib/timezones.ts'
@@ -103,10 +103,7 @@ export function SettingsPage() {
             </p>
             {whatsappError ? <p className="mt-1 text-sm text-red-700">{whatsappError}</p> : null}
           </div>
-          <div>
-            <FieldLabel htmlFor="tz">Timezone</FieldLabel>
-            <TimezoneSelect id="tz" value={timezone} onChange={setTimezone} required />
-          </div>
+          <DetectedTimezoneNote timezone={timezone} />
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={isListed} onChange={(event) => setIsListed(event.target.checked)} />
             List my profile to candidates

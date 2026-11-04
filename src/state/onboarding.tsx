@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import { readSessionJson, writeSessionJson } from '../lib/storage.ts'
+import { detectBrowserTimezone } from '../lib/timezones.ts'
 import type { OnboardingDraft } from '../types.ts'
 
 const KEY = 'jobround.interviewer.onboarding.v4'
@@ -32,7 +33,7 @@ export const emptyDraft = (): OnboardingDraft => ({
     price: '1000',
     cancellationPolicy: '',
   },
-  timezone: 'Asia/Kolkata',
+  timezone: detectBrowserTimezone(),
   languages: '',
   weeklyAvailability: [],
   customAvailability: [],
