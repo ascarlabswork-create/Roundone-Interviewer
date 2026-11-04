@@ -60,8 +60,8 @@ export type InterviewerBooking = {
 }
 
 export const BOOKING_ALREADY_UPDATED = 'This booking is no longer available for confirmation.'
-export const BOOKING_AWAITING_PAYMENT =
-  'This request isn’t on your list yet. It appears after the candidate’s payment is captured.'
+export const BOOKING_NOT_YET_LISTED =
+  'This request isn’t on your list yet. Try refreshing in a moment.'
 
 const BOOKING_COLUMNS = [
   'id',
