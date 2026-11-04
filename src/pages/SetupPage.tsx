@@ -7,8 +7,8 @@ import { Stepper } from '../components/ui/dashboard.tsx'
 import { Card, FieldLabel, TextArea, TextInput } from '../components/ui/primitives.tsx'
 import { SuggestedSelect } from '../components/ui/suggestions.tsx'
 import { INTERVIEW_TYPES, ONBOARDING_STEPS, WEEKDAY_LABELS } from '../data/catalogs.ts'
-import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
-import { effectiveSchedulingTimezone } from '../lib/timezones.ts'
+import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
+import { detectBrowserTimezone, effectiveSchedulingTimezone } from '../lib/timezones.ts'
 import { formatClockRange, formatReviewDate } from '../lib/dates.ts'
 import {
   loadMyAvailabilityBoard,
@@ -56,7 +56,11 @@ export function SetupPage() {
       role: account.interviewer.current_role === 'Pending' ? '' : account.interviewer.current_role,
       experienceYears: String(account.interviewer.experience_years || ''),
       professionalSummary: account.interviewer.bio || account.interviewer.headline || '',
-      timezone: effectiveSchedulingTimezone(account.profile.timezone, account.interviewer.timezone),
+      timezone: effectiveSchedulingTimezone(
+        account.profile.timezone,
+        account.interviewer.timezone,
+        detectBrowserTimezone(),
+      ),
       languages: account.interviewer.languages.join(', '),
       phone: account.phone,
       skills: account.skills,
@@ -220,25 +224,15 @@ export function SetupPage() {
                   />
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
-                  <TimezoneSelect
-                    id="timezone"
-                    value={draft.timezone}
-                    onChange={(timezone) => update({ timezone })}
-                    required
-                  />
-                </div>
-                <div>
-                  <FieldLabel htmlFor="phone">Phone (optional)</FieldLabel>
-                  <TextInput
-                    id="phone"
-                    type="tel"
-                    value={draft.phone}
-                    onChange={(event) => update({ phone: event.target.value })}
-                  />
-                </div>
+              <DetectedTimezoneNote timezone={draft.timezone || detectBrowserTimezone()} />
+              <div>
+                <FieldLabel htmlFor="phone">Phone (optional)</FieldLabel>
+                <TextInput
+                  id="phone"
+                  type="tel"
+                  value={draft.phone}
+                  onChange={(event) => update({ phone: event.target.value })}
+                />
               </div>
               <div>
                 <FieldLabel htmlFor="summary">Professional Summary</FieldLabel>

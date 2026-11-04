@@ -13,7 +13,7 @@ import {
   TextInput,
 } from '../components/ui/primitives.tsx'
 import { BUFFER_OPTIONS, INTERVIEW_TYPES, WEEKDAY_LABELS, WEEKDAY_ORDER } from '../data/catalogs.ts'
-import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
+import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import type { InterviewType } from '../data/catalogs.ts'
 import { cn } from '../lib/cn.ts'
 import {
@@ -53,7 +53,6 @@ import {
   describeAvailableRange,
   updateMyAvailableRange,
   updateMyBookingBuffer,
-  updateMyTimezone,
   type AvailabilityBoard,
   type AvailableDateRange,
   type BlockedTimeRecord,
@@ -63,7 +62,6 @@ import {
 } from '../services/interviewerAvailability.ts'
 import { getMyBookings, type InterviewerBooking } from '../services/interviewerBookings.ts'
 import { getMyServices } from '../services/interviewerServices.ts'
-import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
 import type { AvailabilitySchedule, Booking, CalendarPeriod } from '../types.ts'
 
@@ -100,7 +98,6 @@ const emptyBlockForm = (): BlockForm => ({
 })
 
 export function CalendarPage() {
-  const { refreshAccount } = useSession()
   const boardState = useAsync(() => loadMyAvailabilityBoard(), [])
   const bookingsState = useAsync(() => getMyBookings(), [])
   const servicesState = useAsync(() => getMyServices(), [])
@@ -269,13 +266,6 @@ export function CalendarPage() {
     await runMutation(() => deleteAvailability(id))
   }
 
-  async function onTimezoneChange(timezone: string) {
-    await runMutation(async () => {
-      await updateMyTimezone(timezone)
-      await refreshAccount()
-    })
-  }
-
   async function onBufferChange(bufferMin: BookingBufferMinutes) {
     await runMutation(() => updateMyBookingBuffer(bufferMin))
   }
@@ -342,16 +332,11 @@ export function CalendarPage() {
           <Card className="p-5">
             <h2 className="text-lg font-semibold text-navy-950">Timezone</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Set weekly hours in your timezone ({timezoneLabel(board.timezone)}). Candidates book in their own zone;
-              each session shows both times so CST and IST (or any pair) line up.
+              Weekly hours use your detected timezone ({timezoneLabel(board.timezone)}). Candidates book in their own
+              zone; each session shows both times so CST and IST (or any pair) line up.
             </p>
             <div className="mt-4 max-w-md">
-              <TimezoneSelect
-                id="availability-timezone"
-                value={board.timezone}
-                disabled={saving}
-                onChange={(timezone) => void onTimezoneChange(timezone)}
-              />
+              <DetectedTimezoneNote timezone={board.timezone} />
             </div>
           </Card>
 

@@ -10,7 +10,7 @@ import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
 import { StarRating } from '../components/ui/identity.tsx'
 import { Badge, Card, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
 import { REVIEW_DIMENSIONS } from '../data/catalogs.ts'
-import { TimezoneSelect } from '../components/ui/TimezoneSelect.tsx'
+import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import { formatReviewDate, timezoneLabel } from '../lib/dates.ts'
 import { effectiveSchedulingTimezone } from '../lib/timezones.ts'
 import { formatCount, formatINR } from '../lib/format.ts'
@@ -237,15 +237,7 @@ export function ProfilePage() {
               <FieldLabel htmlFor="fullName">Full name</FieldLabel>
               <TextInput id="fullName" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} />
             </div>
-            <div>
-              <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
-              <TimezoneSelect
-                id="timezone"
-                value={form.timezone}
-                onChange={(timezone) => setForm({ ...form, timezone })}
-                required
-              />
-            </div>
+            <DetectedTimezoneNote timezone={form.timezone} />
             <div>
               <FieldLabel htmlFor="currentRole">Current role</FieldLabel>
               <TextInput

@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { GoogleContinueButton } from '../components/auth/GoogleContinueButton.tsx'
 import { Button } from '../components/ui/Button.tsx'
+import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import { Card, FieldLabel, PageHeader, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
 import { INTERVIEWER_SETUP, defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
 import { detectBrowserTimezone } from '../lib/timezones.ts'
@@ -41,6 +42,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
+  const timezone = useMemo(() => detectBrowserTimezone(), [])
 
   if (status === 'authenticated' && user && (account || profile?.role === 'admin')) {
     return <Navigate to={destinationForRole(profile?.role, nextPath)} replace />
@@ -75,7 +77,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         if (!Number.isFinite(years) || years < 0) {
           throw new Error('Enter years of experience as a number.')
         }
-        const timezone = detectBrowserTimezone()
         const result = await signUpInterviewer({
           firstName,
           lastName,
@@ -262,6 +263,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
                 onChange={(event) => setConfirmPassword(event.target.value)}
               />
             </div>
+            <DetectedTimezoneNote timezone={timezone} />
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <FieldLabel htmlFor="company">Current company</FieldLabel>
