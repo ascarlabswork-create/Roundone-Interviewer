@@ -18,7 +18,7 @@ import { formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import {
   BOOKING_ALREADY_UPDATED,
-  BOOKING_AWAITING_PAYMENT,
+  BOOKING_NOT_YET_LISTED,
   bookingsForTab,
   canCancelBooking,
   canRescheduleBooking,
@@ -47,7 +47,7 @@ function isBookingTab(value: string | null): value is InterviewerBookingTab {
 const emptyCopy: Record<InterviewerBookingTab, { title: string; body: string }> = {
   pending: {
     title: 'No pending booking requests',
-    body: 'New bookings show here as a payment hold, then as a request you can accept or reject after payment is captured.',
+    body: 'New booking requests appear here for you to accept or reject.',
   },
   upcoming: {
     title: 'No upcoming bookings',
@@ -129,7 +129,7 @@ export function BookingsPage() {
     }
     if (!isBookingId(bookingParam)) {
       setDetailId(null)
-      setDeepLinkError(BOOKING_AWAITING_PAYMENT)
+      setDeepLinkError(BOOKING_NOT_YET_LISTED)
       return
     }
     if (state.status === 'loading') return
@@ -141,7 +141,7 @@ export function BookingsPage() {
     const found = loadedBookings.find((item) => item.id === bookingParam)
     if (!found) {
       setDetailId(null)
-      setDeepLinkError(BOOKING_AWAITING_PAYMENT)
+      setDeepLinkError(BOOKING_NOT_YET_LISTED)
       return
     }
     setDeepLinkError(null)
