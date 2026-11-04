@@ -219,13 +219,15 @@ function candidateFromSummary(
   }
 }
 
-function parseBooking(value: unknown): InterviewerBooking | null {
+export function parseBooking(value: unknown): InterviewerBooking | null {
   const row = asRecord(value)
   if (!row) return null
   const id = readString(row, 'id')
   const candidateProfileId = readString(row, 'candidate_profile_id')
   const interviewerProfileId = readString(row, 'interviewer_profile_id')
-  const serviceId = readString(row, 'service_id')
+  // service_id can be null (e.g. a booking made without a specific service); the
+  // booking is still valid and must appear so the interviewer can act on it.
+  const serviceId = readString(row, 'service_id') ?? ''
   const status = readString(row, 'status')
   const startsAtUtc = readString(row, 'starts_at')
   const endsAtUtc = readString(row, 'ends_at')
@@ -243,7 +245,6 @@ function parseBooking(value: unknown): InterviewerBooking | null {
     !id ||
     !candidateProfileId ||
     !interviewerProfileId ||
-    !serviceId ||
     !status ||
     !isDbBookingStatus(status) ||
     !startsAtUtc ||
@@ -486,7 +487,8 @@ export function canCancelBooking(booking: InterviewerBooking) {
 }
 
 export function canRescheduleBooking(booking: InterviewerBooking) {
-  return booking.status === 'requested' || booking.status === 'confirmed'
+  // Rescheduling needs a service to look up bookable slots.
+  return Boolean(booking.serviceId) && (booking.status === 'requested' || booking.status === 'confirmed')
 }
 
 export async function cancelMyBooking(bookingId: string, note?: string): Promise<InterviewerBooking> {
