@@ -18,6 +18,7 @@ import { formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import {
   BOOKING_ALREADY_UPDATED,
+  BOOKING_AWAITING_PAYMENT,
   bookingsForTab,
   canCancelBooking,
   canRescheduleBooking,
@@ -46,7 +47,7 @@ function isBookingTab(value: string | null): value is InterviewerBookingTab {
 const emptyCopy: Record<InterviewerBookingTab, { title: string; body: string }> = {
   pending: {
     title: 'No pending booking requests',
-    body: 'When a candidate’s payment is captured, their request will appear here for you to accept or reject.',
+    body: 'New bookings show here as a payment hold, then as a request you can accept or reject after payment is captured.',
   },
   upcoming: {
     title: 'No upcoming bookings',
@@ -128,7 +129,7 @@ export function BookingsPage() {
     }
     if (!isBookingId(bookingParam)) {
       setDetailId(null)
-      setDeepLinkError('This booking is no longer available.')
+      setDeepLinkError(BOOKING_AWAITING_PAYMENT)
       return
     }
     if (state.status === 'loading') return
@@ -140,7 +141,7 @@ export function BookingsPage() {
     const found = loadedBookings.find((item) => item.id === bookingParam)
     if (!found) {
       setDetailId(null)
-      setDeepLinkError('This booking is no longer available.')
+      setDeepLinkError(BOOKING_AWAITING_PAYMENT)
       return
     }
     setDeepLinkError(null)
@@ -481,7 +482,11 @@ function BookingDetails({
         <div className="mt-1">
           <LiveBookingStatusBadge status={booking.status} />
         </div>
-        {!actionable ? (
+        {booking.status === 'pending_payment' ? (
+          <p className="mt-2 text-slate-600">
+            Waiting for the candidate’s payment. You can accept or reject this request after payment is captured.
+          </p>
+        ) : !actionable ? (
           <p className="mt-2 text-slate-600">
             This request is no longer waiting for confirmation. The current status is shown above.
           </p>
