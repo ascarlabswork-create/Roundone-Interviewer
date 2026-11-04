@@ -60,6 +60,8 @@ export type InterviewerBooking = {
 }
 
 export const BOOKING_ALREADY_UPDATED = 'This booking is no longer available for confirmation.'
+export const BOOKING_AWAITING_PAYMENT =
+  'This request isn’t on your list yet. It appears after the candidate’s payment is captured.'
 
 const BOOKING_COLUMNS = [
   'id',
@@ -109,7 +111,12 @@ function readString(row: Record<string, unknown>, key: string) {
 
 function readNumber(row: Record<string, unknown>, key: string) {
   const value = row[key]
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
 }
 
 export function isBookingId(value: string) {
@@ -304,7 +311,7 @@ function mergeSummaries(bookings: InterviewerBooking[], summaries: Map<string, B
 }
 
 export function tabForBooking(status: DbBookingStatus): InterviewerBookingTab | null {
-  if (status === 'requested') return 'pending'
+  if (status === 'requested' || status === 'pending_payment') return 'pending'
   if (status === 'confirmed' || status === 'in_progress') return 'upcoming'
   if (status === 'completed') return 'completed'
   if (
