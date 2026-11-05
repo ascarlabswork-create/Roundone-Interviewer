@@ -98,6 +98,15 @@ export function netEarningsPaise(sessionFeePaise: number, platformFeePaise: numb
   return sessionFeePaise - platformFeePaise
 }
 
+/**
+ * Only bookings with a real session fee count toward earnings. Free bookings
+ * (no payment captured yet) are ignored so the platform fee never shows as a
+ * negative balance before real payments are added.
+ */
+export function isPaidBooking(booking: Pick<InterviewerBooking, 'sessionFeePaise'>) {
+  return booking.sessionFeePaise > 0
+}
+
 function toRow(booking: InterviewerBooking): EarningsRow {
   return {
     bookingId: booking.id,
@@ -183,11 +192,11 @@ export async function loadMyEarnings(period: EarningsPeriod): Promise<EarningsBo
         : listMyBookingsWithStatuses(EARNED_BOOKING_STATUSES, historyRange),
     ])
 
-    const historyBookings = historySource ?? completed
+    const historyBookings = (historySource ?? completed).filter(isPaidBooking)
     const history = historyBookings.map(toRow)
-    const completedRows = completed.map(toRow)
-    const thisMonthRows = thisMonthCompleted.map(toRow)
-    const unsettledRows = unsettled.map(toRow)
+    const completedRows = completed.filter(isPaidBooking).map(toRow)
+    const thisMonthRows = thisMonthCompleted.filter(isPaidBooking).map(toRow)
+    const unsettledRows = unsettled.filter(isPaidBooking).map(toRow)
 
     return {
       timezone,
