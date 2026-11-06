@@ -37,7 +37,7 @@ export function ClockTimeInput({
       id={id}
       role="group"
       aria-label={ariaLabel}
-      className="flex min-w-0 flex-wrap items-center gap-1.5"
+      className="inline-flex w-auto shrink-0 flex-nowrap items-center gap-1.5"
     >
       <SelectInput
         aria-label={ariaLabel ? `${ariaLabel} hour` : 'Hour'}
