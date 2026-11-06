@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { InterviewScheduleCard } from '../components/calendar/InterviewScheduleCard.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { SlotBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
@@ -12,7 +13,7 @@ import {
   Skeleton,
   TextInput,
 } from '../components/ui/primitives.tsx'
-import { BUFFER_OPTIONS, INTERVIEW_TYPES, WEEKDAY_LABELS, WEEKDAY_ORDER } from '../data/catalogs.ts'
+import { BUFFER_OPTIONS, INTERVIEW_TYPES } from '../data/catalogs.ts'
 import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import type { InterviewType } from '../data/catalogs.ts'
 import { cn } from '../lib/cn.ts'
@@ -29,15 +30,8 @@ import {
   toISODate,
   weekdayShort,
 } from '../lib/dates.ts'
-import {
-  buildDayPeriods,
-  defaultRangeForDay,
-  generateBookableSlots,
-  generateUpcomingSlots,
-  isDateWithinRange,
-  proposeNextWeeklyRange,
-  validateAvailableRange,
-} from '../lib/slots.ts'
+import { buildDayPeriods, generateBookableSlots, generateUpcomingSlots, isDateWithinRange } from '../lib/slots.ts'
+import type { ScheduleDraft } from '../lib/interviewSchedule.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import {
   createAvailability,
@@ -47,18 +41,15 @@ import {
   deleteBlockedTime,
   deleteCustomSlot,
   loadMyAvailabilityBoard,
-  updateAvailability,
   updateBlockedTime,
   updateCustomSlot,
   describeAvailableRange,
   updateMyAvailableRange,
   updateMyBookingBuffer,
   type AvailabilityBoard,
-  type AvailableDateRange,
   type BlockedTimeRecord,
   type BookingBufferMinutes,
   type CustomSlotRecord,
-  type Weekday,
 } from '../services/interviewerAvailability.ts'
 import { getMyBookings, type InterviewerBooking } from '../services/interviewerBookings.ts'
 import { getMyServices } from '../services/interviewerServices.ts'
@@ -112,20 +103,10 @@ export function CalendarPage() {
   const [blockForm, setBlockForm] = useState<BlockForm | null>(null)
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
-  const rangeSaveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
-  const rangeSavePatch = useRef(new Map<string, { startTime?: string; endTime?: string }>())
 
   useEffect(() => {
     if (boardState.status === 'success') setBoard(boardState.data)
   }, [boardState.status, boardState.data])
-
-  useEffect(() => {
-    const timers = rangeSaveTimers.current
-    return () => {
-      for (const timer of timers.values()) window.clearTimeout(timer)
-      timers.clear()
-    }
-  }, [])
 
   const bookings = bookingsState.status === 'success' ? toSlotBookings(bookingsState.data) : []
   const services =
@@ -169,109 +150,31 @@ export function CalendarPage() {
     }
   }
 
-  async function onToggleDay(day: Weekday, enabled: boolean) {
+  async function onSaveSchedule(draft: ScheduleDraft) {
     if (!board) return
     await runMutation(async () => {
-      if (!enabled) {
-        const rows = board.availability.filter((item) => item.weekday === day)
-        for (const row of rows) {
-          await deleteAvailability(row.id)
-        }
-        return
-      }
-      if (board.availability.some((item) => item.weekday === day)) return
-      const defaults = defaultRangeForDay(day)
-      await createAvailability({
-        weekday: day,
-        startTime: defaults.startTime,
-        endTime: defaults.endTime,
+      await updateMyAvailableRange({
+        availableFrom: draft.from || null,
+        availableUntil: draft.until || null,
       })
-    })
-  }
-
-  async function onAddRange(day: Weekday) {
-    if (!board) return
-    let next: { startTime: string; endTime: string }
-    try {
-      next = proposeNextWeeklyRange(
-        board.availability
-          .filter((item) => item.weekday === day)
-          .map((item) => ({ startTime: item.start_time, endTime: item.end_time })),
-        defaultRangeForDay(day),
-      )
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'No open time slot on this day.'
-      setErrors([message])
-      pushToast(message)
-      return
-    }
-    await runMutation(() =>
-      createAvailability({
-        weekday: day,
-        startTime: next.startTime,
-        endTime: next.endTime,
-      }),
-    )
-  }
-
-  function onUpdateRange(id: string, patch: { startTime?: string; endTime?: string }) {
-    if (!board) return
-    setBoard({
-      ...board,
-      availability: board.availability.map((row) =>
-        row.id === id
-          ? {
-              ...row,
-              start_time: patch.startTime ?? row.start_time,
-              end_time: patch.endTime ?? row.end_time,
-            }
-          : row,
-      ),
-    })
-    setErrors([])
-
-    const merged = { ...rangeSavePatch.current.get(id), ...patch }
-    rangeSavePatch.current.set(id, merged)
-    const pending = rangeSaveTimers.current.get(id)
-    if (pending) window.clearTimeout(pending)
-
-    rangeSaveTimers.current.set(
-      id,
-      window.setTimeout(() => {
-        rangeSaveTimers.current.delete(id)
-        const payload = rangeSavePatch.current.get(id)
-        rangeSavePatch.current.delete(id)
-        if (!payload) return
-        void persistRangeUpdate(id, payload)
-      }, 600),
-    )
-  }
-
-  async function persistRangeUpdate(id: string, patch: { startTime?: string; endTime?: string }) {
-    setSaving(true)
-    try {
-      await updateAvailability(id, patch)
-      await refreshBoard()
-    } catch (caught) {
-      await refreshBoard()
-      const message = caught instanceof Error ? caught.message : 'Could not save availability.'
-      setErrors([message])
-      pushToast(message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function onRemoveRange(id: string) {
-    await runMutation(() => deleteAvailability(id))
+      for (const row of board.availability) {
+        await deleteAvailability(row.id)
+      }
+      for (const [weekday, day] of draft.days.entries()) {
+        if (!day.enabled) continue
+        for (const window of day.windows) {
+          await createAvailability({
+            weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6,
+            startTime: window.startTime,
+            endTime: window.endTime,
+          })
+        }
+      }
+    }, 'Interview schedule saved')
   }
 
   async function onBufferChange(bufferMin: BookingBufferMinutes) {
     await runMutation(() => updateMyBookingBuffer(bufferMin))
-  }
-
-  async function onSaveRange(range: AvailableDateRange) {
-    await runMutation(() => updateMyAvailableRange(range), 'Available date range saved')
   }
 
   async function onSaveCustom() {
@@ -340,87 +243,7 @@ export function CalendarPage() {
             </div>
           </Card>
 
-          <DateRangeCard
-            key={`${board.availableFrom ?? ''}|${board.availableUntil ?? ''}`}
-            range={{ availableFrom: board.availableFrom, availableUntil: board.availableUntil }}
-            saving={saving}
-            onSave={(range) => void onSaveRange(range)}
-          />
-
-          <section className="space-y-3">
-            <div>
-              <h2 className="text-lg font-semibold text-navy-950">Weekly Availability</h2>
-              <p className="text-sm text-slate-500">
-                Enable a day and add one or more ranges. Pick any start and end time (hour, minute, AM/PM) — length is
-                up to you. Times use your profile timezone and repeat only inside your available date range.
-              </p>
-            </div>
-            {board.availability.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
-                No weekly availability yet. Enable a weekday and add a time range.
-              </p>
-            ) : null}
-            <div className="space-y-3">
-              {WEEKDAY_ORDER.map((day) => {
-                const ranges = board.availability.filter((item) => item.weekday === day)
-                const enabled = ranges.length > 0
-                return (
-                  <Card key={day} className="p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <label className="flex items-center gap-3 text-sm font-semibold text-navy-950">
-                        <input
-                          type="checkbox"
-                          checked={enabled}
-                          disabled={saving}
-                          onChange={(event) => void onToggleDay(day, event.target.checked)}
-                        />
-                        {WEEKDAY_LABELS[day]}
-                      </label>
-                      <span className="text-xs text-slate-500">{enabled ? 'Available' : 'Unavailable'}</span>
-                    </div>
-                    {enabled ? (
-                      <div className="mt-3 space-y-2">
-                        {ranges.map((range) => (
-                          <div
-                            key={range.id}
-                            className="flex flex-col gap-2 rounded-lg border border-slate-100 bg-slate-50/80 p-3 sm:flex-row sm:flex-wrap sm:items-center"
-                          >
-                            <ClockTimeInput
-                              id={`weekly-${range.id}-start`}
-                              value={range.start_time}
-                              aria-label={`${WEEKDAY_LABELS[day]} start time`}
-                              onChange={(startTime) => onUpdateRange(range.id, { startTime })}
-                            />
-                            <span className="hidden px-1 text-sm text-slate-400 sm:inline" aria-hidden>
-                              to
-                            </span>
-                            <ClockTimeInput
-                              id={`weekly-${range.id}-end`}
-                              value={range.end_time}
-                              aria-label={`${WEEKDAY_LABELS[day]} end time`}
-                              onChange={(endTime) => onUpdateRange(range.id, { endTime })}
-                            />
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="sm:ml-auto"
-                              disabled={saving}
-                              onClick={() => void onRemoveRange(range.id)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        ))}
-                        <Button size="sm" variant="outline" disabled={saving} onClick={() => void onAddRange(day)}>
-                          Add time
-                        </Button>
-                      </div>
-                    ) : null}
-                  </Card>
-                )
-              })}
-            </div>
-          </section>
+          <InterviewScheduleCard board={board} saving={saving} onSave={(draft) => void onSaveSchedule(draft)} />
 
           <section className="grid gap-4 lg:grid-cols-2">
             <Card className="p-5">
@@ -763,97 +586,6 @@ export function CalendarPage() {
         ) : null}
       </SlideOver>
     </div>
-  )
-}
-
-function DateRangeCard({
-  range,
-  saving,
-  onSave,
-}: {
-  range: AvailableDateRange
-  saving: boolean
-  onSave: (range: AvailableDateRange) => void
-}) {
-  const [from, setFrom] = useState(range.availableFrom ?? '')
-  const [until, setUntil] = useState(range.availableUntil ?? '')
-  const rangeErrors = validateAvailableRange(from || null, until || null)
-  const dirty = from !== (range.availableFrom ?? '') || until !== (range.availableUntil ?? '')
-  const today = toISODate(new Date())
-  const ended = Boolean(range.availableUntil && range.availableUntil < today)
-
-  return (
-    <Card className="p-5">
-      <h2 className="text-lg font-semibold text-navy-950">Available date range</h2>
-      <p className="mt-1 text-sm text-slate-500">
-        Candidates can only book slots between these dates. Leave a date empty for no limit on that side.
-      </p>
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div>
-          <FieldLabel htmlFor="range-from">Start date</FieldLabel>
-          <TextInput
-            id="range-from"
-            type="date"
-            value={from}
-            max={until || undefined}
-            disabled={saving}
-            onChange={(event) => setFrom(event.target.value)}
-          />
-        </div>
-        <span className="hidden pb-3 text-slate-400 sm:block" aria-hidden>
-          →
-        </span>
-        <div>
-          <FieldLabel htmlFor="range-until">End date</FieldLabel>
-          <TextInput
-            id="range-until"
-            type="date"
-            value={until}
-            min={from || undefined}
-            disabled={saving}
-            onChange={(event) => setUntil(event.target.value)}
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button
-            disabled={saving || !dirty || rangeErrors.length > 0}
-            onClick={() => onSave({ availableFrom: from || null, availableUntil: until || null })}
-          >
-            Save range
-          </Button>
-          {dirty ? (
-            <Button
-              variant="outline"
-              disabled={saving}
-              onClick={() => {
-                setFrom(range.availableFrom ?? '')
-                setUntil(range.availableUntil ?? '')
-              }}
-            >
-              Cancel
-            </Button>
-          ) : range.availableFrom || range.availableUntil ? (
-            <Button
-              variant="ghost"
-              disabled={saving}
-              onClick={() => onSave({ availableFrom: null, availableUntil: null })}
-            >
-              Clear range
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      {rangeErrors.length > 0 ? <p className="mt-2 text-sm text-red-700">{rangeErrors[0]}</p> : null}
-      <p className="mt-3 text-sm text-slate-600">
-        Current range: <span className="font-medium text-navy-950">{describeAvailableRange(range)}</span>
-      </p>
-      {ended ? (
-        <p className="mt-2 text-sm font-medium text-amber-800">
-          Your available date range has ended, so candidates cannot book new slots. Extend the end date to reopen
-          bookings.
-        </p>
-      ) : null}
-    </Card>
   )
 }
 
