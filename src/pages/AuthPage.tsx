@@ -4,7 +4,8 @@ import { GoogleContinueButton } from '../components/auth/GoogleContinueButton.ts
 import { Button } from '../components/ui/Button.tsx'
 import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import { Card, FieldLabel, PageHeader, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
-import { INTERVIEWER_SETUP, defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
+import { landingPathForAccount } from '../lib/interviewWelcome.ts'
+import { INTERVIEWER_SETUP, defaultHomePath, safeNextPath } from '../lib/nextPath.ts'
 import { detectBrowserTimezone } from '../lib/timezones.ts'
 import {
   authErrorMessage,
@@ -45,7 +46,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const timezone = useMemo(() => detectBrowserTimezone(), [])
 
   if (status === 'authenticated' && user && (account || profile?.role === 'admin')) {
-    return <Navigate to={destinationForRole(profile?.role, nextPath)} replace />
+    return <Navigate to={landingPathForAccount(profile?.role, account, nextPath)} replace />
   }
 
   if (status === 'authenticated' && user && !sessionError) {

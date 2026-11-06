@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/primitives.tsx'
-import { INTERVIEWER_SETUP, defaultHomePath, destinationForRole, safeNextPath } from '../lib/nextPath.ts'
+import { landingPathForAccount } from '../lib/interviewWelcome.ts'
+import { INTERVIEWER_SETUP, defaultHomePath, safeNextPath } from '../lib/nextPath.ts'
 import { oauthRedirectErrorMessage } from '../services/auth.ts'
 import { useSession } from '../state/session.tsx'
 
@@ -24,7 +25,7 @@ export function AuthCallbackPage() {
   }, [])
 
   if (status === 'authenticated' && (account || profile?.role === 'admin')) {
-    return <Navigate to={destinationForRole(profile?.role, nextPath)} replace />
+    return <Navigate to={landingPathForAccount(profile?.role, account, nextPath)} replace />
   }
 
   const notInterviewer = Boolean(error && error.includes('only supports interviewer'))

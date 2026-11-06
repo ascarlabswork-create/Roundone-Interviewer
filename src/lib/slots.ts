@@ -77,21 +77,9 @@ export function validateAvailableRange(from: string | null, until: string | null
 function windowsForDate(input: SlotEngineInput): Interval[] {
   const { availableFrom, availableUntil } = input.schedule.settings
   if (!isDateWithinRange(input.date, availableFrom, availableUntil)) return []
-  const custom: Interval[] = []
-  for (const slot of input.schedule.customSlots) {
-    if (slot.date !== input.date) continue
-    if (!appliesToService(slot.serviceId, input.serviceId)) continue
-    custom.push({
-      start: timeToMinutes(slot.startTime),
-      end: timeToMinutes(slot.endTime),
-      source: 'custom',
-    })
-  }
-  // A time set on a specific date replaces that weekday's repeating hours.
-  if (custom.length > 0) return mergeIntervals(custom)
-
   const weekday = fromYMD(input.date).getDay()
   const windows: Interval[] = []
+
   for (const range of input.schedule.recurring) {
     if (!range.isActive) continue
     if (range.dayOfWeek !== weekday) continue
@@ -100,6 +88,16 @@ function windowsForDate(input: SlotEngineInput): Interval[] {
       start: timeToMinutes(range.startTime),
       end: timeToMinutes(range.endTime),
       source: 'recurring',
+    })
+  }
+
+  for (const slot of input.schedule.customSlots) {
+    if (slot.date !== input.date) continue
+    if (!appliesToService(slot.serviceId, input.serviceId)) continue
+    windows.push({
+      start: timeToMinutes(slot.startTime),
+      end: timeToMinutes(slot.endTime),
+      source: 'custom',
     })
   }
 

@@ -26,6 +26,7 @@ import { ReviewsPage } from '../pages/ReviewsPage.tsx'
 import { ServicesPage } from '../pages/ServicesPage.tsx'
 import { SettingsPage } from '../pages/SettingsPage.tsx'
 import { SetupPage } from '../pages/SetupPage.tsx'
+import { WelcomePage } from '../pages/WelcomePage.tsx'
 import { VerificationPage } from '../pages/VerificationPage.tsx'
 import { AdminAuditPage } from '../pages/admin/AdminAuditPage.tsx'
 import { AdminBookingsPage } from '../pages/admin/AdminBookingsPage.tsx'
@@ -70,6 +71,7 @@ export function AppRouter() {
         <Route element={<RequireInterviewerAuth />}>
           <Route element={<PublicLayout />}>
             <Route path="/interviewer/setup" element={<SetupPage />} />
+            <Route path="/interviewer/welcome" element={<WelcomePage />} />
           </Route>
           <Route element={<AppShell />}>
             <Route path="/interviewer/dashboard" element={<DashboardPage />} />

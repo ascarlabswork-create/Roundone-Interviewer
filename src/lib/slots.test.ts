@@ -85,18 +85,6 @@ describe('slot generation', () => {
     expect(times(custom, '2030-02-01')).toEqual([])
   })
 
-  it('uses a date-specific time instead of the repeating weekday hours', () => {
-    const custom = schedule(
-      {
-        customSlots: [
-          { id: 'c1', interviewerId: 'ip-1', date: MONDAY, startTime: '18:00', endTime: '19:00', timezone: 'Asia/Kolkata' },
-        ],
-      },
-      { from: '2030-01-01', until: '2030-01-31' },
-    )
-    expect(times(custom, MONDAY)).toEqual(['18:00'])
-  })
-
   it('lets blocked times override weekly and custom availability', () => {
     const blocked = schedule(
       {
