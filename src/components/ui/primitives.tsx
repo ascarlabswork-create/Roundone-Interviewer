@@ -1,6 +1,7 @@
 import { Eye, EyeOff } from 'lucide-react'
-import { useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { useRef, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { cn } from '../../lib/cn.ts'
+import { holdScroll, snapshotScroll, type ScrollSnapshot } from '../../lib/keepScroll.ts'
 
 export function Card({
   className,
@@ -80,10 +81,10 @@ export function FieldLabel({ children, htmlFor }: { children: ReactNode; htmlFor
 }
 
 const fieldClass =
-  'h-11 w-full rounded-xl border border-navy-950/12 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-coral-500 focus:ring-2 focus:ring-coral-100 disabled:bg-slate-50'
+  'h-11 rounded-xl border border-navy-950/12 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-coral-500 focus:ring-2 focus:ring-coral-100 disabled:bg-slate-50'
 
 export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={cn(fieldClass, props.className)} />
+  return <input {...props} className={cn(fieldClass, 'w-full', props.className)} />
 }
 
 export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
@@ -94,7 +95,7 @@ export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
       <input
         {...rest}
         type={visible ? 'text' : 'password'}
-        className={cn(fieldClass, 'pr-11', className)}
+        className={cn(fieldClass, 'w-full pr-11', className)}
       />
       <button
         type="button"
@@ -109,8 +110,54 @@ export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
   )
 }
 
-export function SelectInput(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={cn(fieldClass, props.className)} />
+export function SelectInput({
+  onChange,
+  onFocus,
+  onBlur,
+  onPointerDown,
+  onKeyDown,
+  className,
+  ...rest
+}: SelectHTMLAttributes<HTMLSelectElement>) {
+  const place = useRef<ScrollSnapshot | null>(null)
+
+  function remember(select: HTMLSelectElement) {
+    place.current = snapshotScroll(select)
+  }
+
+  function putBack() {
+    if (place.current) holdScroll(place.current)
+  }
+
+  return (
+    <select
+      {...rest}
+      className={cn(fieldClass, 'overflow-anchor-none', className?.includes('w-') ? '' : 'w-full', className)}
+      onPointerDown={(event) => {
+        remember(event.currentTarget)
+        onPointerDown?.(event)
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter' || event.key === ' ') {
+          remember(event.currentTarget)
+        }
+        onKeyDown?.(event)
+      }}
+      onFocus={(event) => {
+        if (!place.current) remember(event.currentTarget)
+        onFocus?.(event)
+      }}
+      onChange={(event) => {
+        onChange?.(event)
+        putBack()
+      }}
+      onBlur={(event) => {
+        putBack()
+        place.current = null
+        onBlur?.(event)
+      }}
+    />
+  )
 }
 
 export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
