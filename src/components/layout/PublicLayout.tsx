@@ -1,4 +1,4 @@
-import { Link, Outlet } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useSession } from '../../state/session.tsx'
 import { useToast } from '../../state/toast.tsx'
 import { LegalFooter } from '../legal/LegalFooter.tsx'
@@ -8,16 +8,19 @@ import { Logo } from './Logo.tsx'
 export function PublicLayout() {
   const { toasts, dismissToast } = useToast()
   const { signOut } = useSession()
+  const onWelcome = useLocation().pathname === '/interviewer/welcome'
 
   return (
     <div className="flex min-h-svh flex-col bg-paper">
       <header className="sticky top-0 z-40 border-b border-navy-950/8 bg-paper/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Logo to="/interviewer/dashboard" />
+          <Logo to={onWelcome ? '/interviewer/welcome' : '/interviewer/dashboard'} />
           <div className="flex items-center gap-3">
-            <Link to="/interviewer/dashboard" className="text-sm font-medium text-navy-950">
-              Dashboard
-            </Link>
+            {onWelcome ? null : (
+              <Link to="/interviewer/dashboard" className="text-sm font-medium text-navy-950">
+                Dashboard
+              </Link>
+            )}
             <Button size="sm" variant="ghost" onClick={() => void signOut()}>
               Logout
             </Button>

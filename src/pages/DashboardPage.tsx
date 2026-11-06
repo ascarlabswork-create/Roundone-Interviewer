@@ -9,7 +9,7 @@ import {
   Star,
   Video,
 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
 import { NotificationListItem } from '../components/notifications/NotificationListItem.tsx'
 import { ReadinessCard } from '../components/profile/ReadinessCard.tsx'
@@ -21,6 +21,7 @@ import { MetricCard } from '../components/ui/dashboard.tsx'
 import { Avatar, StarRating } from '../components/ui/identity.tsx'
 import { Badge, Card, Skeleton } from '../components/ui/primitives.tsx'
 import { completedWhenLabel, formatDateShortInZone, formatTimeInZone } from '../lib/dates.ts'
+import { needsInterviewWelcome } from '../lib/interviewWelcome.ts'
 import { formatCount, formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import { acceptBookingForInterview, type AcceptedInterview } from '../services/bookingRealtime.ts'
@@ -172,6 +173,10 @@ export function DashboardPage() {
 
   async function onReject(id: string) {
     await runBookingAction(id, () => rejectBooking(id), 'Booking rejected')
+  }
+
+  if (account && needsInterviewWelcome(account)) {
+    return <Navigate to="/interviewer/welcome" replace />
   }
 
   const firstName = account?.profile?.full_name?.split(' ')[0] ?? 'there'
