@@ -1,6 +1,51 @@
 import { WEEKDAY_LABELS, WEEKDAY_ORDER } from '../data/catalogs.ts'
-import { minutesToTime, timeToMinutes, toISODate } from './dates.ts'
+import { addDays, fromYMD, minutesToTime, timeToMinutes, toISODate } from './dates.ts'
 import { validateAvailableRange } from './slots.ts'
+
+/** Long ranges stay on weekly hours. Shorter ranges can set a time on every date. */
+export const MAX_DATED_HOURS = 31
+
+export type DateTimeDraft = {
+  date: string
+  enabled: boolean
+  startTime: string
+  endTime: string
+}
+
+export function listRangeDates(from: string, until: string, max = MAX_DATED_HOURS) {
+  if (!from || !until || from > until) return []
+  const dates: string[] = []
+  let cursor = fromYMD(from)
+  const end = fromYMD(until)
+  while (toISODate(cursor) <= toISODate(end) && dates.length < max) {
+    dates.push(toISODate(cursor))
+    cursor = addDays(cursor, 1)
+  }
+  return dates
+}
+
+export function dateTimesForRange(
+  from: string,
+  until: string,
+  previous: DateTimeDraft[],
+  saved: { on_date: string; start_time: string; end_time: string }[],
+  fallback: { startTime: string; endTime: string },
+): DateTimeDraft[] {
+  const kept = new Map(previous.map((row) => [row.date, row]))
+  const stored = new Map<string, { startTime: string; endTime: string }>()
+  for (const row of saved) {
+    if (!stored.has(row.on_date)) {
+      stored.set(row.on_date, { startTime: row.start_time.slice(0, 5), endTime: row.end_time.slice(0, 5) })
+    }
+  }
+  return listRangeDates(from, until).map((date) => {
+    const existing = kept.get(date)
+    if (existing) return existing
+    const slot = stored.get(date)
+    if (slot) return { date, enabled: true, startTime: slot.startTime, endTime: slot.endTime }
+    return { date, enabled: false, startTime: fallback.startTime, endTime: fallback.endTime }
+  })
+}
 
 export const DEFAULT_RANGE_START = '10:00'
 export const DEFAULT_RANGE_END = '18:00'
@@ -66,6 +111,14 @@ export function scheduleDraftFromAvailability(
     allEnd: first?.endTime ?? DEFAULT_RANGE_END,
     days,
   }
+}
+
+/** Puts one start and end on every ticked date. If none are ticked, every date in the list is ticked. */
+export function applyTimeToSelectedDates(rows: DateTimeDraft[], startTime: string, endTime: string): DateTimeDraft[] {
+  const anyEnabled = rows.some((row) => row.enabled)
+  return rows.map((row) =>
+    anyEnabled && !row.enabled ? row : { ...row, enabled: true, startTime, endTime },
+  )
 }
 
 /** Puts the shared time on every selected day. Weekdays are selected when none are yet. */
@@ -157,10 +210,20 @@ function windowsOverlap(windows: ScheduleWindow[]) {
   return false
 }
 
-export function validateScheduleDraft(draft: ScheduleDraft, today = toISODate(new Date())) {
+export function validateScheduleDraft(
+  draft: ScheduleDraft,
+  today = toISODate(new Date()),
+  dateTimes: DateTimeDraft[] = [],
+) {
   const errors = validateAvailableRange(draft.from || null, draft.until || null)
-  if (!draft.days.some((day) => day.enabled)) {
-    errors.push('Select at least one day, and set the hours candidates can book.')
+  if (!draft.days.some((day) => day.enabled) && !dateTimes.some((row) => row.enabled)) {
+    errors.push('Select at least one day or date, and set the hours candidates can book.')
+  }
+  for (const row of dateTimes) {
+    if (!row.enabled) continue
+    if (timeToMinutes(row.startTime) >= timeToMinutes(row.endTime)) {
+      errors.push(`${row.date} must end after it starts.`)
+    }
   }
   for (const weekday of WEEKDAY_ORDER) {
     const day = draft.days[weekday]

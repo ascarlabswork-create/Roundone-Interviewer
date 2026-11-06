@@ -31,7 +31,7 @@ import {
   weekdayShort,
 } from '../lib/dates.ts'
 import { buildDayPeriods, generateBookableSlots, generateUpcomingSlots, isDateWithinRange } from '../lib/slots.ts'
-import type { ScheduleDraft } from '../lib/interviewSchedule.ts'
+import type { DateTimeDraft, ScheduleDraft } from '../lib/interviewSchedule.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import {
   createAvailability,
@@ -150,7 +150,7 @@ export function CalendarPage() {
     }
   }
 
-  async function onSaveSchedule(draft: ScheduleDraft) {
+  async function onSaveSchedule(draft: ScheduleDraft, dates: DateTimeDraft[]) {
     if (!board) return
     await runMutation(async () => {
       await updateMyAvailableRange({
@@ -169,6 +169,14 @@ export function CalendarPage() {
             endTime: window.endTime,
           })
         }
+      }
+      const listed = new Set(dates.map((row) => row.date))
+      for (const slot of board.customSlots) {
+        if (listed.has(slot.on_date)) await deleteCustomSlot(slot.id)
+      }
+      for (const row of dates) {
+        if (!row.enabled) continue
+        await createCustomSlot({ onDate: row.date, startTime: row.startTime, endTime: row.endTime })
       }
     }, 'Interview schedule saved')
   }
@@ -243,7 +251,7 @@ export function CalendarPage() {
             </div>
           </Card>
 
-          <InterviewScheduleCard board={board} saving={saving} onSave={(draft) => void onSaveSchedule(draft)} />
+          <InterviewScheduleCard board={board} saving={saving} onSave={(draft, dates) => void onSaveSchedule(draft, dates)} />
 
           <section className="grid gap-4 lg:grid-cols-2">
             <Card className="p-5">
@@ -253,7 +261,10 @@ export function CalendarPage() {
                   Add custom slot
                 </Button>
               </div>
-              <p className="mt-1 text-sm text-slate-500">One-time windows even when the weekly schedule is closed.</p>
+              <p className="mt-1 text-sm text-slate-500">
+                A one-time window for a date outside the list above. On that date, candidates see this time instead of
+                the weekly hours.
+              </p>
               {board.customSlots.length === 0 ? (
                 <p className="mt-4 rounded-lg border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">
                   No custom slots yet. Add a one-time window for a specific date.

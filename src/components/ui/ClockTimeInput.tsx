@@ -37,12 +37,13 @@ export function ClockTimeInput({
       id={id}
       role="group"
       aria-label={ariaLabel}
-      className="inline-flex w-auto shrink-0 flex-nowrap items-center gap-1.5"
+      className="inline-flex w-max shrink-0 flex-nowrap items-center gap-1.5"
     >
       <SelectInput
         aria-label={ariaLabel ? `${ariaLabel} hour` : 'Hour'}
         disabled={disabled}
-        className="h-11 w-[4.25rem] shrink-0 px-2"
+        className="h-11 shrink-0 px-2"
+        style={{ width: '4.25rem' }}
         value={String(hour12)}
         onChange={(event) => update({ hour12: Number(event.target.value) })}
       >
@@ -58,7 +59,8 @@ export function ClockTimeInput({
       <SelectInput
         aria-label={ariaLabel ? `${ariaLabel} minute` : 'Minute'}
         disabled={disabled}
-        className="h-11 w-[4.25rem] shrink-0 px-2"
+        className="h-11 shrink-0 px-2"
+        style={{ width: '4.25rem' }}
         value={String(minute)}
         onChange={(event) => update({ minute: Number(event.target.value) })}
       >
@@ -71,7 +73,8 @@ export function ClockTimeInput({
       <SelectInput
         aria-label={ariaLabel ? `${ariaLabel} AM or PM` : 'AM or PM'}
         disabled={disabled}
-        className="h-11 w-[4.5rem] shrink-0 px-2"
+        className="h-11 shrink-0 px-2"
+        style={{ width: '4.75rem' }}
         value={period}
         onChange={(event) => update({ period: event.target.value as ClockPeriod })}
       >
