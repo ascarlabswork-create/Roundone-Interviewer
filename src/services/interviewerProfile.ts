@@ -74,7 +74,7 @@ export type InterviewerProfileUpdates = {
   whatsappPhone?: string | null
 }
 
-const WRONG_APP_ROLE = 'This Interviewer app only supports interviewer accounts.'
+export const INTERVIEWER_ADMIN_BLOCKED = 'Admin accounts cannot use the interviewer app here.'
 const PROFILE_SELECT = 'id, role, full_name, avatar_url, timezone, is_active'
 const INTERVIEWER_SELECT =
   'id, profile_id, headline, bio, current_role, company, experience_years, timezone, languages, is_listed, whatsapp_phone'
@@ -293,7 +293,7 @@ export async function getInterviewerProfile(options?: { retries?: number }): Pro
       lastError = new Error('Your account profile is not ready yet. Try again in a moment.')
     } else {
       if (profileRow.role === 'admin') {
-        throw new Error(WRONG_APP_ROLE)
+        throw new Error(INTERVIEWER_ADMIN_BLOCKED)
       }
 
       let profile = mapProfile(profileRow)
@@ -305,8 +305,7 @@ export async function getInterviewerProfile(options?: { retries?: number }): Pro
       fail(interviewerError)
 
       if (!interviewerRow) {
-        const claimed = await claimInterviewerPersona()
-        if (!claimed) throw new Error(WRONG_APP_ROLE)
+        await claimInterviewerPersona()
         const retry = await supabase
           .from(TABLES.interviewerProfiles)
           .select(INTERVIEWER_SELECT)

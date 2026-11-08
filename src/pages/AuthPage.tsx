@@ -170,8 +170,8 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         title={isRegister ? 'Create your interviewer account' : 'Sign in'}
         subtitle={
           isRegister
-            ? 'We’ll save your professional details to your interviewer profile. Skills, services, and availability come next.'
-            : 'Sign in to manage bookings, sessions, and earnings.'
+            ? 'Already on jobround.ai as a candidate? Sign in with that email — we’ll add your interviewer profile. New here? We’ll save your details and you can finish setup next.'
+            : 'Sign in to manage bookings, sessions, and earnings. The same email works on jobround.ai (candidate) and here.'
         }
       />
 
