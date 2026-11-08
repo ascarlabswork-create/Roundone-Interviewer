@@ -28,16 +28,27 @@ export function AuthCallbackPage() {
     return <Navigate to={landingPathForAccount(profile?.role, account, nextPath)} replace />
   }
 
-  const notInterviewer = Boolean(error && error.includes('only supports interviewer'))
-  const failed = Boolean(oauthError) || notInterviewer || (timedOut && status !== 'authenticated')
+  if (status === 'authenticated' && error && !account && profile?.role !== 'admin') {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
+        <Card className="p-8 text-center">
+          <h1 className="text-xl font-semibold text-navy-950">Sign-in could not be completed</h1>
+          <p className="mt-2 text-sm text-slate-600">{error}</p>
+          <div className="mt-6 flex justify-center">
+            <Link to={`/interviewer/login?next=${encodeURIComponent(nextPath)}`}>
+              <Button>Back to sign in</Button>
+            </Link>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  const failed = Boolean(oauthError) || (timedOut && status !== 'authenticated')
 
   if (failed) {
-    const heading = notInterviewer ? 'This account can\u2019t use the Interviewer app' : 'Sign-in could not be completed'
-    const body = notInterviewer
-      ? 'This Google account already has a jobround.ai candidate profile, so it can’t be used as an interviewer. Choose a different Google account, or register with email.'
-      : oauthError
-        ? oauthError
-        : 'We couldn\u2019t confirm your session. Please try signing in again.'
+    const heading = 'Sign-in could not be completed'
+    const body = oauthError ?? 'We couldn\u2019t confirm your session. Please try signing in again.'
 
     return (
       <div className="mx-auto max-w-md px-4 py-16 sm:px-6">

@@ -74,7 +74,7 @@ export type InterviewerProfileUpdates = {
   whatsappPhone?: string | null
 }
 
-const WRONG_APP_ROLE = 'This Interviewer app only supports interviewer accounts.'
+export const INTERVIEWER_ADMIN_BLOCKED = 'Admin accounts cannot use the interviewer app here.'
 const PROFILE_SELECT = 'id, role, full_name, avatar_url, timezone, is_active'
 const INTERVIEWER_SELECT =
   'id, profile_id, headline, bio, current_role, company, experience_years, timezone, languages, is_listed, whatsapp_phone'
@@ -292,49 +292,58 @@ export async function getInterviewerProfile(options?: { retries?: number }): Pro
     if (!profileRow) {
       lastError = new Error('Your account profile is not ready yet. Try again in a moment.')
     } else {
+      if (profileRow.role === 'admin') {
+        throw new Error(INTERVIEWER_ADMIN_BLOCKED)
+      }
+
       let profile = mapProfile(profileRow)
-      if (profile.role !== 'interviewer') {
-        const claimed = await claimInterviewerPersona()
-        if (!claimed) throw new Error(WRONG_APP_ROLE)
-        lastError = new Error('Your interviewer profile is not ready yet. Try again in a moment.')
-      } else {
-        const { data: interviewerRow, error: interviewerError } = await supabase
+      let { data: interviewerRow, error: interviewerError } = await supabase
+        .from(TABLES.interviewerProfiles)
+        .select(INTERVIEWER_SELECT)
+        .eq('profile_id', user.id)
+        .maybeSingle()
+      fail(interviewerError)
+
+      if (!interviewerRow) {
+        await claimInterviewerPersona()
+        const retry = await supabase
           .from(TABLES.interviewerProfiles)
           .select(INTERVIEWER_SELECT)
           .eq('profile_id', user.id)
           .maybeSingle()
-        fail(interviewerError)
-
-        if (interviewerRow) {
-          const interviewer = mapInterviewer(interviewerRow)
-          const canonicalTimezone = effectiveSchedulingTimezone(profile.timezone, interviewer.timezone)
-          if (profile.timezone !== canonicalTimezone || interviewer.timezone !== canonicalTimezone) {
-            profile = { ...profile, timezone: canonicalTimezone }
-            interviewer.timezone = canonicalTimezone
-            void repairTimezoneSync(user.id, interviewer.id, canonicalTimezone)
-          }
-          const [skills, roleRows, verifications] = await Promise.all([
-            getInterviewerSkills(interviewer.id),
-            getInterviewerRoleRows(interviewer.id),
-            getVerificationStatus(interviewer.id),
-          ])
-          return {
-            userId: user.id,
-            email: user.email ?? '',
-            linkedin: metadataString(user, 'linkedin'),
-            phone: metadataString(user, 'phone'),
-            profile,
-            interviewer,
-            skills,
-            targetRoles: unique(roleRows.map((row) => row.target_role).filter((role) => role !== 'Any')),
-            candidateLevels: unique(
-              roleRows.map((row) => row.candidate_level).filter((level): level is string => Boolean(level)),
-            ),
-            verifications,
-          }
-        }
-        lastError = new Error('Your interviewer profile is not ready yet. Try again in a moment.')
+        fail(retry.error)
+        interviewerRow = retry.data
       }
+
+      if (interviewerRow) {
+        const interviewer = mapInterviewer(interviewerRow)
+        const canonicalTimezone = effectiveSchedulingTimezone(profile.timezone, interviewer.timezone)
+        if (profile.timezone !== canonicalTimezone || interviewer.timezone !== canonicalTimezone) {
+          profile = { ...profile, timezone: canonicalTimezone }
+          interviewer.timezone = canonicalTimezone
+          void repairTimezoneSync(user.id, interviewer.id, canonicalTimezone)
+        }
+        const [skills, roleRows, verifications] = await Promise.all([
+          getInterviewerSkills(interviewer.id),
+          getInterviewerRoleRows(interviewer.id),
+          getVerificationStatus(interviewer.id),
+        ])
+        return {
+          userId: user.id,
+          email: user.email ?? '',
+          linkedin: metadataString(user, 'linkedin'),
+          phone: metadataString(user, 'phone'),
+          profile,
+          interviewer,
+          skills,
+          targetRoles: unique(roleRows.map((row) => row.target_role).filter((role) => role !== 'Any')),
+          candidateLevels: unique(
+            roleRows.map((row) => row.candidate_level).filter((level): level is string => Boolean(level)),
+          ),
+          verifications,
+        }
+      }
+      lastError = new Error('Your interviewer profile is not ready yet. Try again in a moment.')
     }
 
     if (attempt < retries) await sleep(250 * (attempt + 1))

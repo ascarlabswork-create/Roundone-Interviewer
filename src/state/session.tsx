@@ -62,17 +62,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      // New Google sign-ups are created as candidates; claim the empty stub first.
-      if (nextProfile.role !== 'interviewer' && (await claimInterviewerPersona())) {
+      // Same email can be a candidate elsewhere; claim an interviewer persona when needed.
+      if (nextProfile.role !== 'interviewer') {
+        await claimInterviewerPersona()
         nextProfile = await getMyProfile()
       }
       setProfile(nextProfile)
-
-      if (nextProfile.role !== 'interviewer') {
-        setAccount(null)
-        setError('This Interviewer app only supports interviewer accounts.')
-        return
-      }
 
       const nextAccount = await getCurrentInterviewer({ retries: 6 })
       let hydrated = nextAccount

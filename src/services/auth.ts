@@ -243,8 +243,8 @@ export async function signInInterviewer(input: SignInInput) {
 /**
  * Google sign-in on this origin (jobround.ai / experts.jobround.ai).
  * Uses an ID token so Google does not send users to *.supabase.co.
- * New Google users are created as candidates by the signup trigger; this app
- * claims a brand-new empty Google account via claim_interviewer_persona.
+ * Google accounts may already be candidates on jobround.ai; this app adds
+ * interviewer_profiles via claim_interviewer_persona when needed.
  */
 export async function signInWithGoogle(_nextPath?: string) {
   const { requestGoogleIdCredential } = await import('../lib/googleOneTap.ts')
@@ -294,11 +294,15 @@ export async function resendSignupEmail(email: string) {
   if (error) throw new Error(authErrorMessage(error))
 }
 
-/** Convert a brand-new empty Google candidate stub into an interviewer. */
-export async function claimInterviewerPersona(): Promise<boolean> {
+/** Ensure this user has interviewer_profiles (profiles.role may stay candidate). */
+export async function claimInterviewerPersona(): Promise<void> {
   const { data, error } = await supabase.rpc('claim_interviewer_persona')
-  if (error) return false
-  return data === true
+  if (error) {
+    throw new Error(authErrorMessage(error))
+  }
+  if (data !== true) {
+    throw new Error('Could not open interviewer access for this account. Try again in a moment.')
+  }
 }
 
 export async function signOut() {

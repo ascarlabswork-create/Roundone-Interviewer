@@ -35,14 +35,6 @@ export function RequireInterviewerAuth() {
     return <Navigate to={ADMIN_HOME} replace />
   }
 
-  if (error && error.includes('only supports interviewer')) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-        <ErrorState title="Interviewer account required" body={error} />
-      </div>
-    )
-  }
-
   if (!account) {
     if (error) {
       return (
