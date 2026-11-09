@@ -19,7 +19,7 @@ function StatusIcon({ ok }: { ok: boolean }) {
   return ok ? (
     <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
   ) : (
-    <XCircle className="h-5 w-5 shrink-0 text-slate-400" aria-hidden />
+    <XCircle className="h-5 w-5 shrink-0 text-coral-600" aria-hidden />
   )
 }
 
@@ -50,25 +50,26 @@ export function ReadinessCard({
       <ul className="mt-4 space-y-4 text-sm">
         <li className="flex gap-3">
           <StatusIcon ok={readiness.skillMatched} />
-          <div>
-            <p className="font-medium text-navy-950">
-              Skill matched {readiness.skillMatched ? '✅' : '❌'}
-            </p>
+          <div className="min-w-0">
+            <p className="font-medium text-navy-950">Skill matched</p>
             <p className="mt-0.5 text-slate-600">
               {readiness.skillMatched
-                ? `Candidate matching can find you on ${skillCount} skill${skillCount === 1 ? '' : 's'}. No service is needed for this.`
+                ? `Matching can find you on ${skillCount} skill${skillCount === 1 ? '' : 's'}.`
                 : skillCount === 0
                   ? 'Add at least one skill so candidate matching can find you.'
-                  : READINESS_BLOCKER_TEXT.inactive}
+                  : READINESS_BLOCKER_TEXT.inactive}{' '}
+              {!readiness.skillMatched && skillCount === 0 ? (
+                <a href="#section-skills" className="font-medium text-coral-700 hover:underline">
+                  Fix
+                </a>
+              ) : null}
             </p>
           </div>
         </li>
         <li className="flex gap-3">
           <StatusIcon ok={readiness.bookable} />
-          <div>
-            <p className="font-medium text-navy-950">
-              Ready for booking {readiness.bookable ? '✅' : '❌'}
-            </p>
+          <div className="min-w-0">
+            <p className="font-medium text-navy-950">Ready for booking</p>
             {readiness.bookable ? (
               <p className="mt-0.5 text-slate-600">Matched candidates can book your available slots.</p>
             ) : null}
@@ -80,7 +81,7 @@ export function ReadinessCard({
                     <li key={blocker}>
                       {READINESS_BLOCKER_TEXT[blocker]}{' '}
                       {href ? (
-                        <Link to={href} className="font-medium text-coral-700">
+                        <Link to={href} className="font-medium text-coral-700 hover:underline">
                           Fix
                         </Link>
                       ) : null}

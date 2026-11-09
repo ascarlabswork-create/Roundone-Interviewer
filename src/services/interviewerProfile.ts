@@ -248,20 +248,28 @@ export async function applySignupProfile(updates: InterviewerProfileUpdates): Pr
   return updateInterviewerProfile(updates)
 }
 
-export type ProfileChecklistItem = { label: string; done: boolean }
+export type ProfileChecklistItem = { label: string; done: boolean; href: string }
 
 export function profileChecklist(account: InterviewerAccount): ProfileChecklistItem[] {
   const professional = !isPlaceholderProfessional(account.interviewer)
   return [
-    { label: 'Full name', done: Boolean(account.profile.full_name.trim()) },
-    { label: 'Timezone', done: Boolean(account.profile.timezone.trim()) },
-    { label: 'Headline', done: Boolean(account.interviewer.headline?.trim()) },
-    { label: 'Bio', done: Boolean(account.interviewer.bio?.trim()) },
-    { label: 'Current role', done: Boolean(account.interviewer.current_role.trim()) && professional },
-    { label: 'Current company', done: Boolean(account.interviewer.company.trim()) && professional },
-    { label: 'Years of experience', done: account.interviewer.experience_years > 0 },
-    { label: 'Skills', done: account.skills.length > 0 },
-    { label: 'Target roles', done: account.targetRoles.length > 0 },
+    { label: 'Full name', done: Boolean(account.profile.full_name.trim()), href: '#section-professional' },
+    { label: 'Timezone', done: Boolean(account.profile.timezone.trim()), href: '#section-professional' },
+    { label: 'Headline', done: Boolean(account.interviewer.headline?.trim()), href: '#section-professional' },
+    { label: 'Bio', done: Boolean(account.interviewer.bio?.trim()), href: '#section-professional' },
+    {
+      label: 'Current role',
+      done: Boolean(account.interviewer.current_role.trim()) && professional,
+      href: '#section-professional',
+    },
+    {
+      label: 'Current company',
+      done: Boolean(account.interviewer.company.trim()) && professional,
+      href: '#section-professional',
+    },
+    { label: 'Years of experience', done: account.interviewer.experience_years > 0, href: '#section-professional' },
+    { label: 'Skills', done: account.skills.length > 0, href: '#section-skills' },
+    { label: 'Target roles', done: account.targetRoles.length > 0, href: '#section-roles' },
   ]
 }
 
