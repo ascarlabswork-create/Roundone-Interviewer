@@ -43,6 +43,8 @@ export type DisplayVerificationStatus = DbVerificationStatus | 'action_required'
 export type VerificationStatusItem = {
   kind: DbVerificationKind
   status: DisplayVerificationStatus
+  /** Set when a row exists in interviewer_verifications (not just a default pending). */
+  id?: string | null
 }
 
 export type InterviewerAccount = {
@@ -575,21 +577,51 @@ export async function getVerificationStatus(interviewerProfileId?: string): Prom
   const id = interviewerProfileId ?? (await getInterviewerProfile()).interviewer.id
   const { data, error } = await supabase
     .from(TABLES.interviewerVerifications)
-    .select('kind, status')
+    .select('id, kind, status')
     .eq('interviewer_profile_id', id)
   fail(error)
 
-  const byKind = new Map<DbVerificationKind, DisplayVerificationStatus>()
+  const byKind = new Map<DbVerificationKind, { id: string; status: DisplayVerificationStatus }>()
   for (const row of data ?? []) {
     const kind = asVerificationKind(row.kind)
     if (!kind) continue
-    byKind.set(kind, asVerificationStatus(row.status))
+    byKind.set(kind, { id: row.id, status: asVerificationStatus(row.status) })
   }
 
   return VERIFICATION_KINDS.map((kind) => ({
     kind,
-    status: byKind.get(kind) ?? 'pending',
+    status: byKind.get(kind)?.status ?? 'pending',
+    id: byKind.get(kind)?.id ?? null,
   }))
+}
+
+/** Queues identity and employment for admin review (creates or re-opens pending rows). */
+export async function submitInterviewerVerificationRequest(): Promise<VerificationStatusItem[]> {
+  const account = await getInterviewerProfile()
+  const interviewerId = account.interviewer.id
+
+  for (const kind of VERIFICATION_KINDS) {
+    const current = account.verifications.find((row) => row.kind === kind)
+    if (current?.status === 'verified') continue
+
+    if (current?.id) {
+      const { error } = await supabase
+        .from(TABLES.interviewerVerifications)
+        .update({ status: 'pending', reviewed_at: null, notes: null })
+        .eq('id', current.id)
+        .neq('status', 'verified')
+      fail(error)
+    } else {
+      const { error } = await supabase.from(TABLES.interviewerVerifications).insert({
+        interviewer_profile_id: interviewerId,
+        kind,
+        status: 'pending',
+      })
+      fail(error)
+    }
+  }
+
+  return getVerificationStatus(interviewerId)
 }
 
 function unique(values: string[]) {
