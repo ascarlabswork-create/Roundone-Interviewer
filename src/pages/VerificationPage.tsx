@@ -1,13 +1,14 @@
 import { BadgeCheck, Briefcase, Mail, Shield } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { VerificationBadge } from '../components/ui/StatusBadge.tsx'
 import { Card, ErrorState, Skeleton } from '../components/ui/primitives.tsx'
 import { VerifiedBadge } from '../components/ui/identity.tsx'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
-import type { DisplayVerificationStatus } from '../services/interviewerProfile.ts'
+import { VERIFICATION_SUBMITTED_PATH, verificationKindsRequested } from '../lib/verificationFlow.ts'
+import { submitInterviewerVerificationRequest, type DisplayVerificationStatus } from '../services/interviewerProfile.ts'
 import type { VerificationStatus } from '../types.ts'
 
 const cards: Array<{
@@ -30,12 +31,25 @@ export function VerificationPage() {
   const { account, error, refreshAccount, status } = useSession()
   const { pushToast } = useToast()
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const alreadySubmitted = account ? verificationKindsRequested(account.verifications) : false
 
   async function onSubmit() {
+    if (!account || alreadySubmitted) {
+      navigate(VERIFICATION_SUBMITTED_PATH, { replace: true })
+      return
+    }
+    setSubmitError(null)
     setSubmitting(true)
     try {
-      pushToast('Your verification request is on file. An admin will review identity and employment.')
-      navigate('/interviewer/dashboard', { replace: true })
+      await submitInterviewerVerificationRequest()
+      await refreshAccount()
+      navigate(VERIFICATION_SUBMITTED_PATH, { replace: true })
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not submit for verification.'
+      setSubmitError(message)
+      pushToast(message)
     } finally {
       setSubmitting(false)
     }
@@ -93,10 +107,25 @@ export function VerificationPage() {
         </div>
       </Card>
 
-      <div className="mt-8">
-        <Button onClick={onSubmit} disabled={submitting} fullWidth>
-          Submit for Verification
-        </Button>
+      {alreadySubmitted ? (
+        <Card className="mt-8 border-emerald-200 bg-emerald-50/80 p-5 text-sm text-emerald-950">
+          <p className="font-semibold">Your request is already with our team</p>
+          <p className="mt-1 text-emerald-900">View status, what happens next, and links to the dashboard from your confirmation page.</p>
+        </Card>
+      ) : null}
+
+      {submitError ? <p className="mt-4 text-sm text-red-700">{submitError}</p> : null}
+
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+        {alreadySubmitted ? (
+          <Link to={VERIFICATION_SUBMITTED_PATH} className="flex-1">
+            <Button fullWidth>View verification status</Button>
+          </Link>
+        ) : (
+          <Button onClick={() => void onSubmit()} disabled={submitting} fullWidth className="sm:flex-1">
+            {submitting ? 'Submitting…' : 'Submit for Verification'}
+          </Button>
+        )}
       </div>
     </div>
   )
