@@ -17,7 +17,7 @@ export function deleteAccountErrorMessage(code: string | null) {
     case 'not_authenticated':
       return 'Your session has expired. Sign in again, then retry.'
     case 'not_interviewer':
-      return 'Only interviewer accounts can be deleted here.'
+      return 'This login has no interviewer profile to delete. Sign in with the account you used for experts.jobround.ai, or register as an interviewer first.'
     case 'confirmation_required':
       return `Type ${DELETE_ACCOUNT_CONFIRMATION} to confirm.`
     default:
