@@ -1,9 +1,15 @@
 import { BadgeCheck, Briefcase, Shield } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, Navigate } from 'react-router-dom'
+import { VerificationProfileChecklist } from '../components/verification/VerificationProfileChecklist.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { VerificationBadge } from '../components/ui/StatusBadge.tsx'
 import { Card } from '../components/ui/primitives.tsx'
-import { verificationKindsRequested } from '../lib/verificationFlow.ts'
+import {
+  VERIFICATION_VERIFIED_PATH,
+  verificationFullyVerified,
+  verificationKindsRequested,
+} from '../lib/verificationFlow.ts'
 import { useSession } from '../state/session.tsx'
 
 const steps = [
@@ -12,7 +18,11 @@ const steps = [
 ]
 
 export function VerificationSubmittedPage() {
-  const { account } = useSession()
+  const { account, refreshAccount } = useSession()
+
+  useEffect(() => {
+    void refreshAccount()
+  }, [refreshAccount])
 
   if (!account) {
     return (
@@ -23,6 +33,10 @@ export function VerificationSubmittedPage() {
         to see your verification status.
       </div>
     )
+  }
+
+  if (verificationFullyVerified(account.verifications)) {
+    return <Navigate to={VERIFICATION_VERIFIED_PATH} replace />
   }
 
   if (!verificationKindsRequested(account.verifications)) {
@@ -66,12 +80,31 @@ export function VerificationSubmittedPage() {
         </p>
       </Card>
 
+      <div className="mt-6">
+        <VerificationProfileChecklist
+          account={account}
+          title="While you wait, keep your profile complete"
+          description="Admins compare these fields on your Profile page with your request. Update them anytime, then watch status on Verification details."
+        />
+      </div>
+
       <Card className="mt-4 p-5 text-sm text-slate-600">
-        <p className="font-semibold text-navy-950">What happens next</p>
+        <p className="font-semibold text-navy-950">How verification works</p>
         <ul className="mt-2 list-disc space-y-1 pl-5">
-          <li>An admin checks the profile details you saved during setup.</li>
-          <li>If something is missing, they may mark a check as rejected and add notes.</li>
-          <li>When approved, your verified badge shows to candidates on your public profile.</li>
+          <li>
+            <strong>You</strong> add name, role, company, skills, and summary on{' '}
+            <Link to="/interviewer/profile" className="font-medium text-coral-700 hover:underline">
+              Profile
+            </Link>
+            , then submit here.
+          </li>
+          <li>
+            <strong>Admins</strong> on jobround.ai open Verifications and approve or reject identity and employment.
+          </li>
+          <li>
+            When both are <strong>Verified</strong>, you are taken to the verified page and your badge shows to
+            candidates.
+          </li>
         </ul>
       </Card>
 

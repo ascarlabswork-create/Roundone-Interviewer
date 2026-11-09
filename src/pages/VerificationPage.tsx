@@ -1,13 +1,21 @@
 import { BadgeCheck, Briefcase, Mail, Shield } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { VerificationProfileChecklist } from '../components/verification/VerificationProfileChecklist.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { VerificationBadge } from '../components/ui/StatusBadge.tsx'
 import { Card, ErrorState, Skeleton } from '../components/ui/primitives.tsx'
 import { VerifiedBadge } from '../components/ui/identity.tsx'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
-import { VERIFICATION_SUBMITTED_PATH, verificationKindsRequested } from '../lib/verificationFlow.ts'
+import {
+  VERIFICATION_SUBMITTED_PATH,
+  VERIFICATION_VERIFIED_PATH,
+  verificationFullyVerified,
+  verificationHasRejection,
+  verificationKindsRequested,
+  verificationProfileReady,
+} from '../lib/verificationFlow.ts'
 import { submitInterviewerVerificationRequest, type DisplayVerificationStatus } from '../services/interviewerProfile.ts'
 import type { VerificationStatus } from '../types.ts'
 
@@ -34,10 +42,21 @@ export function VerificationPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const alreadySubmitted = account ? verificationKindsRequested(account.verifications) : false
+  const profileReady = account ? verificationProfileReady(account) : false
+  const needsResubmit = account ? verificationHasRejection(account.verifications) : false
 
   async function onSubmit() {
-    if (!account || alreadySubmitted) {
+    if (!account) return
+    if (verificationFullyVerified(account.verifications)) {
+      navigate(VERIFICATION_VERIFIED_PATH, { replace: true })
+      return
+    }
+    if (alreadySubmitted && !needsResubmit) {
       navigate(VERIFICATION_SUBMITTED_PATH, { replace: true })
+      return
+    }
+    if (!verificationProfileReady(account)) {
+      setSubmitError('Complete every item on the profile checklist below, then submit again.')
       return
     }
     setSubmitError(null)
@@ -70,6 +89,12 @@ export function VerificationPage() {
     )
   }
 
+  if (verificationFullyVerified(account.verifications)) {
+    return <Navigate to={VERIFICATION_VERIFIED_PATH} replace />
+  }
+
+  const rejectionNotes = account.verifications.filter((row) => row.status === 'rejected' && row.notes)
+
   function statusFor(key: (typeof cards)[number]['key']): VerificationStatus {
     if (key === 'professionalEmail') return 'pending'
     const match = account?.verifications.find((item) => item.kind === key)
@@ -80,9 +105,31 @@ export function VerificationPage() {
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <h1 className="text-2xl font-semibold text-navy-950">Verify your professional identity</h1>
       <p className="mt-2 text-sm text-slate-600">
-        Status is read from jobround.ai. You can submit a request, but you cannot change Pending, Verified, or Rejected
-        yourself.
+        Add your details on{' '}
+        <Link to="/interviewer/profile" className="font-medium text-coral-700 hover:underline">
+          Profile
+        </Link>
+        . An admin on jobround.ai reviews that data — you cannot set Verified yourself. Pending stays until they
+        approve.
       </p>
+
+      <div className="mt-8">
+        <VerificationProfileChecklist account={account} />
+      </div>
+
+      {rejectionNotes.length > 0 ? (
+        <Card className="mt-4 border-red-200 bg-red-50/80 p-5 text-sm text-red-950">
+          <p className="font-semibold">Admin asked for changes</p>
+          <ul className="mt-2 space-y-2">
+            {rejectionNotes.map((row) => (
+              <li key={row.kind}>
+                <span className="font-medium capitalize">{row.kind}:</span> {row.notes}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-red-900">Update your profile, then submit again.</p>
+        </Card>
+      ) : null}
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {cards.map((card) => (
@@ -107,7 +154,7 @@ export function VerificationPage() {
         </div>
       </Card>
 
-      {alreadySubmitted ? (
+      {alreadySubmitted && !needsResubmit ? (
         <Card className="mt-8 border-emerald-200 bg-emerald-50/80 p-5 text-sm text-emerald-950">
           <p className="font-semibold">Your request is already with our team</p>
           <p className="mt-1 text-emerald-900">View status, what happens next, and links to the dashboard from your confirmation page.</p>
@@ -117,13 +164,18 @@ export function VerificationPage() {
       {submitError ? <p className="mt-4 text-sm text-red-700">{submitError}</p> : null}
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-        {alreadySubmitted ? (
+        {alreadySubmitted && !needsResubmit ? (
           <Link to={VERIFICATION_SUBMITTED_PATH} className="flex-1">
             <Button fullWidth>View verification status</Button>
           </Link>
         ) : (
-          <Button onClick={() => void onSubmit()} disabled={submitting} fullWidth className="sm:flex-1">
-            {submitting ? 'Submitting…' : 'Submit for Verification'}
+          <Button
+            onClick={() => void onSubmit()}
+            disabled={submitting || !profileReady}
+            fullWidth
+            className="sm:flex-1"
+          >
+            {submitting ? 'Submitting…' : needsResubmit ? 'Submit again after profile update' : 'Submit for Verification'}
           </Button>
         )}
       </div>
