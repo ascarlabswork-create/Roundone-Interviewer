@@ -18,7 +18,7 @@ function pathOnly(value: string) {
   return value.split('?')[0] ?? value
 }
 
-/** First stop after sign-in when we still do not know what this interviewer covers. */
+/** First stop after sign-in only (not on in-app links such as Verification → Dashboard). */
 export function landingPathForAccount(
   role: AppRole | null | undefined,
   account: InterviewWelcomeAccount | null | undefined,
