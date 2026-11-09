@@ -1,19 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  ACCOUNT_DELETED_LOGIN_PATH,
   DELETE_ACCOUNT_CONFIRMATION,
   deleteMyInterviewerAccount,
   isDeleteConfirmationValid,
 } from '../../services/accountDeletion.ts'
 import { useOnboarding } from '../../state/onboarding.tsx'
-import { useToast } from '../../state/toast.tsx'
 import { Button } from '../ui/Button.tsx'
 import { Card, FieldLabel, TextInput } from '../ui/primitives.tsx'
 
 export function DeleteAccountCard() {
   const navigate = useNavigate()
   const { reset } = useOnboarding()
-  const { pushToast } = useToast()
   const [open, setOpen] = useState(false)
   const [confirmation, setConfirmation] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -26,8 +25,7 @@ export function DeleteAccountCard() {
     try {
       await deleteMyInterviewerAccount()
       reset()
-      pushToast('Your account has been deleted')
-      navigate('/interviewer/login', { replace: true })
+      navigate(ACCOUNT_DELETED_LOGIN_PATH, { replace: true })
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not delete your account. Try again in a moment.')
       setDeleting(false)

@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase.ts'
 
 export const DELETE_ACCOUNT_FUNCTION = 'delete-interviewer-account'
 export const DELETE_ACCOUNT_CONFIRMATION = 'DELETE'
+/** Shown on the sign-in page after a successful delete. */
+export const ACCOUNT_DELETED_LOGIN_PATH = '/interviewer/login?accountDeleted=1'
 
 export function isDeleteConfirmationValid(value: string) {
   return value.trim() === DELETE_ACCOUNT_CONFIRMATION

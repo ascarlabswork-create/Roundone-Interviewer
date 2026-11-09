@@ -175,6 +175,19 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         }
       />
 
+      {!isRegister && params.get('accountDeleted') === '1' ? (
+        <div
+          className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-950"
+          role="status"
+        >
+          <p className="font-semibold">Your interviewer account has been deleted</p>
+          <p className="mt-1 leading-relaxed text-emerald-900">
+            You&apos;re signed out. Your login still works if you use the same email on jobround.ai as a candidate, or
+            you can register here again as an interviewer.
+          </p>
+        </div>
+      ) : null}
+
       <Card className="mt-8 p-6 sm:p-8">
       <form className="space-y-4" onSubmit={submit}>
         {isRegister ? (
