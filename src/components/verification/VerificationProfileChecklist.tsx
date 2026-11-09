@@ -26,10 +26,13 @@ export function VerificationProfileChecklist({
   account,
   title = 'Add these on your profile before we can verify you',
   description = 'Verification is reviewed by an admin on jobround.ai. They use the details below from your Profile page — not this screen. Government ID upload is not connected yet.',
+  alwaysShowEditButton = false,
 }: {
   account: InterviewerAccount
   title?: string
   description?: string
+  /** Show “Edit profile” even when every checklist item is complete. */
+  alwaysShowEditButton?: boolean
 }) {
   const checks = verificationProfileChecks(account)
   const ready = checks.every((item) => item.done)
@@ -44,13 +47,17 @@ export function VerificationProfileChecklist({
           <CheckRow key={item.id} item={item} />
         ))}
       </ul>
-      {!ready ? (
+      {!ready || alwaysShowEditButton ? (
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-amber-900">
-            {missing} item{missing === 1 ? '' : 's'} still missing on your profile.
-          </p>
-          <Link to={INTERVIEWER_PROFILE_PATH}>
-            <Button size="sm">{ready ? 'Review profile' : 'Complete profile'}</Button>
+          {!ready ? (
+            <p className="text-xs text-amber-900">
+              {missing} item{missing === 1 ? '' : 's'} still missing on your profile.
+            </p>
+          ) : (
+            <p className="text-xs text-emerald-900">All items complete — you can still edit anytime.</p>
+          )}
+          <Link to={INTERVIEWER_PROFILE_PATH} className="shrink-0">
+            <Button size="sm">{ready ? 'Edit profile details' : 'Complete profile'}</Button>
           </Link>
         </div>
       ) : (

@@ -76,3 +76,24 @@ export function verificationProfileChecks(account: InterviewerAccount): Verifica
 export function verificationProfileReady(account: InterviewerAccount) {
   return verificationProfileChecks(account).every((item) => item.done)
 }
+
+const IDENTITY_CHECK_IDS = ['name'] as const
+const EMPLOYMENT_CHECK_IDS = ['summary', 'employment', 'experience', 'skills', 'roles'] as const
+
+function checksDoneForIds(account: InterviewerAccount, ids: readonly string[]) {
+  const byId = new Map(verificationProfileChecks(account).map((row) => [row.id, row.done]))
+  return ids.every((id) => byId.get(id) === true)
+}
+
+/** Interviewer-editable profile fields for each verification kind (admin review is separate). */
+export function verificationKindDetailsComplete(
+  account: InterviewerAccount,
+  kind: (typeof REQUEST_KINDS)[number],
+) {
+  if (kind === 'identity') return checksDoneForIds(account, IDENTITY_CHECK_IDS)
+  return checksDoneForIds(account, EMPLOYMENT_CHECK_IDS)
+}
+
+export function verificationAnyDetailsIncomplete(account: InterviewerAccount) {
+  return REQUEST_KINDS.some((kind) => !verificationKindDetailsComplete(account, kind))
+}
