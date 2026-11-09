@@ -3,6 +3,7 @@ import { interviewJoinState, type InterviewSessionRecord } from './interviewSess
 import type { InterviewerBooking } from './interviewerBookings.ts'
 import { isActionableBookingRequest } from './interviewerBookings.ts'
 import type { AvailabilityBoard } from './interviewerAvailability.ts'
+import { needsInterviewWelcome } from '../lib/interviewWelcome.ts'
 import { isProfileSetupComplete } from './interviewerProfile.ts'
 import type { InterviewerAccount, VerificationStatusItem } from './interviewerProfile.ts'
 import type { InterviewerServiceRecord } from './interviewerServices.ts'
@@ -159,7 +160,15 @@ export function buildDashboardAttentionItems(input: {
     }
   }
 
-  if (!isProfileSetupComplete(input.account)) {
+  if (needsInterviewWelcome(input.account)) {
+    items.push({
+      id: 'interview-welcome',
+      title: 'Tell candidates what you interview on',
+      detail: 'Add your skills and roles so matching and bookings work.',
+      href: '/interviewer/welcome',
+      actionLabel: 'Complete profile',
+    })
+  } else if (!isProfileSetupComplete(input.account)) {
     items.push({
       id: 'profile-incomplete',
       title: 'Profile is missing required information',

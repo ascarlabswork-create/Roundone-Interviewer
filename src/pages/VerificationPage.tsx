@@ -34,8 +34,8 @@ export function VerificationPage() {
   async function onSubmit() {
     setSubmitting(true)
     try {
-      pushToast('Submitted for review. Interviewers cannot change verification status directly.')
-      navigate('/interviewer/dashboard')
+      pushToast('Your verification request is on file. An admin will review identity and employment.')
+      navigate('/interviewer/dashboard', { replace: true })
     } finally {
       setSubmitting(false)
     }
