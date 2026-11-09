@@ -72,18 +72,21 @@ Deno.serve(async (req) => {
 
   const result = asRecord(data);
   const hardDelete = result?.hard_delete === true;
+  const deleteAuthUser = result?.delete_auth_user === true;
 
-  // Shared booking history still references a soft-deleted user, so only a
-  // user with no remaining references is removed from auth.users outright.
-  const { error: authError } = await admin.auth.admin.deleteUser(userId, !hardDelete);
-  if (authError) {
-    console.log(JSON.stringify({ event: "delete_account_auth_failed", hard_delete: hardDelete }));
-    return json(500, { error: "auth_delete_failed" });
+  // Dual-persona users keep auth for the candidate app; only remove auth when the DB says so.
+  if (deleteAuthUser) {
+    const { error: authError } = await admin.auth.admin.deleteUser(userId, !hardDelete);
+    if (authError) {
+      console.log(JSON.stringify({ event: "delete_account_auth_failed", hard_delete: hardDelete }));
+      return json(500, { error: "auth_delete_failed" });
+    }
   }
 
   console.log(JSON.stringify({
     event: "delete_account_ok",
     hard_delete: hardDelete,
+    delete_auth_user: deleteAuthUser,
     cancelled_bookings: result?.cancelled_bookings ?? 0,
   }));
   return json(200, { deleted: true });
