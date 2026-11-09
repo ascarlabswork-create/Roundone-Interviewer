@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   verificationFullyVerified,
   verificationKindsRequested,
+  verificationKindDetailsComplete,
   verificationProfileReady,
   verificationProfileChecks,
 } from './verificationFlow.ts'
@@ -70,5 +71,16 @@ describe('verificationProfileChecks', () => {
     expect(verificationProfileChecks(account).every((row) => row.done)).toBe(true)
     expect(verificationProfileReady(account)).toBe(true)
     expect(verificationProfileReady({ ...account, skills: [] })).toBe(false)
+  })
+})
+
+describe('verificationKindDetailsComplete', () => {
+  it('tracks identity vs employment fields separately', () => {
+    expect(verificationKindDetailsComplete(account, 'identity')).toBe(true)
+    expect(verificationKindDetailsComplete(account, 'employment')).toBe(true)
+    expect(verificationKindDetailsComplete({ ...account, profile: { ...account.profile, full_name: '' } }, 'identity')).toBe(
+      false,
+    )
+    expect(verificationKindDetailsComplete({ ...account, skills: [] }, 'employment')).toBe(false)
   })
 })

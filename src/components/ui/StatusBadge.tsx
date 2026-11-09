@@ -39,7 +39,7 @@ export function VerificationBadge({ status }: { status: VerificationStatus }) {
   if (status === 'verified') return <Badge tone="green">Verified</Badge>
   if (status === 'rejected') return <Badge tone="red">Rejected</Badge>
   if (status === 'action_required') return <Badge tone="amber">Action Required</Badge>
-  return <Badge tone="slate">Pending</Badge>
+  return <Badge tone="slate">Pending review</Badge>
 }
 
 export function PayoutBadge({ status }: { status: PayoutStatus }) {
