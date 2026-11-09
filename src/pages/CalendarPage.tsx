@@ -173,6 +173,45 @@ export function CalendarPage() {
     }, 'Interview schedule saved')
   }
 
+  async function onSaveDateCustom(date: string, windows: Array<{ startTime: string; endTime: string }>) {
+    if (!board) return
+    try {
+      const existing = board.customSlots.filter((slot) => slot.on_date === date)
+      for (const slot of existing) {
+        await deleteCustomSlot(slot.id)
+      }
+      for (const window of windows) {
+        await createCustomSlot({
+          onDate: date,
+          startTime: window.startTime,
+          endTime: window.endTime,
+        })
+      }
+      await refreshBoard()
+      pushToast('Custom hours saved for that date')
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not save custom hours.'
+      pushToast(message)
+      throw caught instanceof Error ? caught : new Error(message)
+    }
+  }
+
+  async function onResetDateCustom(date: string) {
+    if (!board) return
+    try {
+      const existing = board.customSlots.filter((slot) => slot.on_date === date)
+      for (const slot of existing) {
+        await deleteCustomSlot(slot.id)
+      }
+      await refreshBoard()
+      pushToast('Custom hours cleared for that date')
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not reset this date.'
+      pushToast(message)
+      throw caught instanceof Error ? caught : new Error(message)
+    }
+  }
+
   async function onBufferChange(bufferMin: BookingBufferMinutes) {
     await runMutation(() => updateMyBookingBuffer(bufferMin))
   }
@@ -232,18 +271,24 @@ export function CalendarPage() {
 
       {board ? (
         <>
+          <InterviewScheduleCard
+            board={board}
+            saving={saving}
+            onSave={(draft) => void onSaveSchedule(draft)}
+            onSaveDateCustom={onSaveDateCustom}
+            onResetDateCustom={onResetDateCustom}
+          />
+
           <Card className="p-5">
             <h2 className="text-lg font-semibold text-navy-950">Timezone</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Weekly hours use your detected timezone ({timezoneLabel(board.timezone)}). Candidates book in their own
-              zone; each session shows both times so CST and IST (or any pair) line up.
+              Hours are stored in your detected timezone ({timezoneLabel(board.timezone)}). Candidates book in their
+              own zone; each session shows both times so they line up.
             </p>
             <div className="mt-4 max-w-md">
               <DetectedTimezoneNote timezone={board.timezone} />
             </div>
           </Card>
-
-          <InterviewScheduleCard board={board} saving={saving} onSave={(draft) => void onSaveSchedule(draft)} />
 
           <section className="grid gap-4 lg:grid-cols-2">
             <Card className="p-5">
