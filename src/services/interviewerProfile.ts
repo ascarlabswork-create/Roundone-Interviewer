@@ -45,6 +45,7 @@ export type VerificationStatusItem = {
   status: DisplayVerificationStatus
   /** Set when a row exists in interviewer_verifications (not just a default pending). */
   id?: string | null
+  notes?: string | null
 }
 
 export type InterviewerAccount = {
@@ -577,21 +578,26 @@ export async function getVerificationStatus(interviewerProfileId?: string): Prom
   const id = interviewerProfileId ?? (await getInterviewerProfile()).interviewer.id
   const { data, error } = await supabase
     .from(TABLES.interviewerVerifications)
-    .select('id, kind, status')
+    .select('id, kind, status, notes')
     .eq('interviewer_profile_id', id)
   fail(error)
 
-  const byKind = new Map<DbVerificationKind, { id: string; status: DisplayVerificationStatus }>()
+  const byKind = new Map<DbVerificationKind, { id: string; status: DisplayVerificationStatus; notes: string | null }>()
   for (const row of data ?? []) {
     const kind = asVerificationKind(row.kind)
     if (!kind) continue
-    byKind.set(kind, { id: row.id, status: asVerificationStatus(row.status) })
+    byKind.set(kind, {
+      id: row.id,
+      status: asVerificationStatus(row.status),
+      notes: row.notes?.trim() || null,
+    })
   }
 
   return VERIFICATION_KINDS.map((kind) => ({
     kind,
     status: byKind.get(kind)?.status ?? 'pending',
     id: byKind.get(kind)?.id ?? null,
+    notes: byKind.get(kind)?.notes ?? null,
   }))
 }
 
@@ -607,7 +613,7 @@ export async function submitInterviewerVerificationRequest(): Promise<Verificati
     if (current?.id) {
       const { error } = await supabase
         .from(TABLES.interviewerVerifications)
-        .update({ status: 'pending', reviewed_at: null, notes: null })
+        .update({ status: 'pending', reviewed_at: null })
         .eq('id', current.id)
         .neq('status', 'verified')
       fail(error)

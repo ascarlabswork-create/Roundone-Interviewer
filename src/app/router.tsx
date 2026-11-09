@@ -29,6 +29,7 @@ import { SetupPage } from '../pages/SetupPage.tsx'
 import { WelcomePage } from '../pages/WelcomePage.tsx'
 import { VerificationPage } from '../pages/VerificationPage.tsx'
 import { VerificationSubmittedPage } from '../pages/VerificationSubmittedPage.tsx'
+import { VerificationVerifiedPage } from '../pages/VerificationVerifiedPage.tsx'
 import { AdminAuditPage } from '../pages/admin/AdminAuditPage.tsx'
 import { AdminBookingsPage } from '../pages/admin/AdminBookingsPage.tsx'
 import { AdminDashboardPage } from '../pages/admin/AdminDashboardPage.tsx'
@@ -88,6 +89,7 @@ export function AppRouter() {
             <Route path="/interviewer/profile" element={<ProfilePage />} />
             <Route path="/interviewer/verification" element={<VerificationPage />} />
             <Route path="/interviewer/verification/submitted" element={<VerificationSubmittedPage />} />
+            <Route path="/interviewer/verification/verified" element={<VerificationVerifiedPage />} />
             <Route path="/interviewer/settings" element={<SettingsPage />} />
           </Route>
           <Route
