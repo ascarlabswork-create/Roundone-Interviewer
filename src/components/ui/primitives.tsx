@@ -4,14 +4,19 @@ import { cn } from '../../lib/cn.ts'
 import { holdScroll, snapshotScroll, type ScrollSnapshot } from '../../lib/keepScroll.ts'
 
 export function Card({
+  id,
   className,
   children,
 }: {
+  id?: string
   className?: string
   children: ReactNode
 }) {
   return (
-    <div className={cn('rounded-2xl border border-navy-950/8 bg-white/90 shadow-[0_18px_40px_-28px_rgba(12,18,32,0.45)]', className)}>
+    <div
+      id={id}
+      className={cn('rounded-2xl border border-navy-950/8 bg-white/90 shadow-[0_18px_40px_-28px_rgba(12,18,32,0.45)]', className)}
+    >
       {children}
     </div>
   )
