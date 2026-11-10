@@ -110,6 +110,47 @@ export function notificationBookingId(item: Pick<InterviewerNotification, 'paylo
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
+/** Wording aimed at candidates (same auth user when they also use the interviewer app). */
+function isCandidateFacingNotificationCopy(item: Pick<InterviewerNotification, 'title' | 'body' | 'kind'>) {
+  const title = item.title.toLowerCase()
+  const body = item.body.toLowerCase()
+  if (title.includes('booking request submitted')) return true
+  if (body.includes('your booking request was sent')) return true
+  if (body.includes('the interviewer will confirm or decline')) return true
+  if (body.includes('your interviewer confirmed')) return true
+  return false
+}
+
+function isInterviewerFacingNotificationCopy(item: Pick<InterviewerNotification, 'title' | 'body' | 'kind'>) {
+  const title = item.title.toLowerCase()
+  const body = item.body.toLowerCase()
+  if (title.includes('new booking request')) return true
+  if (body.includes('confirm or reject the request')) return true
+  if (body.includes('candidate booked')) return true
+  return false
+}
+
+/** Hide candidate-app copies from the interviewer notifications list (dual persona, one profile_id). */
+export function shouldShowInInterviewerInbox(
+  item: InterviewerNotification,
+  bookingsById: Map<string, InterviewerBooking>,
+) {
+  const bookingId = notificationBookingId(item)
+  const booking = bookingId ? bookingsById.get(bookingId) ?? null : null
+  if (isInterviewerOwnedNotificationBooking(booking)) return true
+  if (isCandidateFacingNotificationCopy(item)) return false
+  if (isInterviewerFacingNotificationCopy(item)) return true
+  if (!bookingId) return true
+  return false
+}
+
+export function filterInterviewerInboxNotifications(
+  items: InterviewerNotification[],
+  bookingsById: Map<string, InterviewerBooking>,
+) {
+  return items.filter((item) => shouldShowInInterviewerInbox(item, bookingsById))
+}
+
 /** True when this booking is on the signed-in interviewer account (incoming request). */
 export function isInterviewerOwnedNotificationBooking(
   booking?: InterviewerBooking | null,
@@ -270,17 +311,12 @@ export async function listMyNotifications(limit = NOTIFICATION_PAGE_SIZE): Promi
 }
 
 export async function countMyUnreadNotifications(): Promise<number> {
-  await requireUser()
-  const { count, error } = await supabase
-    .from(TABLES.notifications)
-    .select('id', { count: 'exact', head: true })
-    .is('read_at', null)
-  mapLoadError(error)
-  return count ?? 0
+  const board = await loadMyNotificationBoard()
+  return board.unreadCount
 }
 
 export async function loadMyNotificationBoard(limit = NOTIFICATION_PAGE_SIZE): Promise<NotificationBoard> {
-  const [items, unreadCount] = await Promise.all([listMyNotifications(limit), countMyUnreadNotifications()])
+  const items = await listMyNotifications(limit)
   const bookingIds = items.map(notificationBookingId).filter((id): id is string => Boolean(id))
   let bookingsById = new Map<string, InterviewerBooking>()
   try {
@@ -288,7 +324,9 @@ export async function loadMyNotificationBoard(limit = NOTIFICATION_PAGE_SIZE): P
   } catch {
     bookingsById = new Map()
   }
-  return { items, unreadCount, bookingsById }
+  const inbox = filterInterviewerInboxNotifications(items, bookingsById)
+  const unreadCount = inbox.filter((item) => !item.readAt).length
+  return { items: inbox, unreadCount, bookingsById }
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
