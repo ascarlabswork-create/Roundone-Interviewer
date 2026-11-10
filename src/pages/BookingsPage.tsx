@@ -18,11 +18,13 @@ import { formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
 import {
   BOOKING_ALREADY_UPDATED,
+  BOOKING_NOT_ON_INTERVIEWER_ACCOUNT,
   BOOKING_NOT_YET_LISTED,
   bookingsForTab,
   canCancelBooking,
   canRescheduleBooking,
   cancelMyBooking,
+  getMyBooking,
   isActionableBookingRequest,
   isBookingId,
   listMyBookableSlots,
@@ -139,15 +141,35 @@ export function BookingsPage() {
       return
     }
     const found = loadedBookings.find((item) => item.id === bookingParam)
-    if (!found) {
-      setDetailId(null)
-      setDeepLinkError(BOOKING_NOT_YET_LISTED)
+    if (found) {
+      setDeepLinkError(null)
+      setDetailId(found.id)
+      const nextTab = tabForBooking(found.status)
+      if (nextTab && nextTab !== tab) writeParams(nextTab, found.id)
       return
     }
-    setDeepLinkError(null)
-    setDetailId(found.id)
-    const nextTab = tabForBooking(found.status)
-    if (nextTab && nextTab !== tab) writeParams(nextTab, found.id)
+
+    let cancelled = false
+    setDetailId(null)
+    setDeepLinkError(BOOKING_NOT_YET_LISTED)
+    void getMyBooking(bookingParam)
+      .then((booking) => {
+        if (cancelled) return
+        setDeepLinkError(null)
+        setDetailId(booking.id)
+        const nextTab = tabForBooking(booking.status)
+        if (nextTab) writeParams(nextTab, booking.id)
+        state.reload()
+      })
+      .catch(() => {
+        if (cancelled) return
+        setDeepLinkError(BOOKING_NOT_ON_INTERVIEWER_ACCOUNT)
+      })
+    return () => {
+      cancelled = true
+    }
+    // Intentionally omit state.reload identity churn; reload only after a successful single-booking fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deep-link resolve against loaded board
   }, [bookingParam, state.status, loadedBookings, tab, writeParams])
 
   async function runAction(id: string, action: () => Promise<unknown>, successMessage: string | (() => string)) {
