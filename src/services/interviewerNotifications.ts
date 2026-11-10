@@ -111,7 +111,9 @@ export function notificationBookingId(item: Pick<InterviewerNotification, 'paylo
 }
 
 /** True when this booking is on the signed-in interviewer account (incoming request). */
-export function isInterviewerOwnedNotificationBooking(booking?: InterviewerBooking | null) {
+export function isInterviewerOwnedNotificationBooking(
+  booking?: InterviewerBooking | null,
+): booking is InterviewerBooking {
   return Boolean(booking)
 }
 
