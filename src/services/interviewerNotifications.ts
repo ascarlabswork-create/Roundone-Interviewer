@@ -110,11 +110,18 @@ export function notificationBookingId(item: Pick<InterviewerNotification, 'paylo
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
+/** True when this booking is on the signed-in interviewer account (incoming request). */
+export function isInterviewerOwnedNotificationBooking(booking?: InterviewerBooking | null) {
+  return Boolean(booking)
+}
+
 export function notificationHref(
   item: Pick<InterviewerNotification, 'kind' | 'payload'>,
   booking?: InterviewerBooking | null,
 ) {
   const bookingId = notificationBookingId(item)
+  // Only deep-link to a booking the interviewer can load. Candidate-side copies of the
+  // same kind (dual persona) must not open Review Booking for someone else's request.
   if (bookingId && booking) {
     if (item.kind === 'interview_reminder') {
       return `/interviewer/interview/${bookingId}`
@@ -127,29 +134,22 @@ export function notificationHref(
   }
   switch (item.kind) {
     case 'booking_requested':
-      return bookingId ? interviewerBookingHref(bookingId, 'requested') : '/interviewer/bookings?tab=pending'
+      return '/interviewer/bookings?tab=pending'
     case 'booking_cancelled':
     case 'booking_expired':
     case 'booking_rejected':
-      return bookingId
-        ? interviewerBookingHref(bookingId, 'cancelled')
-        : '/interviewer/bookings?tab=cancelled'
     case 'booking_rescheduled':
-      return bookingId
-        ? interviewerBookingHref(bookingId, 'rescheduled')
-        : '/interviewer/bookings?tab=cancelled'
+      return '/interviewer/bookings?tab=cancelled'
     case 'booking_confirmed':
-      return bookingId
-        ? interviewerBookingHref(bookingId, 'confirmed')
-        : '/interviewer/bookings?tab=upcoming'
+      return '/interviewer/bookings?tab=upcoming'
     case 'interview_reminder':
-      return bookingId ? `/interviewer/interview/${bookingId}` : '/interviewer/bookings?tab=upcoming'
+      return '/interviewer/bookings?tab=upcoming'
     case 'interview_completed':
-      return bookingId ? `/interviewer/feedback/${bookingId}` : '/interviewer/bookings?tab=completed'
+      return '/interviewer/bookings?tab=completed'
     case 'feedback_ready':
       return '/interviewer/reviews'
     default:
-      return bookingId ? interviewerBookingHref(bookingId) : '/interviewer/dashboard'
+      return '/interviewer/dashboard'
   }
 }
 
@@ -158,12 +158,23 @@ export function notificationDisplay(
   booking?: InterviewerBooking | null,
 ): NotificationDisplay {
   if (item.kind === 'booking_requested') {
+    // Dual persona: candidates also get booking_requested ("request submitted"). Without an
+    // owned booking row, do not show Review Booking — that booking belongs to another interviewer.
+    if (!isInterviewerOwnedNotificationBooking(booking)) {
+      return {
+        title: item.title.trim() || 'Booking request submitted',
+        body: item.body.trim() || 'Your booking request was sent. The interviewer will confirm or decline it.',
+        dateLabel: null,
+        timeLabel: null,
+        actionLabel: null,
+      }
+    }
     const payloadCandidate = typeof item.payload.candidate_name === 'string' ? item.payload.candidate_name : null
     const payloadService = typeof item.payload.service_name === 'string' ? item.payload.service_name : null
-    const candidate = booking?.candidate.name?.trim() || payloadCandidate || 'A candidate'
-    const service = booking?.serviceName?.trim() || payloadService || 'a session'
-    const startsAt = booking?.startsAtUtc ?? (typeof item.payload.starts_at === 'string' ? item.payload.starts_at : null)
-    const tz = booking?.displayTimezone ?? (typeof item.payload.timezone === 'string' ? item.payload.timezone : 'Asia/Kolkata')
+    const candidate = booking.candidate.name?.trim() || payloadCandidate || 'A candidate'
+    const service = booking.serviceName?.trim() || payloadService || 'a session'
+    const startsAt = booking.startsAtUtc ?? (typeof item.payload.starts_at === 'string' ? item.payload.starts_at : null)
+    const tz = booking.displayTimezone ?? (typeof item.payload.timezone === 'string' ? item.payload.timezone : 'Asia/Kolkata')
     return {
       title: 'New Interview Request',
       body: `${candidate} requested\n${service}`,
@@ -177,7 +188,8 @@ export function notificationDisplay(
     ? formatDateShortInZone(booking.startsAtUtc, booking.displayTimezone)
     : null
   const timeLabel = booking ? formatTimeInZone(booking.startsAtUtc, booking.displayTimezone) : null
-  const hasBookingLink = Boolean(notificationBookingId(item)) && item.kind !== 'feedback_ready'
+  // Require an owned booking row so candidate-side copies do not show a dead "View booking" CTA.
+  const hasBookingLink = Boolean(booking) && item.kind !== 'feedback_ready'
 
   if (item.kind === 'booking_confirmed') {
     return {

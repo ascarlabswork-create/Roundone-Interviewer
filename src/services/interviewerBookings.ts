@@ -62,6 +62,8 @@ export type InterviewerBooking = {
 export const BOOKING_ALREADY_UPDATED = 'This booking is no longer available for confirmation.'
 export const BOOKING_NOT_YET_LISTED =
   'This request isn’t on your list yet. Try refreshing in a moment.'
+export const BOOKING_NOT_ON_INTERVIEWER_ACCOUNT =
+  'This booking is not on your interviewer list. If you sent the request as a candidate, wait for that interviewer to respond.'
 
 const BOOKING_COLUMNS = [
   'id',
