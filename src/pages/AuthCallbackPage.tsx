@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/primitives.tsx'
+import { isInPasswordRecoveryFlow, isAuthRecoveryUrl, redirectToPasswordRecovery } from '../lib/authRecovery.ts'
 import { landingPathForAccount } from '../lib/interviewWelcome.ts'
 import { INTERVIEWER_SETUP, defaultHomePath, safeNextPath } from '../lib/nextPath.ts'
 import { oauthRedirectErrorMessage } from '../services/auth.ts'
@@ -23,6 +24,21 @@ export function AuthCallbackPage() {
     const id = window.setTimeout(() => setTimedOut(true), 10_000)
     return () => window.clearTimeout(id)
   }, [])
+
+  useEffect(() => {
+    if (isAuthRecoveryUrl()) redirectToPasswordRecovery()
+  }, [])
+
+  if (isInPasswordRecoveryFlow()) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
+        <Card className="p-8 text-center">
+          <h1 className="text-xl font-semibold text-navy-950">Opening password reset…</h1>
+          <p className="mt-2 text-sm text-slate-600">One moment while we load the reset form.</p>
+        </Card>
+      </div>
+    )
+  }
 
   if (status === 'authenticated' && (account || profile?.role === 'admin')) {
     return <Navigate to={landingPathForAccount(profile?.role, account, nextPath)} replace />

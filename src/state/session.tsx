@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
+import { markPasswordRecoveryPending } from '../lib/authRecovery.ts'
+import { supabase } from '../lib/supabase.ts'
 import {
   claimInterviewerPersona,
   getCurrentUser,
-  onAuthStateChange,
   signOut as signOutRequest,
 } from '../services/auth.ts'
 import { getCurrentInterviewer, type InterviewerAccount } from '../services/interviewer.ts'
@@ -99,9 +100,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setError(caught instanceof Error ? caught.message : 'Could not restore your session.')
       })
 
-    const unsubscribe = onAuthStateChange((nextUser) => {
-      if (!cancelled) void applyUser(nextUser)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') markPasswordRecoveryPending()
+      if (!cancelled) void applyUser(session?.user ?? null)
     })
+
+    const unsubscribe = () => subscription.unsubscribe()
 
     return () => {
       cancelled = true
