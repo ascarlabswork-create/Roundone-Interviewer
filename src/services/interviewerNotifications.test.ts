@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  filterInterviewerInboxNotifications,
   notificationDisplay,
   notificationHref,
+  shouldShowInInterviewerInbox,
   type InterviewerNotification,
 } from './interviewerNotifications.ts'
 import type { InterviewerBooking } from './interviewerBookings.ts'
@@ -38,6 +40,44 @@ describe('notificationDisplay booking_requested', () => {
     expect(display.title).toBe('New Interview Request')
     expect(display.actionLabel).toBe('Review Booking')
     expect(display.body).toContain('Duddelly Srimadhan')
+  })
+})
+
+const interviewerRequest: InterviewerNotification = {
+  id: 'n2',
+  kind: 'booking_requested',
+  title: 'New booking request',
+  body: 'A candidate booked a slot. Confirm or reject the request.',
+  payload: { booking_id: 'fcbfc77c-2d34-4046-b4d0-c4ba463052ab' },
+  readAt: null,
+  createdAt: '2026-11-10T10:28:54.146Z',
+}
+
+describe('interviewer inbox filter', () => {
+  it('hides candidate-side booking request copies', () => {
+    const bookings = new Map<string, InterviewerBooking>()
+    expect(shouldShowInInterviewerInbox(candidateSideRequest, bookings)).toBe(false)
+    expect(filterInterviewerInboxNotifications([candidateSideRequest, interviewerRequest], bookings)).toEqual([
+      interviewerRequest,
+    ])
+  })
+
+  it('keeps interviewer-facing requests and rows for owned bookings', () => {
+    const bookings = new Map([[ownedBooking.id, ownedBooking]])
+    expect(shouldShowInInterviewerInbox(interviewerRequest, bookings)).toBe(true)
+    expect(
+      shouldShowInInterviewerInbox(
+        {
+          ...candidateSideRequest,
+          id: 'n3',
+          kind: 'booking_confirmed',
+          title: 'Booking Confirmed',
+          body: 'Session is on your calendar.',
+          payload: { booking_id: ownedBooking.id },
+        },
+        bookings,
+      ),
+    ).toBe(true)
   })
 })
 
