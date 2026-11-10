@@ -1,9 +1,10 @@
-import { useMemo, useState, type FormEvent } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { GoogleContinueButton } from '../components/auth/GoogleContinueButton.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import { Card, FieldLabel, PageHeader, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
+import { isInPasswordRecoveryFlow, isAuthRecoveryUrl, redirectToPasswordRecovery } from '../lib/authRecovery.ts'
 import { landingPathForAccount } from '../lib/interviewWelcome.ts'
 import { INTERVIEWER_SETUP, defaultHomePath, safeNextPath } from '../lib/nextPath.ts'
 import { detectBrowserTimezone } from '../lib/timezones.ts'
@@ -21,7 +22,9 @@ import { useSession } from '../state/session.tsx'
 
 export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const { status, user, profile, account, error: sessionError, refreshAccount } = useSession()
+  const location = useLocation()
   const [params] = useSearchParams()
+  const [passwordRecovery, setPasswordRecovery] = useState(() => isAuthRecoveryUrl())
   const isRegister = mode === 'register'
   const nextPath = safeNextPath(
     params.get('next'),
@@ -44,6 +47,25 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const [info, setInfo] = useState<string | null>(null)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
   const timezone = useMemo(() => detectBrowserTimezone(), [])
+
+  useEffect(() => {
+    if (!isInPasswordRecoveryFlow()) return
+    setPasswordRecovery(true)
+    if (!location.pathname.endsWith('/interviewer/reset-password')) {
+      redirectToPasswordRecovery()
+    }
+  }, [location.pathname, location.search, location.hash])
+
+  if (isInPasswordRecoveryFlow() || passwordRecovery || location.pathname === PASSWORD_RESET_PATH) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
+        <Card className="p-6 sm:p-8 text-center">
+          <h1 className="text-xl font-semibold text-navy-950">Opening password reset…</h1>
+          <p className="mt-2 text-sm text-slate-600">One moment while we load the reset form.</p>
+        </Card>
+      </div>
+    )
+  }
 
   if (status === 'authenticated' && user && (account || profile?.role === 'admin')) {
     return <Navigate to={landingPathForAccount(profile?.role, account, nextPath)} replace />

@@ -1,7 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { Card, FieldLabel, PasswordInput } from '../components/ui/primitives.tsx'
+import {
+  clearPasswordRecoveryPending,
+  isAuthRecoveryUrl,
+  markPasswordRecoveryPending,
+  redirectToPasswordRecovery,
+} from '../lib/authRecovery.ts'
 import { authErrorMessage, updatePassword } from '../services/auth.ts'
 import { supabase } from '../lib/supabase.ts'
 import { useSession } from '../state/session.tsx'
@@ -16,12 +22,20 @@ export function ResetPasswordPage() {
   const [done, setDone] = useState(false)
 
   useEffect(() => {
+    if (isAuthRecoveryUrl()) markPasswordRecoveryPending()
+    if (isAuthRecoveryUrl() && !window.location.pathname.endsWith('/interviewer/reset-password')) {
+      redirectToPasswordRecovery()
+    }
+  }, [])
+
+  useEffect(() => {
     let cancelled = false
     void supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return
       if (data.session) setRecoveryReady(true)
     })
     const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') markPasswordRecoveryPending()
       if (event === 'PASSWORD_RECOVERY' || session) setRecoveryReady(true)
     })
     return () => {
@@ -40,6 +54,7 @@ export function ResetPasswordPage() {
     setSubmitting(true)
     try {
       await updatePassword(password)
+      clearPasswordRecoveryPending()
       await refreshAccount()
       setDone(true)
     } catch (caught) {
@@ -50,7 +65,17 @@ export function ResetPasswordPage() {
   }
 
   if (done) {
-    return <Navigate to="/interviewer/dashboard" replace />
+    return (
+      <div className="mx-auto max-w-md px-4 py-10 sm:px-6 lg:py-16">
+        <Card className="p-6 sm:p-8 text-center">
+          <h1 className="text-xl font-semibold text-navy-950">Password updated</h1>
+          <p className="mt-2 text-sm text-slate-600">Sign in with your new password.</p>
+          <Link to="/interviewer/login" className="mt-6 inline-block">
+            <Button>Back to sign in</Button>
+          </Link>
+        </Card>
+      </div>
+    )
   }
 
   return (
