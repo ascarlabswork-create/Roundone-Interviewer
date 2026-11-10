@@ -56,7 +56,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     }
   }, [location.pathname, location.search, location.hash])
 
-  if (isInPasswordRecoveryFlow() || passwordRecovery || location.pathname === PASSWORD_RESET_PATH) {
+  if (isInPasswordRecoveryFlow() || passwordRecovery) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
         <Card className="p-6 sm:p-8 text-center">
