@@ -29,7 +29,9 @@ export function safeNextPath(value: string | null, fallback = INTERVIEWER_HOME) 
     path === '/interviewer/' ||
     path.startsWith('/interviewer/login') ||
     path.startsWith('/interviewer/register') ||
-    path.startsWith('/interviewer/auth/callback')
+    path.startsWith('/interviewer/auth/callback') ||
+    path === '/admin/login' ||
+    path.startsWith('/admin/login')
   ) {
     return fallback
   }

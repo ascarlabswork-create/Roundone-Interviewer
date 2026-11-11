@@ -12,6 +12,10 @@ describe('safeNextPath', () => {
     expect(safeNextPath('/candidate/auth/callback')).toBe('/interviewer/dashboard')
     expect(safeNextPath('/')).toBe('/interviewer/dashboard')
   })
+
+  it('rejects admin login as a next destination', () => {
+    expect(safeNextPath('/admin/login', '/admin/dashboard')).toBe('/admin/dashboard')
+  })
 })
 
 describe('destinationForRole', () => {
@@ -20,5 +24,11 @@ describe('destinationForRole', () => {
     expect(destinationForRole('interviewer', '/interviewer/setup?step=professional')).toBe(
       '/interviewer/setup?step=professional',
     )
+  })
+
+  it('keeps admins on admin routes and interviewers off them', () => {
+    expect(destinationForRole('admin', '/admin/verifications')).toBe('/admin/verifications')
+    expect(destinationForRole('admin', '/interviewer/dashboard')).toBe('/admin/dashboard')
+    expect(destinationForRole('interviewer', '/admin/dashboard')).toBe('/interviewer/dashboard')
   })
 })
