@@ -78,11 +78,20 @@ export type AdminVerificationRow = {
   notes: string | null
   reviewedAt: string | null
   hasDocument: boolean
+  interviewerProfileId: string
   interviewerName: string
   currentRole: string
   company: string
   headline: string | null
+  bio: string | null
   experienceYears: number | null
+  timezone: string | null
+  languages: string[]
+  skills: string[]
+  targetRoles: string[]
+  candidateLevels: string[]
+  isListed: boolean
+  whatsappPhone: string | null
 }
 
 export type AdminReviewRow = {
@@ -167,6 +176,9 @@ function mapRpcError(error: { message?: string; code?: string } | null, fallback
   if (text.includes('verification_not_found')) throw new Error('Verification not found.')
   if (text.includes('review_not_found')) throw new Error('Review not found.')
   if (text.includes('service_not_found')) throw new Error('Service not found.')
+  if (text.includes('pgrst203') || text.includes('could not choose the best candidate function')) {
+    throw new Error('Verification update is misconfigured on the server. Ask engineering to reload the moderate_interviewer_verification function.')
+  }
   if (text.includes('invalid_status') || error.code === 'P0001') {
     throw new Error('That status is not allowed.')
   }
@@ -272,6 +284,25 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 }
 
+function readStringList(value: unknown, key: string): string[] {
+  const raw = isRecord(value) ? value[key] : null
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => {
+      if (typeof item === 'string') return item.trim()
+      if (isRecord(item)) {
+        return (
+          readString(item, 'skill') ??
+          readString(item, 'target_role') ??
+          readString(item, 'candidate_level') ??
+          ''
+        ).trim()
+      }
+      return ''
+    })
+    .filter(Boolean)
+}
+
 function parseVerification(value: unknown): AdminVerificationRow | null {
   if (!isRecord(value)) return null
   const id = readString(value, 'id')
@@ -280,6 +311,27 @@ function parseVerification(value: unknown): AdminVerificationRow | null {
   if (!id || !kind || !status) return null
   if (!VERIFICATION_STATUSES.includes(status as AdminVerificationStatus)) return null
   const interviewer = asRecord(value.interviewer_profiles)
+  const interviewerProfileId = readString(interviewer ?? {}, 'id') ?? readString(value, 'interviewer_profile_id')
+  if (!interviewerProfileId) return null
+  const languagesRaw = interviewer?.languages
+  const languages = Array.isArray(languagesRaw)
+    ? languagesRaw.map((item) => String(item).trim()).filter(Boolean)
+    : []
+  const roles = Array.isArray(interviewer?.interviewer_roles) ? interviewer.interviewer_roles : []
+  const targetRoles = [
+    ...new Set(
+      roles
+        .map((item) => (isRecord(item) ? readString(item, 'target_role') : null))
+        .filter((item): item is string => Boolean(item)),
+    ),
+  ]
+  const candidateLevels = [
+    ...new Set(
+      roles
+        .map((item) => (isRecord(item) ? readString(item, 'candidate_level') : null))
+        .filter((item): item is string => Boolean(item)),
+    ),
+  ]
   return {
     id,
     kind,
@@ -287,11 +339,20 @@ function parseVerification(value: unknown): AdminVerificationRow | null {
     notes: readString(value, 'notes'),
     reviewedAt: readString(value, 'reviewed_at'),
     hasDocument: Boolean(readString(value, 'document_path')),
+    interviewerProfileId,
     interviewerName: readNestedName(interviewer),
     currentRole: readString(interviewer ?? {}, 'current_role') ?? '',
     company: readString(interviewer ?? {}, 'company') ?? '',
     headline: readString(interviewer ?? {}, 'headline'),
+    bio: readString(interviewer ?? {}, 'bio'),
     experienceYears: readNumber(interviewer ?? {}, 'experience_years'),
+    timezone: readString(interviewer ?? {}, 'timezone'),
+    languages,
+    skills: readStringList(interviewer ?? {}, 'interviewer_skills'),
+    targetRoles,
+    candidateLevels,
+    isListed: interviewer?.is_listed === true,
+    whatsappPhone: readString(interviewer ?? {}, 'whatsapp_phone'),
   }
 }
 
@@ -309,7 +370,14 @@ export async function listAdminVerifications(input: {
   let query = supabase
     .from(TABLES.interviewerVerifications)
     .select(
-      'id, kind, status, notes, reviewed_at, document_path, interviewer_profiles ( current_role, company, headline, experience_years, profiles ( full_name ) )',
+      `id, kind, status, notes, reviewed_at, document_path, interviewer_profile_id,
+       interviewer_profiles (
+         id, current_role, company, headline, bio, experience_years, timezone, languages,
+         is_listed, whatsapp_phone,
+         profiles ( full_name ),
+         interviewer_skills ( skill ),
+         interviewer_roles ( target_role, candidate_level )
+       )`,
       { count: 'exact' },
     )
     .order('reviewed_at', { ascending: false, nullsFirst: true })
