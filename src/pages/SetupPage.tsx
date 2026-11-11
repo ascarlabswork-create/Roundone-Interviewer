@@ -8,6 +8,7 @@ import { Card, FieldLabel, TextArea, TextInput } from '../components/ui/primitiv
 import { SuggestedSelect } from '../components/ui/suggestions.tsx'
 import { INTERVIEW_TYPES, ONBOARDING_STEPS, WEEKDAY_LABELS } from '../data/catalogs.ts'
 import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
+import { INTERVIEW_LANGUAGE } from '../lib/interviewLanguages.ts'
 import { detectBrowserTimezone, effectiveSchedulingTimezone } from '../lib/timezones.ts'
 import { formatClockRange, formatReviewDate } from '../lib/dates.ts'
 import {
@@ -61,7 +62,6 @@ export function SetupPage() {
         account.interviewer.timezone,
         detectBrowserTimezone(),
       ),
-      languages: account.interviewer.languages.join(', '),
       phone: account.phone,
       skills: account.skills,
       targetRoles: account.targetRoles,
@@ -142,10 +142,6 @@ export function SetupPage() {
         company: draft.company,
         experienceYears: Number(draft.experienceYears) || 0,
         phone: draft.phone,
-        languages: draft.languages
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean),
       })
     }
     if (step === 'expertise') {
@@ -266,15 +262,10 @@ export function SetupPage() {
                   onChange={(event) => update({ experienceYears: event.target.value })}
                 />
               </div>
-              <div>
-                <FieldLabel htmlFor="languages">Languages</FieldLabel>
-                <TextInput
-                  id="languages"
-                  placeholder="English, Hindi"
-                  value={draft.languages}
-                  onChange={(event) => update({ languages: event.target.value })}
-                />
-              </div>
+              <p className="text-sm text-slate-600">
+                Interview language: <span className="font-medium text-navy-950">{INTERVIEW_LANGUAGE}</span> (all sessions on
+                jobround.ai are English-only).
+              </p>
               <div>
                 <FieldLabel htmlFor="prev">Previous Companies</FieldLabel>
                 <TextInput

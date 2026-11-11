@@ -1,3 +1,4 @@
+import { interviewLanguagesForStorage, normalizeInterviewLanguages } from '../lib/interviewLanguages.ts'
 import { supabase } from '../lib/supabase.ts'
 import { detectBrowserTimezone, effectiveSchedulingTimezone, isValidTimezone, normalizeTimezoneId } from '../lib/timezones.ts'
 import { normalizeWhatsappPhone, WHATSAPP_PHONE_INVALID } from '../lib/whatsappPhone.ts'
@@ -184,7 +185,7 @@ function mapInterviewer(row: {
     company: row.company,
     experience_years: row.experience_years,
     timezone: row.timezone,
-    languages: row.languages ?? [],
+    languages: normalizeInterviewLanguages(row.languages),
     is_listed: row.is_listed === true,
     whatsapp_phone: row.whatsapp_phone ?? null,
   }
@@ -381,7 +382,7 @@ export async function updateInterviewerProfile(updates: InterviewerProfileUpdate
   if (updates.currentRole !== undefined) interviewerPatch.current_role = updates.currentRole.trim() || 'Pending'
   if (updates.company !== undefined) interviewerPatch.company = updates.company.trim() || 'Pending'
   if (updates.experienceYears !== undefined) interviewerPatch.experience_years = Math.max(0, updates.experienceYears)
-  if (updates.languages !== undefined) interviewerPatch.languages = updates.languages
+  if (updates.languages !== undefined) interviewerPatch.languages = interviewLanguagesForStorage()
   if (updates.linkedin !== undefined) metadata.linkedin = updates.linkedin.trim()
   if (updates.phone !== undefined) metadata.phone = updates.phone.trim()
   if (updates.isListed !== undefined) interviewerPatch.is_listed = updates.isListed
@@ -397,6 +398,7 @@ export async function updateInterviewerProfile(updates: InterviewerProfileUpdate
   }
 
   if (Object.keys(interviewerPatch).length > 0) {
+    interviewerPatch.languages = interviewLanguagesForStorage()
     const { error } = await supabase
       .from(TABLES.interviewerProfiles)
       .update(interviewerPatch)

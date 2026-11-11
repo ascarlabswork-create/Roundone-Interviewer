@@ -34,7 +34,7 @@ export const emptyDraft = (): OnboardingDraft => ({
     cancellationPolicy: '',
   },
   timezone: detectBrowserTimezone(),
-  languages: '',
+  languages: 'English',
   weeklyAvailability: [],
   customAvailability: [],
 })

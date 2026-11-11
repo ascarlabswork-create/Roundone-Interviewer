@@ -13,6 +13,7 @@ import { REVIEW_DIMENSIONS } from '../data/catalogs.ts'
 import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import { cn } from '../lib/cn.ts'
 import { formatReviewDate, timezoneLabel } from '../lib/dates.ts'
+import { INTERVIEW_LANGUAGE } from '../lib/interviewLanguages.ts'
 import { effectiveSchedulingTimezone } from '../lib/timezones.ts'
 import { formatCount, formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
@@ -47,7 +48,6 @@ type ProfileForm = {
   currentRole: string
   company: string
   experienceYears: string
-  languages: string
 }
 
 const EMPTY_FORM: ProfileForm = {
@@ -58,7 +58,6 @@ const EMPTY_FORM: ProfileForm = {
   currentRole: '',
   company: '',
   experienceYears: '',
-  languages: '',
 }
 
 function formFromAccount(account: InterviewerAccount): ProfileForm {
@@ -70,7 +69,6 @@ function formFromAccount(account: InterviewerAccount): ProfileForm {
     currentRole: account.interviewer.current_role === 'Pending' ? '' : account.interviewer.current_role,
     company: account.interviewer.company === 'Pending' ? '' : account.interviewer.company,
     experienceYears: String(account.interviewer.experience_years || ''),
-    languages: account.interviewer.languages.join(', '),
   }
 }
 
@@ -162,10 +160,6 @@ export function ProfilePage() {
         currentRole: form.currentRole,
         company: form.company,
         experienceYears: Number(form.experienceYears) || 0,
-        languages: form.languages
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean),
       })
       await updateInterviewerRoles({
         targetRoles: expertise.targetRoles,
@@ -253,13 +247,9 @@ export function ProfilePage() {
                   />
                 </div>
                 <div>
-                  <FieldLabel htmlFor="languages">Interview languages</FieldLabel>
-                  <TextInput
-                    id="languages"
-                    placeholder="English, Hindi"
-                    value={form.languages}
-                    onChange={(event) => setForm({ ...form, languages: event.target.value })}
-                  />
+                  <FieldLabel htmlFor="interviewLanguage">Interview language</FieldLabel>
+                  <TextInput id="interviewLanguage" value={INTERVIEW_LANGUAGE} readOnly disabled className="bg-slate-50" />
+                  <p className="mt-1 text-xs text-slate-500">All mock interviews on jobround.ai are held in English.</p>
                 </div>
                 <div className="sm:col-span-2">
                   <FieldLabel htmlFor="headline">Headline</FieldLabel>
@@ -422,7 +412,7 @@ export function ProfilePage() {
           </Card>
         </div>
 
-        <aside className="space-y-4 xl:sticky xl:top-24">
+        <aside className="space-y-4 lg:self-start lg:sticky lg:top-20 xl:top-24">
           {servicesState.status === 'success' && availState.status === 'success' ? (
             <ReadinessCard account={account} services={servicesState.data} board={availState.data} />
           ) : (
