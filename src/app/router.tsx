@@ -54,8 +54,9 @@ export function AppRouter() {
           <Route path="/interviewer/register" element={<RegisterPage />} />
           <Route path="/interviewer/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/interviewer/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/admin/login" element={<AdminLoginPage />} />
         </Route>
+        {/* Outside AuthLayout so staff never inherit interviewer chrome or auto-redirect. */}
+        <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route element={<LegalLayout />}>
           {LEGAL_DOCUMENTS.map((legalDocument) => (
             <Route key={legalDocument.slug} path={legalDocument.path} element={<LegalPage slug={legalDocument.slug} />} />

@@ -193,9 +193,17 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
         subtitle={
           isRegister
             ? 'Already on jobround.ai as a candidate? Sign in with that email — we’ll add your interviewer profile. New here? We’ll save your details and you can finish setup next.'
-            : 'Sign in to manage bookings, sessions, and earnings. The same email works on jobround.ai (candidate) and here.'
+            : 'Sign in to manage bookings, sessions, and earnings. The same email works on jobround.ai (candidate) and here. Staff: use Admin sign in — this page never opens the admin console.'
         }
       />
+      {!isRegister ? (
+        <p className="mt-3 text-sm text-slate-600">
+          Staff operations:{' '}
+          <Link to="/admin/login" className="font-medium text-coral-700 hover:underline">
+            Admin sign in
+          </Link>
+        </p>
+      ) : null}
 
       {!isRegister && params.get('accountDeleted') === '1' ? (
         <div
