@@ -71,6 +71,14 @@ export type AdminDashboardMetrics = {
   recentCompletedCount: number
 }
 
+export type AdminVerificationService = {
+  name: string
+  interviewType: string
+  durationMin: number
+  pricePaise: number | null
+  isActive: boolean
+}
+
 export type AdminVerificationRow = {
   id: string
   kind: string
@@ -90,6 +98,7 @@ export type AdminVerificationRow = {
   skills: string[]
   targetRoles: string[]
   candidateLevels: string[]
+  services: AdminVerificationService[]
   isListed: boolean
   whatsappPhone: string | null
 }
@@ -332,6 +341,23 @@ function parseVerification(value: unknown): AdminVerificationRow | null {
         .filter((item): item is string => Boolean(item)),
     ),
   ]
+  const servicesRaw = Array.isArray(interviewer?.interviewer_services) ? interviewer.interviewer_services : []
+  const services: AdminVerificationService[] = servicesRaw
+    .map((item) => {
+      if (!isRecord(item)) return null
+      const name = readString(item, 'name')
+      const interviewType = readString(item, 'interview_type')
+      const durationMin = readNumber(item, 'duration_min')
+      if (!name || !interviewType || durationMin === null) return null
+      return {
+        name,
+        interviewType,
+        durationMin,
+        pricePaise: readNumber(item, 'price_paise'),
+        isActive: item.is_active === true,
+      }
+    })
+    .filter((item): item is AdminVerificationService => Boolean(item))
   return {
     id,
     kind,
@@ -351,6 +377,7 @@ function parseVerification(value: unknown): AdminVerificationRow | null {
     skills: readStringList(interviewer ?? {}, 'interviewer_skills'),
     targetRoles,
     candidateLevels,
+    services,
     isListed: interviewer?.is_listed === true,
     whatsappPhone: readString(interviewer ?? {}, 'whatsapp_phone'),
   }
@@ -376,7 +403,8 @@ export async function listAdminVerifications(input: {
          is_listed, whatsapp_phone,
          profiles ( full_name ),
          interviewer_skills ( skill ),
-         interviewer_roles ( target_role, candidate_level )
+         interviewer_roles ( target_role, candidate_level ),
+         interviewer_services ( name, interview_type, duration_min, price_paise, is_active )
        )`,
       { count: 'exact' },
     )
