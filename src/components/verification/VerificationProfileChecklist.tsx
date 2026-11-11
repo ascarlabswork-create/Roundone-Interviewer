@@ -25,7 +25,7 @@ function CheckRow({ item }: { item: VerificationProfileCheck }) {
 export function VerificationProfileChecklist({
   account,
   title = 'Add these on your profile before we can verify you',
-  description = 'Verification is reviewed by an admin on jobround.ai. They use the details below from your Profile page — not this screen. Government ID upload is not connected yet.',
+  description = 'Verification is reviewed by staff in the experts.jobround.ai admin console. They use the details below from your Profile page — not this screen. Government ID upload is not connected yet.',
   alwaysShowEditButton = false,
 }: {
   account: InterviewerAccount

@@ -27,7 +27,7 @@ export function verificationHasRejection(verifications: readonly VerificationSta
   return verifications.some((row) => row.kind !== 'linkedin' && row.status === 'rejected')
 }
 
-/** Details admins review on jobround.ai — all editable on Profile. */
+/** Details staff review in the admin console — all editable on Profile. */
 export function verificationProfileChecks(account: InterviewerAccount): VerificationProfileCheck[] {
   const { interviewer, profile, skills, targetRoles } = account
   return [

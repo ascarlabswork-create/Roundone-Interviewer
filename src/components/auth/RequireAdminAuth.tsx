@@ -1,5 +1,4 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { INTERVIEWER_HOME } from '../../lib/nextPath.ts'
 import { useAsync } from '../../lib/useAsync.ts'
 import { getMyProfile } from '../../services/interviewerProfile.ts'
 import { useSession } from '../../state/session.tsx'
@@ -26,7 +25,7 @@ export function RequireAdminAuth() {
 
   if (!user) {
     const next = `${location.pathname}${location.search}`
-    return <Navigate to={`/interviewer/login?next=${encodeURIComponent(next)}`} replace />
+    return <Navigate to={`/admin/login?next=${encodeURIComponent(next)}`} replace />
   }
 
   if (access.status === 'loading') return <GateSkeleton />
@@ -44,7 +43,7 @@ export function RequireAdminAuth() {
   }
 
   if (access.data.role !== 'admin') {
-    return <Navigate to={access.data.role === 'interviewer' ? INTERVIEWER_HOME : '/interviewer/login'} replace />
+    return <Navigate to="/admin/login?reason=not-admin" replace />
   }
 
   return <Outlet />

@@ -9,6 +9,7 @@ import { AppShell } from '../components/layout/AppShell.tsx'
 import { LegalLayout } from '../components/layout/LegalLayout.tsx'
 import { PublicLayout } from '../components/layout/PublicLayout.tsx'
 import { LEGAL_DOCUMENTS } from '../data/legal.ts'
+import { AdminLoginPage } from '../pages/AdminLoginPage.tsx'
 import { AuthCallbackPage } from '../pages/AuthCallbackPage.tsx'
 import { BookingsPage } from '../pages/BookingsPage.tsx'
 import { CalendarPage } from '../pages/CalendarPage.tsx'
@@ -53,6 +54,7 @@ export function AppRouter() {
           <Route path="/interviewer/register" element={<RegisterPage />} />
           <Route path="/interviewer/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/interviewer/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/admin/login" element={<AdminLoginPage />} />
         </Route>
         <Route element={<LegalLayout />}>
           {LEGAL_DOCUMENTS.map((legalDocument) => (

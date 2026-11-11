@@ -109,8 +109,11 @@ export function VerificationPage() {
         <Link to="/interviewer/profile" className="font-medium text-coral-700 hover:underline">
           Profile
         </Link>
-        . An admin on jobround.ai reviews that data — you cannot set Verified yourself. Pending stays until they
-        approve.
+        . Staff in the{' '}
+        <a href="/admin/verifications" className="font-medium text-coral-700 hover:underline">
+          admin console
+        </a>{' '}
+        reviews that data — you cannot set Verified yourself. Pending stays until they approve.
       </p>
 
       <div className="mt-8">

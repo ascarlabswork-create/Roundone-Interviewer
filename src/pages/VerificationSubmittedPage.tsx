@@ -75,7 +75,11 @@ export function VerificationSubmittedPage() {
         <p className="mt-2 text-sm leading-relaxed text-slate-600">
           Thanks, {account.profile.full_name.split(' ')[0] || 'there'}. Finish or update your profile details below —
           each section shows <strong>Completed</strong> when we have what admins need. Identity and employment stay{' '}
-          <strong>Pending review</strong> until an admin approves on jobround.ai.
+          <strong>Pending review</strong> until an admin approves in the{' '}
+          <a href="/admin/verifications" className="font-medium text-coral-700 hover:underline">
+            staff console
+          </a>{' '}
+          at experts.jobround.ai.
         </p>
       </div>
 
@@ -170,7 +174,11 @@ export function VerificationSubmittedPage() {
             (each section shows Completed when done).
           </li>
           <li>
-            <strong>Admins</strong> approve or reject identity and employment — that is what moves Pending to Verified.
+            <strong>Admins</strong> (sign in at{' '}
+            <a href="/admin/login" className="font-medium text-coral-700 hover:underline">
+              /admin/login
+            </a>
+            , then open Verifications) approve or reject identity and employment — that moves Pending to Verified.
           </li>
           <li>
             When both are <strong>Verified</strong>, you are taken to the success page and your badge shows to candidates.
