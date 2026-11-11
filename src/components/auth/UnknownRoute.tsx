@@ -18,7 +18,13 @@ export function UnknownRoute() {
   }
 
   if (!user) {
-    return <Navigate to={`/interviewer/login?next=${encodeURIComponent(location.pathname)}`} replace />
+    const login =
+      location.pathname.startsWith('/admin') ? `/admin/login?next=${encodeURIComponent(location.pathname)}` : `/interviewer/login?next=${encodeURIComponent(location.pathname)}`
+    return <Navigate to={login} replace />
+  }
+
+  if (location.pathname.startsWith('/admin')) {
+    return <Navigate to="/admin/login?reason=not-admin" replace />
   }
 
   return <NotFoundPage />

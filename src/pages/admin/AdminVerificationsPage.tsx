@@ -56,7 +56,7 @@ export function AdminVerificationsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Interviewer verification"
-        subtitle="Approve or reject identity, employment, and LinkedIn checks. Document files are not exposed here."
+        subtitle="Approve or reject identity and employment (Pending → Verified). Staff sign in at /admin/login with profiles.role = admin. Document files are not exposed here."
       />
       <Tabs
         items={FILTERS}

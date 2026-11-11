@@ -20,7 +20,7 @@ import {
 import { applySignupProfile } from '../services/interviewerProfile.ts'
 import { useSession } from '../state/session.tsx'
 
-export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
+export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'; defaultNextPath?: string }) {
   const { status, user, profile, account, error: sessionError, refreshAccount } = useSession()
   const location = useLocation()
   const [params] = useSearchParams()
@@ -28,7 +28,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const isRegister = mode === 'register'
   const nextPath = safeNextPath(
     params.get('next'),
-    isRegister ? INTERVIEWER_SETUP : defaultHomePath(profile?.role),
+    defaultNextPath ?? (isRegister ? INTERVIEWER_SETUP : defaultHomePath(profile?.role)),
   )
   const nextQuery = `?next=${encodeURIComponent(nextPath)}`
   const [firstName, setFirstName] = useState('')
