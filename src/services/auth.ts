@@ -47,8 +47,34 @@ export function authErrorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
   const message = raw.toLowerCase()
 
-  if (message.includes('invalid login credentials')) {
-    return 'Incorrect email or password. Please try again.'
+  if (
+    message.includes('invalid login credentials') ||
+    message.includes('invalid email or password') ||
+    message.includes('wrong password')
+  ) {
+    return 'Incorrect email or password. If you signed up with Google, use Continue with Google, or Forgot password to set one.'
+  }
+  if (
+    message.includes('token has expired') ||
+    message.includes('otp has expired') ||
+    message.includes('otp_expired') ||
+    message.includes('email link is invalid or has expired')
+  ) {
+    return 'That code has expired. Choose Resend code and try again.'
+  }
+  if (
+    message.includes('invalid otp') ||
+    message.includes('otp is invalid') ||
+    message.includes('token is invalid') ||
+    message.includes('invalid token')
+  ) {
+    return 'That code is incorrect. Check the email and try again, or resend a new code.'
+  }
+  if (
+    message.includes('signups not allowed') ||
+    message.includes('user not found')
+  ) {
+    return 'No interviewer account found for that email. Create an account, or use Continue with Google.'
   }
   if (isUnconfirmedEmailError(error) || message.includes('confirm your email')) {
     return 'Please confirm your email from the link we sent, then sign in.'
@@ -69,8 +95,23 @@ export function authErrorMessage(error: unknown): string {
   ) {
     return 'Your password must be at least 6 characters.'
   }
-  if (message.includes('rate limit') || message.includes('too many') || message.includes('over_email_send')) {
-    return 'Too many email attempts. Wait a few minutes, then use Resend confirmation or Forgot password once.'
+  if (
+    message.includes('rate limit') ||
+    message.includes('too many') ||
+    message.includes('over_email_send') ||
+    message.includes('for security purposes')
+  ) {
+    const wait = parseAuthRateLimitSeconds(raw)
+    return wait
+      ? `Please wait ${wait} seconds before requesting another email.`
+      : 'Too many email attempts. Wait a few minutes, then try again.'
+  }
+  if (
+    message.includes('error sending confirmation email') ||
+    message.includes('error sending magic link email') ||
+    message.includes('error sending email')
+  ) {
+    return 'We could not send an email right now. Use Continue with Google, or try again in a few minutes.'
   }
   if (message.includes('redirect') && message.includes('not allowed')) {
     return 'This site URL is not allowlisted in Supabase yet. Ask an admin to add https://experts.jobround.ai/** under Authentication → URL Configuration → Redirect URLs.'
@@ -232,6 +273,62 @@ export async function signInInterviewer(input: SignInInput) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email: input.email.trim(),
     password: input.password,
+  })
+  if (error) throw new Error(authErrorMessage(error))
+  if (!data.user || !data.session) {
+    throw new Error('Sign in did not create a session.')
+  }
+  return data.user
+}
+
+/** Mask an email for OTP screens (e.g. s******y@g*ail.com). */
+export function maskEmailAddress(email: string) {
+  const trimmed = email.trim()
+  const at = trimmed.indexOf('@')
+  if (at <= 0) return trimmed
+  const local = trimmed.slice(0, at)
+  const domain = trimmed.slice(at + 1)
+  const maskedLocal =
+    local.length <= 2
+      ? `${local[0] ?? ''}*`
+      : `${local[0]}${'*'.repeat(Math.min(6, local.length - 2))}${local[local.length - 1]}`
+  const [host, ...rest] = domain.split('.')
+  const maskedHost =
+    !host || host.length <= 2 ? `${host?.[0] ?? '*'}*` : `${host[0]}*${host[host.length - 1]}`
+  return `${maskedLocal}@${[maskedHost, ...rest].join('.')}`
+}
+
+export function parseAuthRateLimitSeconds(message: string) {
+  const match = message.match(/after (\d+) seconds?/i)
+  if (!match) return null
+  const seconds = Number(match[1])
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : null
+}
+
+/** Send a 6-digit email sign-in code (OTP). Does not create a new account. */
+export async function sendEmailSignInCode(email: string) {
+  const trimmed = email.trim()
+  if (!trimmed) throw new Error('Enter your email first.')
+  const { error } = await supabase.auth.signInWithOtp({
+    email: trimmed,
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: buildAppUrl(OAUTH_CALLBACK_PATH),
+    },
+  })
+  if (error) throw new Error(authErrorMessage(error))
+}
+
+/** Verify the 6-digit email sign-in code and create a session. */
+export async function verifyEmailSignInCode(email: string, token: string) {
+  const trimmed = email.trim()
+  const code = token.replace(/\s+/g, '')
+  if (!trimmed) throw new Error('Enter your email first.')
+  if (!/^\d{6}$/.test(code)) throw new Error('Enter the 6-digit code from your email.')
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: trimmed,
+    token: code,
+    type: 'email',
   })
   if (error) throw new Error(authErrorMessage(error))
   if (!data.user || !data.session) {
