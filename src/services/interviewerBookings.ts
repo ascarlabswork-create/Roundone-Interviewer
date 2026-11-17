@@ -489,8 +489,9 @@ export function canCancelBooking(booking: InterviewerBooking) {
 }
 
 export function canRescheduleBooking(booking: InterviewerBooking) {
-  // Rescheduling needs a service to look up bookable slots.
-  return Boolean(booking.serviceId) && (booking.status === 'requested' || booking.status === 'confirmed')
+  // Open for pending acceptance or confirmed sessions. Service is optional —
+  // bookings made from availability alone still reschedule against open slots.
+  return booking.status === 'requested' || booking.status === 'confirmed'
 }
 
 export async function cancelMyBooking(bookingId: string, note?: string): Promise<InterviewerBooking> {
@@ -530,14 +531,14 @@ export type BookableSlotRow = {
 }
 
 export async function listMyBookableSlots(
-  serviceId: string,
+  serviceId: string | null | undefined,
   fromIso: string,
   toIso: string,
 ): Promise<BookableSlotRow[]> {
   const interviewerProfileId = await myInterviewerProfileId()
   const { data, error } = await supabase.rpc('list_bookable_slots', {
     p_interviewer_profile_id: interviewerProfileId,
-    p_service_id: serviceId,
+    p_service_id: serviceId?.trim() ? serviceId : null,
     p_from: fromIso,
     p_to: toIso,
   })

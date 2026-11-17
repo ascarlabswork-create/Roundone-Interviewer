@@ -594,7 +594,7 @@ export function InterviewScheduleCard({
           </div>
         ) : null}
 
-        <div className="sticky bottom-3 z-10 rounded-2xl border border-navy-950/10 bg-white/95 p-4 shadow-[0_18px_50px_-28px_rgba(15,23,42,0.55)] backdrop-blur">
+        <div className="z-10 rounded-2xl border border-navy-950/10 bg-white/95 p-4 shadow-[0_18px_50px_-28px_rgba(15,23,42,0.55)] backdrop-blur lg:sticky lg:bottom-3">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
               <span>

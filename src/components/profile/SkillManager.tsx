@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Pencil, X } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { SKILL_GROUPS, SKILLS } from '../../data/catalogs.ts'
 import {
-  cleanSkillInput,
   type InterviewerSkillRecord,
   listInterviewerSkillRows,
   saveInterviewerSkillSet,
 } from '../../services/interviewerProfile.ts'
 import { useToast } from '../../state/toast.tsx'
 import { Button } from '../ui/Button.tsx'
-import { Skeleton, TextInput } from '../ui/primitives.tsx'
+import { SuggestionChips } from '../ui/suggestions.tsx'
+import { Skeleton } from '../ui/primitives.tsx'
 import { QuickAdd } from './ExpertiseFields.tsx'
 
 type DraftSkill = { id: string | null; skill: string }
@@ -19,6 +19,15 @@ function errorText(caught: unknown, fallback: string) {
 }
 
 const sameSkill = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
+
+function draftFromNames(next: string[], previous: DraftSkill[]): DraftSkill[] {
+  return next.map((skill) => {
+    const existing = previous.find((item) => sameSkill(item.skill, skill))
+    if (existing) return existing
+    const canonical = SKILLS.find((item) => sameSkill(item, skill)) ?? skill
+    return { id: null, skill: canonical }
+  })
+}
 
 export function SkillManager({
   interviewerProfileId,
@@ -32,7 +41,6 @@ export function SkillManager({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<DraftSkill[]>([])
-  const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -55,36 +63,27 @@ export function SkillManager({
 
   function startEditing() {
     setDraft((skills ?? []).map((item) => ({ id: item.id, skill: item.skill })))
-    setInput('')
     setError(null)
     setEditing(true)
   }
 
   function cancelEditing() {
     setEditing(false)
-    setInput('')
     setError(null)
   }
 
-  function addToDraft(value: string) {
+  function setDraftFromNames(next: string[]) {
     setError(null)
-    let skill: string
-    try {
-      skill = cleanSkillInput(value)
-    } catch (caught) {
-      setError(errorText(caught, 'Enter a skill name.'))
-      return
-    }
-    if (draft.some((item) => sameSkill(item.skill, skill))) {
-      setError('You already have this skill on your profile.')
-      return
-    }
-    setDraft((current) => [...current, { id: null, skill }])
-    setInput('')
+    setDraft((previous) => draftFromNames(next, previous))
   }
 
-  function removeFromDraft(skill: string) {
-    setDraft((current) => current.filter((item) => item.skill !== skill))
+  function addPopularSkill(skill: string) {
+    if (saving) return
+    setError(null)
+    setDraft((current) => {
+      if (current.some((item) => sameSkill(item.skill, skill))) return current
+      return [...current, { id: null, skill }]
+    })
   }
 
   async function save() {
@@ -147,60 +146,17 @@ export function SkillManager({
         <p className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
           No skills selected. Add at least one so candidates can be matched to you.
         </p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {draft.map((item) => (
-            <span
-              key={item.id ?? `new-${item.skill}`}
-              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white py-1 pl-3 pr-1 text-sm font-medium text-navy-950"
-            >
-              {item.skill}
-              <button
-                type="button"
-                className="rounded-full p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-700"
-                aria-label={`Remove ${item.skill}`}
-                disabled={saving}
-                onClick={() => removeFromDraft(item.skill)}
-              >
-                <X className="h-3.5 w-3.5" aria-hidden />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
+      ) : null}
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <label htmlFor="skill-add" className="sr-only">
-          Add a skill
-        </label>
-        <TextInput
-          id="skill-add"
-          className="flex-1"
-          list="skill-add-suggestions"
-          placeholder="Type a skill, e.g. Python, Power BI, System Design"
-          value={input}
-          maxLength={60}
-          disabled={saving}
-          onChange={(event) => {
-            setInput(event.target.value)
-            if (error) setError(null)
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault()
-              addToDraft(input)
-            }
-          }}
-        />
-        <datalist id="skill-add-suggestions">
-          {SKILLS.filter((item) => !names.some((name) => sameSkill(name, item))).map((item) => (
-            <option key={item} value={item} />
-          ))}
-        </datalist>
-        <Button variant="outline" disabled={saving || !input.trim()} onClick={() => addToDraft(input)}>
-          Add
-        </Button>
-      </div>
+      <SuggestionChips
+        id="skill-add"
+        suggestions={SKILLS}
+        value={names}
+        onChange={(next) => {
+          if (!saving) setDraftFromNames(next)
+        }}
+        placeholder="Type skills, e.g. Python, SQL, Power BI"
+      />
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
       <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
@@ -212,9 +168,7 @@ export function SkillManager({
               label={group.label}
               options={group.skills}
               selected={names}
-              onAdd={(skill) => {
-                if (!saving) addToDraft(skill)
-              }}
+              onAdd={addPopularSkill}
             />
           ))}
         </div>

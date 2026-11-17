@@ -60,9 +60,16 @@ describe('parseBooking', () => {
     expect(booking?.serviceName).toBe('Interview')
   })
 
-  it('does not offer reschedule when the booking has no service', () => {
+  it('offers reschedule for requested bookings even without a service', () => {
     const booking = parseBooking(DB_ROW)
-    expect(booking && canRescheduleBooking(booking)).toBe(false)
+    expect(booking && canRescheduleBooking(booking)).toBe(true)
+  })
+
+  it('does not offer reschedule after reject or cancel', () => {
+    const rejected = parseBooking({ ...DB_ROW, status: 'rejected' })
+    const cancelled = parseBooking({ ...DB_ROW, status: 'cancelled' })
+    expect(rejected && canRescheduleBooking(rejected)).toBe(false)
+    expect(cancelled && canRescheduleBooking(cancelled)).toBe(false)
   })
 
   it('still rejects rows missing required identifiers', () => {

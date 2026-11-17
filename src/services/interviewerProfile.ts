@@ -439,6 +439,27 @@ export function cleanSkillInput(value: string) {
   return skill
 }
 
+/**
+ * Splits typed skill input on commas so "python,sql" becomes two skills.
+ * Empty segments are skipped; each non-empty segment is cleaned like a single skill.
+ */
+export function parseSkillListInput(value: string): string[] {
+  const parts = value.split(',')
+  const result: string[] = []
+  const seen = new Set<string>()
+  for (const part of parts) {
+    const trimmed = part.replace(/\s+/g, ' ').trim()
+    if (!trimmed) continue
+    const skill = cleanSkillInput(trimmed)
+    const key = skill.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(skill)
+  }
+  if (result.length === 0) throw new Error(SKILL_REQUIRED)
+  return result
+}
+
 export function skillErrorMessage(error: { code?: string; message?: string } | null | undefined) {
   if (!error) return SKILL_SAVE_FAILED
   if (error.code === '23505' || error.message?.includes('duplicate_skill')) return SKILL_DUPLICATE
