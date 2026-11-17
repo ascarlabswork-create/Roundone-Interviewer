@@ -4,6 +4,7 @@ import { Briefcase, Clock, Eye, Languages } from 'lucide-react'
 import { Avatar, StarRating, VerifiedBadge } from '../ui/identity.tsx'
 import { Badge, Card } from '../ui/primitives.tsx'
 import { timezoneLabel } from '../../lib/dates.ts'
+import { professionalTitleLines } from '../../lib/professionalTitle.ts'
 import { effectiveSchedulingTimezone } from '../../lib/timezones.ts'
 import { formatCount, formatINR } from '../../lib/format.ts'
 import { isPlaceholderProfessional, type InterviewerAccount } from '../../services/interviewerProfile.ts'
@@ -88,11 +89,13 @@ export function CandidatePreviewCard({
 }) {
   const { profile, interviewer } = account
   const hasProfessional = !isPlaceholderProfessional(interviewer)
-  const roleLine = hasProfessional ? [interviewer.current_role, interviewer.company].filter(Boolean).join(' @ ') : ''
-  const headline =
-    interviewer.headline?.trim() && interviewer.headline.trim() !== interviewer.current_role
-      ? interviewer.headline.trim()
-      : ''
+  const { headline, detail: roleLine } = hasProfessional
+    ? professionalTitleLines({
+        headline: interviewer.headline,
+        currentRole: interviewer.current_role,
+        company: interviewer.company,
+      })
+    : { headline: '', detail: '' }
   const interviewTypes = unique(activeServices.map((service) => service.interview_type))
   const startingPaise =
     activeServices.length > 0 ? Math.min(...activeServices.map((service) => service.price_paise)) : null
@@ -116,13 +119,13 @@ export function CandidatePreviewCard({
             {headline ? <p className="mt-1 font-medium text-slate-700">{headline}</p> : null}
             {roleLine ? (
               <p className="mt-1 text-sm text-slate-600 sm:text-base">{roleLine}</p>
-            ) : (
+            ) : !hasProfessional ? (
               <p className="mt-1 text-sm sm:text-base">
                 <a href="#section-professional" className="font-medium text-coral-700 hover:underline">
                   Add your current role and company
                 </a>
               </p>
-            )}
+            ) : null}
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-slate-600">
               {interviewer.experience_years > 0 ? (
                 <Meta icon={<Briefcase className="h-4 w-4 text-slate-400" aria-hidden />}>
