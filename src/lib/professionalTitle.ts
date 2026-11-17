@@ -10,12 +10,19 @@ function textIncludesCompany(haystack: string, company: string) {
   return h.includes(c) || h.includes(`@ ${c}`)
 }
 
+/** First phrase of a headline before · / @ / dash separators. */
+function headlineLead(headline: string) {
+  const h = normalizeProfessionalText(headline)
+  const lead = h.split(/\s*[·•|/\\,@]\s*|\s+[–—-]\s+/)[0] ?? h
+  return lead.trim()
+}
+
 /** True when headline already leads with the same job title (avoids "Role · …" + "Role @ Co"). */
 export function headlineCoversRole(headline: string, role: string) {
   const h = normalizeProfessionalText(headline)
   const r = normalizeProfessionalText(role)
   if (!h || !r) return false
-  if (h === r) return true
+  if (h === r || headlineLead(headline) === r) return true
   return (
     h.startsWith(`${r} `) ||
     h.startsWith(`${r}·`) ||
@@ -60,8 +67,7 @@ export function professionalTitleLines(input: {
   }
 
   if (headlineCoversRole(headline, role)) {
-    const companyOnly =
-      company && !textIncludesCompany(headline, company) ? company : ''
+    const companyOnly = company && !textIncludesCompany(headline, company) ? company : ''
     return { headline, detail: companyOnly }
   }
 
