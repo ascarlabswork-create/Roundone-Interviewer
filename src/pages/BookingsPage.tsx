@@ -366,6 +366,17 @@ export function BookingsPage() {
               setRejectId(detail.id)
               setRejectReason('')
             }}
+            onReschedule={() => {
+              const date = detail.startsAtUtc.slice(0, 10)
+              setRescheduleFor(detail)
+              setRescheduleDate(date)
+              closeDetails()
+              void loadRescheduleSlots(detail, date)
+            }}
+            onCancel={() => {
+              setCancelId(detail.id)
+              closeDetails()
+            }}
           />
         ) : null}
       </SlideOver>
@@ -485,6 +496,8 @@ function BookingDetails({
   actingId,
   onConfirm,
   onReject,
+  onReschedule,
+  onCancel,
 }: {
   booking: InterviewerBooking
   session: InterviewSessionRecord | null
@@ -492,10 +505,14 @@ function BookingDetails({
   actingId: string | null
   onConfirm: () => void
   onReject: () => void
+  onReschedule: () => void
+  onCancel: () => void
 }) {
   const actionable = isActionableBookingRequest(booking)
   const busy = actingId === booking.id
   const locked = actingId !== null
+  const canReschedule = canRescheduleBooking(booking)
+  const canCancel = canCancelBooking(booking)
   const fee = formatINR(Math.trunc(booking.sessionFeePaise / 100))
   return (
     <div className="space-y-5 text-sm">
@@ -612,10 +629,30 @@ function BookingDetails({
           <Button fullWidth variant="outline" onClick={onReject} disabled={locked}>
             Reject Booking
           </Button>
+          {canReschedule ? (
+            <Button fullWidth variant="ghost" onClick={onReschedule} disabled={locked}>
+              Reschedule
+            </Button>
+          ) : null}
+          {canCancel ? (
+            <Button fullWidth variant="ghost" onClick={onCancel} disabled={locked}>
+              Cancel booking
+            </Button>
+          ) : null}
         </div>
       ) : (
         <div className="flex flex-col gap-2 pt-1">
           <JoinInterviewControls booking={booking} session={session} size="md" />
+          {canReschedule ? (
+            <Button fullWidth variant="outline" onClick={onReschedule} disabled={locked}>
+              Reschedule
+            </Button>
+          ) : null}
+          {canCancel ? (
+            <Button fullWidth variant="ghost" onClick={onCancel} disabled={locked}>
+              Cancel booking
+            </Button>
+          ) : null}
           <FeedbackAction booking={booking} hasFeedback={hasFeedback} size="md" />
         </div>
       )}

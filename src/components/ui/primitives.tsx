@@ -1,7 +1,15 @@
 import { Eye, EyeOff } from 'lucide-react'
-import { useRef, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from 'react'
 import { cn } from '../../lib/cn.ts'
-import { holdScroll, snapshotScroll, type ScrollSnapshot } from '../../lib/keepScroll.ts'
+import { holdScroll, isLikelyFocusScrollJump, snapshotScroll, type ScrollSnapshot } from '../../lib/keepScroll.ts'
 
 export function Card({
   id,
@@ -125,6 +133,7 @@ export function SelectInput({
   ...rest
 }: SelectHTMLAttributes<HTMLSelectElement>) {
   const place = useRef<ScrollSnapshot | null>(null)
+  const focused = useRef(false)
 
   function remember(select: HTMLSelectElement) {
     place.current = snapshotScroll(select)
@@ -133,6 +142,15 @@ export function SelectInput({
   function putBack() {
     if (place.current) holdScroll(place.current)
   }
+
+  useEffect(() => {
+    function onScroll() {
+      if (!focused.current || !place.current) return
+      if (!isLikelyFocusScrollJump(place.current)) place.current = null
+    }
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    return () => window.removeEventListener('scroll', onScroll, { capture: true })
+  }, [])
 
   return (
     <select
@@ -149,6 +167,7 @@ export function SelectInput({
         onKeyDown?.(event)
       }}
       onFocus={(event) => {
+        focused.current = true
         if (!place.current) remember(event.currentTarget)
         onFocus?.(event)
       }}
@@ -157,7 +176,8 @@ export function SelectInput({
         putBack()
       }}
       onBlur={(event) => {
-        putBack()
+        focused.current = false
+        if (place.current && isLikelyFocusScrollJump(place.current)) putBack()
         place.current = null
         onBlur?.(event)
       }}

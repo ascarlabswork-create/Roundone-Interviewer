@@ -81,7 +81,7 @@ export function ExpertiseFields({
             suggestions={SKILLS}
             value={value.skills}
             onChange={(skills) => onChange({ ...value, skills })}
-            placeholder="Type a skill, e.g. Python, Power BI, System Design"
+            placeholder="Type skills, e.g. Python, SQL, Power BI"
           />
           <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
             <div className="flex items-center justify-between gap-3">

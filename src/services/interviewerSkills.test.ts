@@ -61,6 +61,7 @@ const {
   SKILL_REQUIRED,
   SKILL_TOO_LONG,
   cleanSkillInput,
+  parseSkillListInput,
   saveInterviewerSkillSet,
   skillErrorMessage,
 } = await import('./interviewerProfile.ts')
@@ -78,6 +79,14 @@ describe('skill input', () => {
     expect(cleanSkillInput('python3')).toBe('python3')
     expect(() => cleanSkillInput('   ')).toThrow(SKILL_REQUIRED)
     expect(() => cleanSkillInput('x'.repeat(61))).toThrow(SKILL_TOO_LONG)
+  })
+
+  it('splits comma-separated typing into distinct skills', () => {
+    expect(parseSkillListInput('python,sql')).toEqual(['python', 'sql'])
+    expect(parseSkillListInput('  Power BI , SQL , python ')).toEqual(['Power BI', 'SQL', 'python'])
+    expect(parseSkillListInput('SQL,sql,Sql')).toEqual(['SQL'])
+    expect(() => parseSkillListInput('   ,  , ')).toThrow(SKILL_REQUIRED)
+    expect(() => parseSkillListInput(`ok,${'x'.repeat(61)}`)).toThrow(SKILL_TOO_LONG)
   })
 
   it('maps database errors to friendly messages without exposing raw errors', () => {

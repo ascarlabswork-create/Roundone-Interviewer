@@ -137,6 +137,16 @@ function useTypeaheadHighlight(itemCount: number) {
   return { highlightIndex, setHighlightIndex, handleTypeaheadKey }
 }
 
+/** Split typed chip input on commas so "python,sql" becomes two values. */
+export function splitChipInput(value: string): string[] {
+  return uniqueKeepOrder(
+    value
+      .split(',')
+      .map((part) => normalizeLabel(part))
+      .filter(Boolean),
+  )
+}
+
 export function SuggestionChips({
   id,
   suggestions,
@@ -172,26 +182,39 @@ export function SuggestionChips({
     onChange(selected.filter((entry) => entry !== item))
   }
 
-  function addValue(raw: string) {
-    const next = normalizeLabel(raw)
-    if (!next) return
-    if (matchExisting(selected, next)) {
-      setDraft('')
-      setTyped(false)
+  function addValues(rawItems: readonly string[], options?: { keepDraft?: boolean; draftRemainder?: string }) {
+    let next = selected
+    let changed = false
+    for (const raw of rawItems) {
+      const label = normalizeLabel(raw)
+      if (!label) continue
+      if (matchExisting(next, label)) continue
+      const canonical = matchExisting(suggestions, label) ?? label
+      next = [...next, canonical]
+      changed = true
+    }
+    if (changed) onChange(uniqueKeepOrder(next))
+
+    if (options?.keepDraft) {
       setDismissed(false)
       setHighlightIndex(-1)
       return
     }
-    const canonical = matchExisting(suggestions, next) ?? next
-    onChange([...selected, canonical])
-    setDraft('')
-    setTyped(false)
+
+    const remainder = options?.draftRemainder ?? ''
+    setDraft(remainder)
+    setTyped(Boolean(remainder.trim()))
     setDismissed(false)
     setHighlightIndex(-1)
   }
 
+  function commitDraft() {
+    addValues(splitChipInput(draft))
+  }
+
   function pick(option: SuggestionOption) {
-    addValue(option.value)
+    // Keep the query so more matching skills can be picked without retyping.
+    addValues([option.value], { keepDraft: true })
   }
 
   return (
@@ -227,7 +250,17 @@ export function SuggestionChips({
               setDismissed(false)
             }}
             onChange={(event) => {
-              setDraft(event.target.value)
+              const next = event.target.value
+              if (next.includes(',')) {
+                const parts = next.split(',')
+                const complete = parts.slice(0, -1)
+                const remainder = parts[parts.length - 1] ?? ''
+                addValues(complete, { draftRemainder: remainder })
+                setTyped(true)
+                setDismissed(false)
+                return
+              }
+              setDraft(next)
               setTyped(true)
               setDismissed(false)
             }}
@@ -238,12 +271,12 @@ export function SuggestionChips({
                 setHighlightIndex(-1)
                 return
               }
-              handleTypeaheadKey(event, (index) => pick(matches[index]), () => addValue(draft))
+              handleTypeaheadKey(event, (index) => pick(matches[index]), () => commitDraft())
             }}
           />
           {open ? <SuggestionMenu id={listId} items={matches} highlightIndex={highlightIndex} onPick={pick} /> : null}
         </div>
-        <Button type="button" variant="outline" className="shrink-0" onClick={() => addValue(draft)}>
+        <Button type="button" variant="outline" className="shrink-0" onClick={() => commitDraft()}>
           Add
         </Button>
       </div>
