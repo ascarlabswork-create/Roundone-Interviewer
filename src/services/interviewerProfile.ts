@@ -23,6 +23,8 @@ export type InterviewerProfileRecord = {
   bio: string | null
   current_role: string
   company: string
+  /** Human account code (ID003001+). */
+  public_code: string
   experience_years: number
   timezone: string
   languages: string[]
@@ -81,7 +83,7 @@ export type InterviewerProfileUpdates = {
 export const INTERVIEWER_ADMIN_BLOCKED = 'Admin accounts cannot use the interviewer app here.'
 const PROFILE_SELECT = 'id, role, full_name, avatar_url, timezone, is_active'
 const INTERVIEWER_SELECT =
-  'id, profile_id, headline, bio, current_role, company, experience_years, timezone, languages, is_listed, whatsapp_phone'
+  'id, profile_id, headline, bio, current_role, company, experience_years, timezone, languages, is_listed, whatsapp_phone, public_code'
 const VERIFICATION_KINDS: DbVerificationKind[] = ['identity', 'employment']
 
 function fail(error: { message: string } | null) {
@@ -170,6 +172,7 @@ function mapInterviewer(row: {
   bio: string | null
   current_role: string
   company: string
+  public_code?: string | null
   experience_years: number
   timezone: string
   languages: string[] | null
@@ -183,6 +186,7 @@ function mapInterviewer(row: {
     bio: row.bio,
     current_role: row.current_role,
     company: row.company,
+    public_code: typeof row.public_code === 'string' ? row.public_code : '',
     experience_years: row.experience_years,
     timezone: row.timezone,
     languages: normalizeInterviewLanguages(row.languages),

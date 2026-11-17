@@ -34,9 +34,11 @@ export function landingPathForAccount(
 export function welcomeHeadline(role: string, interviewTypes: readonly string[], existing: string | null | undefined) {
   const current = existing?.trim() ?? ''
   const title = role.trim()
-  if (current && current !== title) return current
   const focus = interviewTypes.map((item) => item.trim()).filter(Boolean).join(', ')
-  return focus ? `${title} · ${focus}` : title
+  // Prefer interview focus alone — current_role is shown on its own line in the preview.
+  // Avoid storing "software Engineer · System Design" which duplicated the role under the name.
+  if (current && current !== title && current !== `${title} · ${focus}`) return current
+  return focus || title
 }
 
 export function welcomeBio(interviewTypes: readonly string[], note: string) {

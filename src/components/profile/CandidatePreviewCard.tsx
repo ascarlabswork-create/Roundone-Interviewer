@@ -89,13 +89,15 @@ export function CandidatePreviewCard({
 }) {
   const { profile, interviewer } = account
   const hasProfessional = !isPlaceholderProfessional(interviewer)
-  const { headline, detail: roleLine } = hasProfessional
+  const title = hasProfessional
     ? professionalTitleLines({
         headline: interviewer.headline,
         currentRole: interviewer.current_role,
         company: interviewer.company,
       })
     : { headline: '', detail: '' }
+  // Never show "Role @ Co" under a headline that already starts with Role.
+  const titleLines = [title.headline, title.detail].map((line) => line.trim()).filter(Boolean)
   const interviewTypes = unique(activeServices.map((service) => service.interview_type))
   const startingPaise =
     activeServices.length > 0 ? Math.min(...activeServices.map((service) => service.price_paise)) : null
@@ -116,10 +118,29 @@ export function CandidatePreviewCard({
               </h2>
               {verified ? <VerifiedBadge /> : null}
             </div>
-            {headline ? <p className="mt-1 font-medium text-slate-700">{headline}</p> : null}
-            {roleLine ? (
-              <p className="mt-1 text-sm text-slate-600 sm:text-base">{roleLine}</p>
-            ) : !hasProfessional ? (
+            {titleLines.map((line, index) => (
+              <p
+                key={`${index}-${line}`}
+                className={
+                  index === 0
+                    ? 'mt-1 font-medium text-slate-700'
+                    : 'mt-1 text-sm text-slate-600 sm:text-base'
+                }
+              >
+                {line}
+              </p>
+            ))}
+            {interviewer.public_code ? (
+              <p className="mt-1.5">
+                <span
+                  className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-slate-600"
+                  title="Your interviewer account ID"
+                >
+                  {interviewer.public_code}
+                </span>
+              </p>
+            ) : null}
+            {!hasProfessional ? (
               <p className="mt-1 text-sm sm:text-base">
                 <a href="#section-professional" className="font-medium text-coral-700 hover:underline">
                   Add your current role and company

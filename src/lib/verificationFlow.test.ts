@@ -16,6 +16,7 @@ const account = {
     bio: 'Summary',
     current_role: 'Staff Engineer',
     company: 'Acme',
+    public_code: 'ID003001',
     experience_years: 5,
     timezone: 'UTC',
     languages: [],

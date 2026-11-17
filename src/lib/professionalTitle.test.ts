@@ -59,6 +59,7 @@ describe('headlineCoversRole', () => {
   it('matches common separators after the role', () => {
     expect(headlineCoversRole('Software Engineer · System Design', 'Software Engineer')).toBe(true)
     expect(headlineCoversRole('Software Engineer - Backend', 'Software Engineer')).toBe(true)
+    expect(headlineCoversRole('software Engineer·System Design', 'software Engineer')).toBe(true)
     expect(headlineCoversRole('Product Manager', 'Software Engineer')).toBe(false)
   })
 })
