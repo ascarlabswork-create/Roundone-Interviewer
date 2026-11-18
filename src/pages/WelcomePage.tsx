@@ -181,7 +181,7 @@ export function WelcomePage() {
           </fieldset>
 
           <fieldset>
-            <legend className="text-sm font-semibold text-navy-950">Interviews you came to run</legend>
+            <legend className="text-sm font-semibold text-navy-950">Types of interview that you can take</legend>
             <p className="mt-1 text-xs text-slate-500">Pick every format you are ready to conduct.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {INTERVIEW_TYPES.map((item) => {
