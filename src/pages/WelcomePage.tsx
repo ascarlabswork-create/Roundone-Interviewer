@@ -4,7 +4,12 @@ import { ExpertiseFields, type ExpertiseValue } from '../components/profile/Expe
 import { Button } from '../components/ui/Button.tsx'
 import { Card, FieldLabel, TextArea, TextInput } from '../components/ui/primitives.tsx'
 import { CANDIDATE_LEVELS, INTERVIEW_TYPES } from '../data/catalogs.ts'
-import { needsInterviewWelcome, welcomeBio, welcomeHeadline } from '../lib/interviewWelcome.ts'
+import {
+  isInterviewWelcomePlaceholder,
+  needsInterviewWelcome,
+  welcomeBio,
+  welcomeHeadline,
+} from '../lib/interviewWelcome.ts'
 import { detectBrowserTimezone } from '../lib/timezones.ts'
 import {
   updateInterviewerProfile,
@@ -38,8 +43,9 @@ export function WelcomePage() {
   useEffect(() => {
     if (!account || hydrated) return
     const job = account.interviewer
-    const pending = job.current_role === 'Pending' && job.company === 'Pending'
-    setFullName(account.profile.full_name.trim())
+    const pending = isInterviewWelcomePlaceholder(job.current_role, job.company)
+    const displayName = account.profile.full_name.trim()
+    setFullName(displayName === 'Deleted interviewer' || displayName === 'Deleted' ? '' : displayName)
     setRole(pending ? '' : job.current_role)
     setCompany(pending ? '' : job.company)
     setYears(job.experience_years > 0 ? String(job.experience_years) : '')

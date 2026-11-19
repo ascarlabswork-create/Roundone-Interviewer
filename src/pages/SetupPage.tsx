@@ -53,8 +53,14 @@ export function SetupPage() {
       lastName: rest.join(' '),
       fullName: account.profile.full_name,
       email: account.email,
-      company: account.interviewer.company === 'Pending' ? '' : account.interviewer.company,
-      role: account.interviewer.current_role === 'Pending' ? '' : account.interviewer.current_role,
+      company:
+        account.interviewer.company === 'Pending' || account.interviewer.company === 'Deleted'
+          ? ''
+          : account.interviewer.company,
+      role:
+        account.interviewer.current_role === 'Pending' || account.interviewer.current_role === 'Deleted'
+          ? ''
+          : account.interviewer.current_role,
       experienceYears: String(account.interviewer.experience_years || ''),
       professionalSummary: account.interviewer.bio || account.interviewer.headline || '',
       timezone: effectiveSchedulingTimezone(

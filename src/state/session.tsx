@@ -63,11 +63,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      // Same email can be a candidate elsewhere; claim an interviewer persona when needed.
-      if (nextProfile.role !== 'interviewer') {
-        await claimInterviewerPersona()
-        nextProfile = await getMyProfile()
-      }
+      // Claim (or reclaim soft-deleted) interviewer persona on every sign-in.
+      // Soft-delete leaves Deleted/Pending rows; claim resets them so welcome shows again.
+      await claimInterviewerPersona()
+      nextProfile = await getMyProfile()
       setProfile(nextProfile)
 
       const nextAccount = await getCurrentInterviewer({ retries: 6 })

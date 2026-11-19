@@ -196,7 +196,9 @@ function mapInterviewer(row: {
 }
 
 export function isPlaceholderProfessional(interviewer: InterviewerProfileRecord) {
-  return interviewer.current_role === 'Pending' && interviewer.company === 'Pending'
+  const role = interviewer.current_role.trim()
+  const company = interviewer.company.trim()
+  return (role === 'Pending' && company === 'Pending') || (role === 'Deleted' && company === 'Deleted')
 }
 
 function metadataNumber(user: { user_metadata?: Record<string, unknown> }, key: string) {
