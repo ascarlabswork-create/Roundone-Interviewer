@@ -1,5 +1,5 @@
 import type { AppRole } from '../services/auth.ts'
-import { destinationForRole, INTERVIEWER_HOME } from './nextPath.ts'
+import { destinationForRole } from './nextPath.ts'
 
 export const INTERVIEWER_WELCOME = '/interviewer/welcome'
 
@@ -9,8 +9,18 @@ export type InterviewWelcomeAccount = {
   interviewer: { current_role: string; company: string; headline?: string | null; bio?: string | null }
 }
 
+/** Soft-delete and new signup both use placeholder job fields until welcome is completed. */
+export function isInterviewWelcomePlaceholder(currentRole: string, company: string) {
+  const role = currentRole.trim()
+  const org = company.trim()
+  return (role === 'Pending' && org === 'Pending') || (role === 'Deleted' && org === 'Deleted')
+}
+
 export function needsInterviewWelcome(account: InterviewWelcomeAccount) {
-  const placeholder = account.interviewer.current_role === 'Pending' && account.interviewer.company === 'Pending'
+  const placeholder = isInterviewWelcomePlaceholder(
+    account.interviewer.current_role,
+    account.interviewer.company,
+  )
   return placeholder || account.skills.length === 0 || account.targetRoles.length === 0
 }
 
@@ -18,7 +28,7 @@ function pathOnly(value: string) {
   return value.split('?')[0] ?? value
 }
 
-/** First stop after sign-in only (not on in-app links such as Verification → Dashboard). */
+/** First stop after sign-in only (not on in-app links such as live interview rooms). */
 export function landingPathForAccount(
   role: AppRole | null | undefined,
   account: InterviewWelcomeAccount | null | undefined,
@@ -27,8 +37,9 @@ export function landingPathForAccount(
   const next = destinationForRole(role, requested)
   if (role === 'admin' || !account || !needsInterviewWelcome(account)) return next
   const path = pathOnly(next)
-  if (path === INTERVIEWER_HOME || path === '/interviewer/setup') return INTERVIEWER_WELCOME
-  return next
+  // Keep deep links into a live room; every other post-auth landing goes to welcome.
+  if (path.startsWith('/interviewer/interview/')) return next
+  return INTERVIEWER_WELCOME
 }
 
 export function welcomeHeadline(role: string, interviewTypes: readonly string[], existing: string | null | undefined) {

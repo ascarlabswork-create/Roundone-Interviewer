@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { landingPathForAccount, needsInterviewWelcome, welcomeBio, welcomeHeadline } from './interviewWelcome.ts'
+import {
+  isInterviewWelcomePlaceholder,
+  landingPathForAccount,
+  needsInterviewWelcome,
+  welcomeBio,
+  welcomeHeadline,
+} from './interviewWelcome.ts'
 
 const ready = {
   skills: ['Python'],
@@ -18,6 +24,20 @@ describe('needsInterviewWelcome', () => {
         interviewer: { current_role: 'Pending', company: 'Pending' },
       }),
     ).toBe(true)
+    expect(
+      needsInterviewWelcome({
+        ...ready,
+        interviewer: { current_role: 'Deleted', company: 'Deleted' },
+      }),
+    ).toBe(true)
+  })
+})
+
+describe('isInterviewWelcomePlaceholder', () => {
+  it('treats Pending and soft-deleted job fields as placeholders', () => {
+    expect(isInterviewWelcomePlaceholder('Pending', 'Pending')).toBe(true)
+    expect(isInterviewWelcomePlaceholder('Deleted', 'Deleted')).toBe(true)
+    expect(isInterviewWelcomePlaceholder('Staff Engineer', 'Acme')).toBe(false)
   })
 })
 
@@ -29,9 +49,12 @@ describe('landingPathForAccount', () => {
     expect(landingPathForAccount('interviewer', { ...ready, skills: [] }, '/interviewer/setup?step=professional')).toBe(
       '/interviewer/welcome',
     )
+    expect(landingPathForAccount('interviewer', { ...ready, skills: [] }, '/interviewer/profile')).toBe(
+      '/interviewer/welcome',
+    )
   })
 
-  it('keeps a finished profile on the dashboard and leaves deep links alone', () => {
+  it('keeps a finished profile on the dashboard and leaves live interview deep links alone', () => {
     expect(landingPathForAccount('interviewer', ready, '/interviewer/dashboard')).toBe('/interviewer/dashboard')
     expect(landingPathForAccount('interviewer', { ...ready, skills: [] }, '/interviewer/interview/abc')).toBe(
       '/interviewer/interview/abc',
@@ -46,7 +69,7 @@ describe('landingPathForAccount', () => {
 describe('welcome copy', () => {
   it('builds a headline and bio from the interview focus when the profile is still empty', () => {
     expect(welcomeHeadline('Staff Engineer', ['Coding', 'System Design'], 'Staff Engineer')).toBe(
-      'Staff Engineer · Coding, System Design',
+      'Coding, System Design',
     )
     expect(welcomeHeadline('Staff Engineer', ['Coding'], 'I interview backend candidates')).toBe(
       'I interview backend candidates',
