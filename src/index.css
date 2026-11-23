@@ -140,13 +140,13 @@
   }
 }
 
+/* Opacity-only open animation — a lasting CSS transform on the modal breaks
+   Google Identity iframe hit-testing (Continue with Google clicks do nothing). */
 @keyframes experts-modal {
   from {
     opacity: 0;
-    transform: translateY(28px) scale(0.97);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }

@@ -299,6 +299,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
         </div>
         <GoogleContinueButton
           disabled={busy}
+          nextPath={nextPath}
           onError={(message) => {
             setInfo(null)
             setError(message)
