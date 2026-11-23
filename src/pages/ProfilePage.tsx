@@ -8,7 +8,8 @@ import { SkillManager } from '../components/profile/SkillManager.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
 import { StarRating } from '../components/ui/identity.tsx'
-import { Badge, Card, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
+import { Badge, Card, ErrorState, FieldLabel, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
+import { ExpertsPageHero } from '../components/ui/ExpertsPageHero.tsx'
 import { REVIEW_DIMENSIONS } from '../data/catalogs.ts'
 import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import { cn } from '../lib/cn.ts'
@@ -176,16 +177,16 @@ export function ProfilePage() {
 
   return (
     <div className={cn('space-y-6', dirty && 'pb-24')}>
-      <PageHeader
+      <ExpertsPageHero
         title="Your Public Profile"
         subtitle="Present your experience and expertise so the right candidates find and book you."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link to="/interviewer/verification">
-              <Button variant="outline">Verification</Button>
+              <Button variant="inverse">Verification</Button>
             </Link>
             <Link to="/interviewer/setup?step=professional">
-              <Button variant="outline">Open setup</Button>
+              <Button variant="inverse">Open setup</Button>
             </Link>
           </div>
         }

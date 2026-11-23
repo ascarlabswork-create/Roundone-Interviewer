@@ -30,6 +30,8 @@ export type InterviewerProfileRecord = {
   languages: string[]
   is_listed: boolean
   whatsapp_phone: string | null
+  /** Null until /interviewer/welcome is completed (cleared again on account delete). */
+  welcome_completed_at: string | null
 }
 
 export type InterviewerRoleRecord = {
@@ -78,12 +80,14 @@ export type InterviewerProfileUpdates = {
   phone?: string
   isListed?: boolean
   whatsappPhone?: string | null
+  /** Set when the interviewer finishes the post-auth welcome form. */
+  welcomeCompletedAt?: string | null
 }
 
 export const INTERVIEWER_ADMIN_BLOCKED = 'Admin accounts cannot use the interviewer app here.'
 const PROFILE_SELECT = 'id, role, full_name, avatar_url, timezone, is_active'
 const INTERVIEWER_SELECT =
-  'id, profile_id, headline, bio, current_role, company, experience_years, timezone, languages, is_listed, whatsapp_phone, public_code'
+  'id, profile_id, headline, bio, current_role, company, experience_years, timezone, languages, is_listed, whatsapp_phone, public_code, welcome_completed_at'
 const VERIFICATION_KINDS: DbVerificationKind[] = ['identity', 'employment']
 
 function fail(error: { message: string } | null) {
@@ -178,6 +182,7 @@ function mapInterviewer(row: {
   languages: string[] | null
   is_listed?: boolean
   whatsapp_phone?: string | null
+  welcome_completed_at?: string | null
 }): InterviewerProfileRecord {
   return {
     id: row.id,
@@ -192,6 +197,7 @@ function mapInterviewer(row: {
     languages: normalizeInterviewLanguages(row.languages),
     is_listed: row.is_listed === true,
     whatsapp_phone: row.whatsapp_phone ?? null,
+    welcome_completed_at: typeof row.welcome_completed_at === 'string' ? row.welcome_completed_at : null,
   }
 }
 
@@ -392,6 +398,9 @@ export async function updateInterviewerProfile(updates: InterviewerProfileUpdate
   if (updates.linkedin !== undefined) metadata.linkedin = updates.linkedin.trim()
   if (updates.phone !== undefined) metadata.phone = updates.phone.trim()
   if (updates.isListed !== undefined) interviewerPatch.is_listed = updates.isListed
+  if (updates.welcomeCompletedAt !== undefined) {
+    interviewerPatch.welcome_completed_at = updates.welcomeCompletedAt
+  }
   if (updates.whatsappPhone !== undefined) {
     const normalized = normalizeWhatsappPhone(updates.whatsappPhone ?? '')
     if (!normalized.ok) throw new Error(normalized.error)

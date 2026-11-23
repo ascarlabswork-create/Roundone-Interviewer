@@ -6,7 +6,13 @@ export const INTERVIEWER_WELCOME = '/interviewer/welcome'
 export type InterviewWelcomeAccount = {
   skills: readonly string[]
   targetRoles: readonly string[]
-  interviewer: { current_role: string; company: string; headline?: string | null; bio?: string | null }
+  interviewer: {
+    current_role: string
+    company: string
+    headline?: string | null
+    bio?: string | null
+    welcome_completed_at?: string | null
+  }
 }
 
 /** Soft-delete and new signup both use placeholder job fields until welcome is completed. */
@@ -17,6 +23,8 @@ export function isInterviewWelcomePlaceholder(currentRole: string, company: stri
 }
 
 export function needsInterviewWelcome(account: InterviewWelcomeAccount) {
+  // Primary gate: cleared on account delete / reclaim, set when welcome is saved.
+  if (!account.interviewer.welcome_completed_at) return true
   const placeholder = isInterviewWelcomePlaceholder(
     account.interviewer.current_role,
     account.interviewer.company,

@@ -2,7 +2,8 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { DeleteAccountCard } from '../components/settings/DeleteAccountCard.tsx'
 import { NotificationPreferencesSection } from '../components/settings/NotificationPreferencesSection.tsx'
 import { Button } from '../components/ui/Button.tsx'
-import { Card, ErrorState, FieldLabel, PageHeader, Skeleton, TextInput } from '../components/ui/primitives.tsx'
+import { Card, ErrorState, FieldLabel, Skeleton, TextInput } from '../components/ui/primitives.tsx'
+import { ExpertsPageHero } from '../components/ui/ExpertsPageHero.tsx'
 import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import { useSession } from '../state/session.tsx'
 import { useToast } from '../state/toast.tsx'
@@ -69,7 +70,10 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <PageHeader title="Settings" subtitle="Account and optional notification preferences. Payouts are not managed here." />
+      <ExpertsPageHero
+        title="Settings"
+        subtitle="Account and optional notification preferences. Payouts are not managed here."
+      />
       <NotificationPreferencesSection />
       <Card className="p-6">
         <form className="grid gap-4" onSubmit={onSubmit}>

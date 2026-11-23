@@ -22,6 +22,7 @@ const account = {
     languages: [],
     is_listed: false,
     whatsapp_phone: null,
+    welcome_completed_at: '2026-01-01T00:00:00.000Z',
   },
   skills: ['Python'],
   targetRoles: ['Backend Engineer'],

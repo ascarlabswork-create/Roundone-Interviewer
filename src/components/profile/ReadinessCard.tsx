@@ -45,7 +45,7 @@ export function ReadinessCard({
   const skillCount = account.skills.length
 
   return (
-    <Card className="p-5">
+    <Card className="border-navy-950/8 bg-white/95 p-5 shadow-[0_18px_44px_-30px_rgba(7,16,31,0.35)]">
       <h2 className="font-semibold text-navy-950">Candidate visibility</h2>
       <ul className="mt-4 space-y-4 text-sm">
         <li className="flex gap-3">

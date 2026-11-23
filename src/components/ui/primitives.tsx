@@ -23,7 +23,10 @@ export function Card({
   return (
     <div
       id={id}
-      className={cn('rounded-2xl border border-navy-950/8 bg-white/90 shadow-[0_18px_40px_-28px_rgba(12,18,32,0.45)]', className)}
+      className={cn(
+        'rounded-2xl border border-navy-950/8 bg-white/92 shadow-[0_20px_48px_-30px_rgba(7,16,31,0.4)]',
+        className,
+      )}
     >
       {children}
     </div>
@@ -76,8 +79,8 @@ export function Chip({
       className={cn(
         'rounded-full border px-3 py-1.5 text-sm transition-colors',
         active
-          ? 'border-navy-950 bg-navy-950 text-white'
-          : 'border-slate-200 bg-white text-slate-700 hover:border-navy-700 hover:text-navy-900',
+          ? 'border-coral-600 bg-coral-600 text-white'
+          : 'border-slate-200 bg-white text-slate-700 hover:border-coral-600 hover:text-coral-700',
       )}
     >
       {children}
@@ -245,16 +248,29 @@ export function PageHeader({
   title,
   subtitle,
   actions,
+  inverted = false,
+  className,
 }: {
   title: string
   subtitle?: string
   actions?: ReactNode
+  inverted?: boolean
+  className?: string
 }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className={cn('flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between', className)}>
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-950 sm:text-3xl">{title}</h1>
-        {subtitle ? <p className="mt-2 max-w-2xl text-sm text-slate-600">{subtitle}</p> : null}
+        <h1
+          className={cn(
+            'text-2xl font-semibold tracking-tight sm:text-3xl',
+            inverted ? 'text-white' : 'text-navy-950',
+          )}
+        >
+          {title}
+        </h1>
+        {subtitle ? (
+          <p className={cn('mt-2 max-w-2xl text-sm', inverted ? 'text-slate-300' : 'text-slate-600')}>{subtitle}</p>
+        ) : null}
       </div>
       {actions}
     </div>
