@@ -11,7 +11,7 @@ export function DataTable({
   return (
     <div className="hidden overflow-hidden rounded-2xl border border-navy-950/8 bg-white/95 shadow-[0_18px_44px_-30px_rgba(7,16,31,0.35)] lg:block">
       <table className="w-full text-left text-sm">
-        <thead className="bg-navy-950 text-xs font-semibold uppercase tracking-wide text-slate-300">
+        <thead className="bg-paper-deep/80 text-xs font-semibold uppercase tracking-wide text-slate-600">
           <tr>
             {headers.map((header) => (
               <th key={header} className="px-4 py-3">

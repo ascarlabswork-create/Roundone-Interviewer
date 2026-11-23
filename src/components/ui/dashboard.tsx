@@ -56,8 +56,8 @@ export function Tabs({
           className={cn(
             'rounded-xl px-4 py-2 text-sm font-medium transition-colors',
             value === item.id
-              ? 'bg-navy-950 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-navy-950/5 hover:text-navy-950',
+              ? 'bg-coral-600 text-white shadow-sm shadow-coral-600/20'
+              : 'text-slate-600 hover:bg-coral-50 hover:text-navy-950',
           )}
         >
           {item.label}

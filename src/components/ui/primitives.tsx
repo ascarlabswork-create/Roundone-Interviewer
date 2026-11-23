@@ -44,7 +44,7 @@ export function Badge({
 }) {
   const tones = {
     slate: 'bg-slate-100 text-slate-700',
-    navy: 'bg-navy-950 text-white',
+    navy: 'bg-navy-950/8 text-navy-900',
     green: 'bg-emerald-50 text-emerald-700',
     blue: 'bg-blue-50 text-blue-700',
     amber: 'bg-amber-50 text-amber-800',

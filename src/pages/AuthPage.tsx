@@ -665,21 +665,21 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   return (
     <>
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:py-14">
-        <section className="studio-ink experts-fade relative overflow-hidden rounded-[1.75rem] px-6 py-10 text-white sm:px-10 sm:py-14">
+        <section className="studio-ink experts-fade relative overflow-hidden rounded-[1.75rem] border border-navy-950/8 px-6 py-10 text-navy-950 shadow-[0_18px_44px_-30px_rgba(7,16,31,0.28)] sm:px-10 sm:py-14">
           <div
             aria-hidden
-            className="experts-orb pointer-events-none absolute -right-10 -top-8 h-48 w-48 rounded-full bg-coral-500/25 blur-2xl"
+            className="experts-orb pointer-events-none absolute -right-10 -top-8 h-48 w-48 rounded-full bg-coral-500/18 blur-2xl"
           />
           <div
             aria-hidden
-            className="experts-orb pointer-events-none absolute -bottom-16 left-8 h-40 w-40 rounded-full bg-gold-400/20 blur-2xl [animation-delay:1.2s]"
+            className="experts-orb pointer-events-none absolute -bottom-16 left-8 h-40 w-40 rounded-full bg-gold-400/18 blur-2xl [animation-delay:1.2s]"
           />
           <p className="text-4xl font-semibold tracking-tight sm:text-5xl">jobround.ai</p>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-coral-100">Interviewer workspace</p>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-coral-700">Interviewer workspace</p>
           <h1 className="mt-8 max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
             Candidates practice. You bring the hiring-side eye.
           </h1>
-          <p className="mt-5 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+          <p className="mt-5 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
             A professional workspace for live mocks, bookings, availability, and feedback — built for working
             interviewers.
           </p>
@@ -687,13 +687,13 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
             <Button size="lg" onClick={() => openAuth('signin')}>
               Sign in
             </Button>
-            <Button size="lg" variant="inverse" onClick={() => openAuth('register')}>
+            <Button size="lg" variant="outline" onClick={() => openAuth('register')}>
               Join as interviewer
             </Button>
           </div>
-          <p className="mt-5 text-sm text-slate-400">
+          <p className="mt-5 text-sm text-slate-500">
             Staff operations:{' '}
-            <Link to="/admin/login" className="font-medium text-coral-100 hover:underline">
+            <Link to="/admin/login" className="font-medium text-coral-700 hover:underline">
               Admin sign in
             </Link>
           </p>

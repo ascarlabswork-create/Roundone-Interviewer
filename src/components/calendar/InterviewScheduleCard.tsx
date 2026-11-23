@@ -223,16 +223,16 @@ export function InterviewScheduleCard({
 
   return (
     <Card className="overflow-hidden border-navy-950/10 p-0 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.45)]">
-      <div className="relative overflow-hidden border-b border-navy-950/8 bg-gradient-to-br from-navy-950 via-navy-900 to-coral-800 px-5 py-6 text-white sm:px-6">
-        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-16 left-20 h-36 w-36 rounded-full bg-coral-400/20 blur-3xl" />
+      <div className="relative overflow-hidden border-b border-navy-950/8 bg-gradient-to-br from-white via-coral-50/70 to-paper-deep/80 px-5 py-6 text-navy-950 sm:px-6">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-coral-500/18 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-16 left-20 h-36 w-36 rounded-full bg-gold-400/18 blur-3xl" />
         <div className="relative flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-gold-400" aria-hidden />
+              <CalendarDays className="h-5 w-5 text-coral-700" aria-hidden />
               <h2 className="text-xl font-semibold tracking-tight">Interview Availability</h2>
             </div>
-            <p className="mt-2 max-w-2xl text-sm text-white/75">
+            <p className="mt-2 max-w-2xl text-sm text-slate-600">
               Set your date window, apply shared hours across those days, then customize any single date. Nothing is
               published until you save.
             </p>
@@ -240,10 +240,12 @@ export function InterviewScheduleCard({
           <span
             className={cn(
               'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition-colors duration-300',
-              dirty ? 'bg-amber-300/20 text-amber-100 ring-1 ring-amber-200/40' : 'bg-emerald-300/15 text-emerald-100 ring-1 ring-emerald-200/30',
+              dirty
+                ? 'bg-amber-50 text-amber-800 ring-1 ring-amber-200/80'
+                : 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/80',
             )}
           >
-            <span className={cn('h-2 w-2 rounded-full', dirty ? 'animate-pulse bg-amber-300' : 'bg-emerald-300')} />
+            <span className={cn('h-2 w-2 rounded-full', dirty ? 'animate-pulse bg-amber-500' : 'bg-emerald-500')} />
             {dirty ? 'Draft' : 'Saved'}
           </span>
         </div>
