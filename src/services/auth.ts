@@ -361,6 +361,25 @@ export async function signInWithGoogleIdToken(idToken: string, rawNonce: string)
   return data.user
 }
 
+/**
+ * Fallback Google sign-in via OAuth redirect (works inside modals when the
+ * Identity Services iframe cannot receive clicks). Returns to AuthCallbackPage.
+ */
+export async function signInWithGoogleOAuth(nextPath?: string) {
+  const redirectTo = buildAppUrl(OAUTH_CALLBACK_PATH, {
+    next: nextPath?.startsWith('/') ? nextPath : undefined,
+  })
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo,
+      queryParams: { prompt: 'select_account' },
+    },
+  })
+  if (error) throw new Error(authErrorMessage(error))
+  if (data.url) window.location.assign(data.url)
+}
+
 export async function sendPasswordReset(email: string) {
   const trimmed = email.trim()
   if (!trimmed) throw new Error('Enter your email above first, then choose “Forgot password?”.')

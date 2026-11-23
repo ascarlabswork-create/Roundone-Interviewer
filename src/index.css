@@ -21,8 +21,8 @@
   --color-gold-400: #e8c15a;
   --color-gold-500: #d4a017;
 
-  --color-paper: #e8eef5;
-  --color-paper-deep: #d5dee9;
+  --color-paper: #f4f7fb;
+  --color-paper-deep: #e4ebf4;
 
   --color-violet-50: #f5f3ff;
   --color-violet-100: #ede9fe;
@@ -45,7 +45,7 @@
   body {
     margin: 0;
     min-width: 320px;
-    background: #e8eef5;
+    background: #f4f7fb;
     color: #334155;
     font-family: var(--font-sans);
     font-feature-settings: 'ss01';
@@ -75,9 +75,9 @@
 
   .studio-ink {
     background:
-      radial-gradient(ellipse 65% 50% at 85% -5%, rgba(13, 148, 136, 0.28), transparent 55%),
-      radial-gradient(ellipse 40% 35% at 10% 90%, rgba(232, 193, 90, 0.12), transparent 50%),
-      linear-gradient(165deg, #0d1a2e 0%, #07101f 52%, #15243c 100%);
+      radial-gradient(ellipse 65% 50% at 85% -5%, rgba(13, 148, 136, 0.18), transparent 55%),
+      radial-gradient(ellipse 40% 35% at 10% 90%, rgba(232, 193, 90, 0.16), transparent 50%),
+      linear-gradient(165deg, #ffffff 0%, #f0f9f7 48%, #eef4fb 100%);
   }
 
   .experts-rise {
@@ -140,13 +140,13 @@
   }
 }
 
+/* Opacity-only open animation — a lasting CSS transform on the modal breaks
+   Google Identity iframe hit-testing (Continue with Google clicks do nothing). */
 @keyframes experts-modal {
   from {
     opacity: 0;
-    transform: translateY(28px) scale(0.97);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }

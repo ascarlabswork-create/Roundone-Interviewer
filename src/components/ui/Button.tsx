@@ -12,7 +12,7 @@ const variants = {
   primary:
     'bg-coral-600 text-white shadow-md shadow-coral-600/25 hover:bg-coral-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none',
   secondary:
-    'bg-navy-950 text-white hover:bg-navy-800 disabled:bg-slate-300 disabled:text-slate-500',
+    'bg-slate-100 text-navy-950 hover:bg-slate-200 disabled:bg-slate-100 disabled:text-slate-400',
   outline:
     'border border-navy-950/12 bg-white/90 text-navy-950 hover:border-coral-600 hover:text-coral-700 disabled:text-slate-400',
   ghost: 'text-navy-800 hover:bg-navy-950/5 disabled:text-slate-400',

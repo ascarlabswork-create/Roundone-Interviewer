@@ -43,11 +43,11 @@ export function AuthModal({
       />
       <div
         className={cn(
-          'experts-modal relative z-10 max-h-[92svh] w-full overflow-y-auto rounded-t-3xl border border-white/70 bg-white shadow-[0_32px_80px_-24px_rgba(7,16,31,0.55)] sm:rounded-3xl',
+          'experts-modal relative z-10 flex max-h-[92svh] w-full flex-col rounded-t-3xl border border-white/70 bg-white shadow-[0_32px_80px_-24px_rgba(7,16,31,0.55)] sm:rounded-3xl',
           wide ? 'sm:max-w-xl' : 'sm:max-w-md',
         )}
       >
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-navy-950/6 bg-white/95 px-5 py-4 backdrop-blur sm:px-6">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-navy-950/6 bg-white px-5 py-4 sm:px-6">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-coral-700">jobround.ai experts</p>
             <h2 id="auth-modal-title" className="mt-1 text-xl font-semibold tracking-tight text-navy-950">
@@ -64,7 +64,8 @@ export function AuthModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="px-5 py-5 sm:px-6 sm:py-6">{children}</div>
+        {/* overflow on the body only — keep Google's button outside clipped sticky layers */}
+        <div className="overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">{children}</div>
       </div>
     </div>
   )

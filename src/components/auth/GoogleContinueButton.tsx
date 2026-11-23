@@ -1,89 +1,119 @@
 import { useEffect, useRef, useState } from 'react'
 import { isGoogleIdentityOriginAllowed } from '../../lib/googleAuthOrigins.ts'
-import {
-  createGoogleNonce,
-  googleIdentityConfig,
-  loadGoogleIdentity,
-} from '../../lib/googleOneTap.ts'
-import { authErrorMessage, signInWithGoogleIdToken } from '../../services/auth.ts'
+import { mountGoogleContinueButton } from '../../lib/googleOneTap.ts'
+import { authErrorMessage, signInWithGoogleIdToken, signInWithGoogleOAuth } from '../../services/auth.ts'
 import { useSession } from '../../state/session.tsx'
 import { Button } from '../ui/Button.tsx'
 import { GoogleIcon } from '../ui/GoogleIcon.tsx'
 
 /**
- * Continue with Google via Google Identity on this origin (jobround.ai),
- * not the Supabase redirect that shows fhcrxjrqtojixgqemofp.supabase.co.
+ * Continue with Google on this origin (experts.jobround.ai).
+ * Prefers Google's official Identity button; falls back to OAuth redirect if
+ * the iframe cannot mount or receive clicks inside the auth modal.
  */
 export function GoogleContinueButton({
   disabled,
   onError,
+  nextPath,
 }: {
   disabled?: boolean
   onError: (message: string) => void
+  nextPath?: string
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const onErrorRef = useRef(onError)
-  onErrorRef.current = onError
   const { refreshAccount } = useSession()
+  const refreshRef = useRef(refreshAccount)
+  onErrorRef.current = onError
+  refreshRef.current = refreshAccount
+
   const [busy, setBusy] = useState(false)
+  const [gisReady, setGisReady] = useState(false)
   const originAllowed = isGoogleIdentityOriginAllowed()
 
   useEffect(() => {
-    if (disabled || busy || !originAllowed) return
-    const parent = hostRef.current
-    if (!parent) return
+    const host = hostRef.current
+    if (!host || disabled || !originAllowed) return
 
-    let cancelled = false
-    parent.replaceChildren()
+    let disposed = false
+    let cleanup: (() => void) | undefined
 
     void (async () => {
       try {
-        const [google, nonce] = await Promise.all([loadGoogleIdentity(), createGoogleNonce()])
-        if (cancelled) return
-        google.initialize(
-          googleIdentityConfig(nonce.hashed, (response) => {
-            if (!response.credential) return
-            setBusy(true)
-            void signInWithGoogleIdToken(response.credential, nonce.raw)
-              .then(() => refreshAccount())
-              .catch((caught: unknown) => {
-                setBusy(false)
-                onErrorRef.current(authErrorMessage(caught))
-              })
-          }),
-        )
-        google.renderButton(parent, {
-          type: 'standard',
-          theme: 'outline',
-          size: 'large',
+        await new Promise((resolve) => window.setTimeout(resolve, 150))
+        if (disposed || !hostRef.current) return
+
+        cleanup = await mountGoogleContinueButton({
+          parent: hostRef.current,
           text: 'continue_with',
-          shape: 'pill',
-          width: Math.max(parent.offsetWidth, 320),
+          onCredential: async (credential, nonce) => {
+            setBusy(true)
+            try {
+              await signInWithGoogleIdToken(credential, nonce)
+              await refreshRef.current()
+            } catch (caught) {
+              setBusy(false)
+              onErrorRef.current(authErrorMessage(caught))
+            }
+          },
+          onError: (message) => onErrorRef.current(message),
         })
-      } catch (caught) {
-        if (!cancelled) onErrorRef.current(authErrorMessage(caught))
+        if (disposed) {
+          cleanup()
+          return
+        }
+        setGisReady(Boolean(hostRef.current?.querySelector('iframe, div[role="button"]')))
+      } catch {
+        if (!disposed) setGisReady(false)
       }
     })()
 
     return () => {
-      cancelled = true
-      parent.replaceChildren()
+      disposed = true
+      cleanup?.()
     }
-  }, [busy, disabled, originAllowed, refreshAccount])
+  }, [disabled, originAllowed])
+
+  async function continueWithOAuth() {
+    if (disabled || busy) return
+    setBusy(true)
+    try {
+      await signInWithGoogleOAuth(nextPath)
+    } catch (caught) {
+      setBusy(false)
+      onErrorRef.current(authErrorMessage(caught))
+    }
+  }
 
   return (
-    <div className="relative">
-      <Button type="button" variant="outline" fullWidth disabled={disabled || busy || !originAllowed}>
-        <GoogleIcon className="h-4 w-4" />
-        {busy ? 'Signing in…' : 'Continue with Google'}
-      </Button>
-      {disabled || busy || !originAllowed ? null : (
-        <div
-          ref={hostRef}
-          className="absolute inset-0 z-10 overflow-hidden opacity-0"
-          aria-hidden="true"
-        />
-      )}
+    <div className="w-full space-y-2">
+      <div
+        ref={hostRef}
+        className={`flex min-h-11 w-full items-center justify-center overflow-hidden rounded-xl ${
+          disabled || busy ? 'pointer-events-none opacity-60' : ''
+        } ${gisReady ? '' : 'sr-only'}`}
+        aria-hidden={!gisReady}
+      />
+
+      {!gisReady ? (
+        <Button type="button" variant="outline" fullWidth disabled={disabled || busy} onClick={() => void continueWithOAuth()}>
+          <GoogleIcon className="h-4 w-4" />
+          {busy ? 'Redirecting to Google…' : 'Continue with Google'}
+        </Button>
+      ) : null}
+
+      {gisReady ? (
+        <button
+          type="button"
+          className="w-full text-center text-xs font-medium text-coral-700 hover:underline"
+          disabled={disabled || busy}
+          onClick={() => void continueWithOAuth()}
+        >
+          {busy ? 'Redirecting…' : 'Having trouble? Continue with Google redirect'}
+        </button>
+      ) : null}
+
+      {busy ? <p className="text-center text-xs text-slate-500">Signing in with Google…</p> : null}
     </div>
   )
 }

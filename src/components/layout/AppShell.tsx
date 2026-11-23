@@ -55,15 +55,15 @@ export function AppShell() {
     <div className="min-h-svh bg-paper lg:flex">
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-navy-950/10 bg-navy-950 text-white transition-transform lg:static lg:w-64 lg:translate-x-0 xl:w-72',
+          'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-navy-950/10 bg-white text-navy-950 transition-transform lg:static lg:w-64 lg:translate-x-0 xl:w-72',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         <div className="flex h-16 items-center justify-between px-4">
-          <Logo to="/interviewer/dashboard" inverted />
+          <Logo to="/interviewer/dashboard" />
           <button
             type="button"
-            className="rounded-xl p-2 text-white/80 hover:bg-white/10 lg:hidden"
+            className="rounded-xl p-2 text-slate-500 hover:bg-navy-950/5 hover:text-navy-950 lg:hidden"
             onClick={() => setOpen(false)}
             aria-label="Close menu"
           >
@@ -80,8 +80,8 @@ export function AppShell() {
                 cn(
                   'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-coral-600 text-white shadow-sm shadow-coral-600/30'
-                    : 'text-slate-300 hover:bg-white/8 hover:text-white',
+                    ? 'bg-coral-600 text-white shadow-sm shadow-coral-600/25'
+                    : 'text-slate-600 hover:bg-coral-50 hover:text-navy-950',
                 )
               }
             >
@@ -118,7 +118,7 @@ export function AppShell() {
               to="/interviewer/profile"
               className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-navy-950/5"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-navy-950 text-xs font-semibold text-coral-500">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-coral-50 text-xs font-semibold text-coral-700 ring-1 ring-coral-600/15">
                 {initials(displayName)}
               </span>
               <span className="hidden text-sm font-medium text-navy-950 sm:block">{displayName}</span>

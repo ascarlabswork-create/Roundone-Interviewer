@@ -122,3 +122,87 @@ export async function createGoogleNonce(): Promise<{ raw: string; hashed: string
   const hashed = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
   return { raw, hashed }
 }
+
+export type MountGoogleButtonOptions = {
+  parent: HTMLElement
+  context?: 'signin' | 'signup'
+  text?: GoogleButtonConfiguration['text']
+  onCredential: (credential: string, nonce: string) => void | Promise<void>
+  onError?: (message: string) => void
+}
+
+/**
+ * Official Google button on the current origin. More reliable than prompt()
+ * and safer than opacity-0 overlays inside modals.
+ */
+export async function mountGoogleContinueButton(options: MountGoogleButtonOptions): Promise<() => void> {
+  const [google, nonce] = await Promise.all([loadGoogleIdentity(), createGoogleNonce()])
+  let rawNonce = nonce.raw
+  let hashedNonce = nonce.hashed
+  let cancelled = false
+
+  const refreshNonce = async () => {
+    const next = await createGoogleNonce()
+    rawNonce = next.raw
+    hashedNonce = next.hashed
+  }
+
+  const paint = async () => {
+    if (cancelled) return
+    await refreshNonce()
+    if (cancelled) return
+
+    google.cancel()
+    google.initialize({
+      client_id: googleClientId(),
+      nonce: hashedNonce,
+      auto_select: false,
+      cancel_on_tap_outside: true,
+      context: options.context ?? 'signin',
+      itp_support: true,
+      use_fedcm_for_prompt: false,
+      callback: (response) => {
+        if (!response.credential) {
+          options.onError?.('Google did not return a sign-in credential. Please try again.')
+          return
+        }
+        void Promise.resolve(options.onCredential(response.credential, rawNonce)).catch((caught: unknown) => {
+          options.onError?.(caught instanceof Error ? caught.message : 'Google sign-in failed.')
+        })
+      },
+    })
+
+    options.parent.innerHTML = ''
+    const width = Math.min(400, Math.max(240, Math.floor(options.parent.clientWidth || 320)))
+    google.renderButton(options.parent, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      text: options.text ?? 'continue_with',
+      shape: 'rectangular',
+      width,
+    })
+  }
+
+  let lastWidth = 0
+  await paint()
+  lastWidth = Math.floor(options.parent.clientWidth || 0)
+
+  const observer =
+    typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => {
+          const nextWidth = Math.floor(options.parent.clientWidth || 0)
+          if (Math.abs(nextWidth - lastWidth) < 12) return
+          lastWidth = nextWidth
+          void paint()
+        })
+      : null
+  observer?.observe(options.parent)
+
+  return () => {
+    cancelled = true
+    observer?.disconnect()
+    google.cancel()
+    options.parent.innerHTML = ''
+  }
+}

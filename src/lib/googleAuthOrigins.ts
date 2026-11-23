@@ -5,9 +5,12 @@ export const GOOGLE_OAUTH_WEB_CLIENT_ID =
 export const GOOGLE_OAUTH_BUILTIN_ORIGINS = [
   'http://localhost:5174',
   'http://127.0.0.1:5174',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
   'https://jobround.ai',
   'https://www.jobround.ai',
   'https://experts.jobround.ai',
+  'https://www.experts.jobround.ai',
 ] as const
 
 function extraOriginsFromEnv(): string[] {

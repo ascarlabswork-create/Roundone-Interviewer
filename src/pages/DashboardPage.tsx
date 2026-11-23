@@ -180,14 +180,14 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="experts-rise relative overflow-hidden rounded-2xl border border-navy-950/8 bg-navy-950 px-5 py-6 text-white shadow-[0_24px_60px_-36px_rgba(7,16,31,0.55)] sm:px-7 sm:py-7">
+      <div className="experts-rise relative overflow-hidden rounded-2xl border border-navy-950/8 bg-gradient-to-br from-white via-coral-50/70 to-paper-deep/80 px-5 py-6 text-navy-950 shadow-[0_18px_44px_-30px_rgba(7,16,31,0.28)] sm:px-7 sm:py-7">
         <div
           aria-hidden
-          className="experts-orb pointer-events-none absolute -right-8 -top-10 h-40 w-40 rounded-full bg-coral-500/30 blur-2xl"
+          className="experts-orb pointer-events-none absolute -right-8 -top-10 h-40 w-40 rounded-full bg-coral-500/18 blur-2xl"
         />
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coral-100">Interviewer workspace</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coral-700">Interviewer workspace</p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Welcome back, {firstName}</h1>
-        <p className="mt-1 max-w-xl text-sm text-slate-300">Your interview operations for today.</p>
+        <p className="mt-1 max-w-xl text-sm text-slate-600">Your interview operations for today.</p>
       </div>
 
       {attention && attention.length > 0 ? (

@@ -17,7 +17,7 @@ export function Logo({
       <span
         className={cn(
           'flex h-9 w-9 items-center justify-center rounded-xl text-sm font-black tracking-tight shadow-sm',
-          inverted ? 'bg-white text-navy-950' : 'bg-navy-950 text-coral-500',
+          inverted ? 'bg-white text-navy-950' : 'bg-coral-50 text-coral-700 ring-1 ring-coral-600/15',
         )}
       >
         jr
