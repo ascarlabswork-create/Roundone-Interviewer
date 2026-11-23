@@ -11,8 +11,8 @@ import { Button } from '../ui/Button.tsx'
 import { GoogleIcon } from '../ui/GoogleIcon.tsx'
 
 /**
- * Continue with Google via Google Identity on this origin (jobround.ai),
- * not the Supabase redirect that shows fhcrxjrqtojixgqemofp.supabase.co.
+ * Continue with Google via Google Identity on this origin (experts.jobround.ai).
+ * Renders Google's real button (not an opacity-0 overlay) so clicks work inside auth modals.
  */
 export function GoogleContinueButton({
   disabled,
@@ -26,20 +26,27 @@ export function GoogleContinueButton({
   onErrorRef.current = onError
   const { refreshAccount } = useSession()
   const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
   const originAllowed = isGoogleIdentityOriginAllowed()
 
   useEffect(() => {
-    if (disabled || busy || !originAllowed) return
+    if (disabled || busy || !originAllowed || failed) return
     const parent = hostRef.current
     if (!parent) return
 
     let cancelled = false
-    parent.replaceChildren()
 
     void (async () => {
       try {
+        // Wait for auth-modal layout/animation so the host has a real width.
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+        await new Promise((resolve) => window.setTimeout(resolve, 80))
+        if (cancelled || !hostRef.current) return
+
         const [google, nonce] = await Promise.all([loadGoogleIdentity(), createGoogleNonce()])
-        if (cancelled) return
+        if (cancelled || !hostRef.current) return
+
+        hostRef.current.replaceChildren()
         google.initialize(
           googleIdentityConfig(nonce.hashed, (response) => {
             if (!response.credential) return
@@ -52,16 +59,21 @@ export function GoogleContinueButton({
               })
           }),
         )
-        google.renderButton(parent, {
+
+        const width = Math.max(Math.floor(hostRef.current.getBoundingClientRect().width), 280)
+        google.renderButton(hostRef.current, {
           type: 'standard',
           theme: 'outline',
           size: 'large',
           text: 'continue_with',
-          shape: 'pill',
-          width: Math.max(parent.offsetWidth, 320),
+          shape: 'rectangular',
+          width,
         })
       } catch (caught) {
-        if (!cancelled) onErrorRef.current(authErrorMessage(caught))
+        if (!cancelled) {
+          setFailed(true)
+          onErrorRef.current(authErrorMessage(caught))
+        }
       }
     })()
 
@@ -69,21 +81,36 @@ export function GoogleContinueButton({
       cancelled = true
       parent.replaceChildren()
     }
-  }, [busy, disabled, originAllowed, refreshAccount])
+  }, [busy, disabled, failed, originAllowed, refreshAccount])
+
+  if (!originAllowed) {
+    return (
+      <div className="space-y-2">
+        <Button type="button" variant="outline" fullWidth disabled>
+          <GoogleIcon className="h-4 w-4" />
+          Continue with Google
+        </Button>
+        <p className="text-center text-xs text-slate-500">
+          Google sign-in is only available on experts.jobround.ai and local dev.
+        </p>
+      </div>
+    )
+  }
 
   return (
-    <div className="relative">
-      <Button type="button" variant="outline" fullWidth disabled={disabled || busy || !originAllowed}>
-        <GoogleIcon className="h-4 w-4" />
-        {busy ? 'Signing in…' : 'Continue with Google'}
-      </Button>
-      {disabled || busy || !originAllowed ? null : (
-        <div
-          ref={hostRef}
-          className="absolute inset-0 z-10 overflow-hidden opacity-0"
-          aria-hidden="true"
-        />
-      )}
+    <div className="relative w-full">
+      <div
+        ref={hostRef}
+        className={`flex min-h-11 w-full items-center justify-center overflow-hidden rounded-xl ${
+          disabled || busy ? 'pointer-events-none opacity-60' : ''
+        }`}
+      />
+      {busy ? <p className="mt-2 text-center text-xs text-slate-500">Signing in with Google…</p> : null}
+      {failed ? (
+        <p className="mt-2 text-center text-xs text-red-700">
+          Google button could not load. Use email sign-in, or refresh and try again.
+        </p>
+      ) : null}
     </div>
   )
 }
