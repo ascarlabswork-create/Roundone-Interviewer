@@ -15,10 +15,12 @@ export function MetricCard({
   loading?: boolean
 }) {
   return (
-    <div className="rounded-2xl border border-navy-950/8 bg-white/90 p-4 shadow-[0_18px_40px_-28px_rgba(12,18,32,0.45)] sm:p-5">
+    <div className="rounded-2xl border border-navy-950/8 bg-white/95 p-4 shadow-[0_18px_44px_-30px_rgba(7,16,31,0.4)] sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium text-slate-500">{label}</p>
-        {icon ? <span className="text-coral-600">{icon}</span> : null}
+        {icon ? (
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-coral-50 text-coral-700">{icon}</span>
+        ) : null}
       </div>
       {loading ? (
         <>
@@ -45,15 +47,17 @@ export function Tabs({
   onChange: (id: string) => void
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2 rounded-2xl border border-navy-950/8 bg-white/70 p-1.5 shadow-sm backdrop-blur">
       {items.map((item) => (
         <button
           key={item.id}
           type="button"
           onClick={() => onChange(item.id)}
           className={cn(
-            'rounded-full px-4 py-2 text-sm font-medium',
-            value === item.id ? 'bg-navy-950 text-white' : 'bg-white text-slate-600 ring-1 ring-navy-950/10',
+            'rounded-xl px-4 py-2 text-sm font-medium transition-colors',
+            value === item.id
+              ? 'bg-navy-950 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-navy-950/5 hover:text-navy-950',
           )}
         >
           {item.label}
@@ -82,7 +86,7 @@ export function Stepper({
             className={cn(
               'rounded-xl border px-3 py-2 text-xs font-medium',
               active
-                ? 'border-navy-950 bg-navy-950 text-white'
+                ? 'border-coral-600 bg-coral-600 text-white'
                 : done
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                   : 'border-navy-950/10 bg-white text-slate-500',
@@ -113,11 +117,15 @@ export function SlideOver({
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex">
-      <button type="button" className="flex-1 bg-navy-950/40" aria-label="Close panel" onClick={onClose} />
-      <aside className="h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-xl">
+      <button type="button" className="flex-1 bg-navy-950/50" aria-label="Close panel" onClick={onClose} />
+      <aside className="h-full w-full max-w-lg overflow-y-auto border-l border-navy-950/10 bg-paper p-6 shadow-2xl">
         <div className="mb-6 flex items-start justify-between gap-4">
           <h2 className="text-lg font-semibold text-navy-950">{title}</h2>
-          <button type="button" className="text-sm font-medium text-slate-500" onClick={onClose}>
+          <button
+            type="button"
+            className="rounded-xl px-2 py-1 text-sm font-medium text-slate-500 hover:bg-navy-950/5 hover:text-navy-950"
+            onClick={onClose}
+          >
             Close
           </button>
         </div>

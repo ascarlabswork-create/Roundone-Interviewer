@@ -55,17 +55,22 @@ export function AppShell() {
     <div className="min-h-svh bg-paper lg:flex">
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-72 border-r border-navy-950/8 bg-paper transition-transform lg:static lg:w-64 lg:translate-x-0 xl:w-72',
+          'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-navy-950/10 bg-navy-950 text-white transition-transform lg:static lg:w-64 lg:translate-x-0 xl:w-72',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         <div className="flex h-16 items-center justify-between px-4">
-          <Logo to="/interviewer/dashboard" />
-          <button type="button" className="rounded-full p-2 lg:hidden" onClick={() => setOpen(false)} aria-label="Close menu">
+          <Logo to="/interviewer/dashboard" inverted />
+          <button
+            type="button"
+            className="rounded-xl p-2 text-white/80 hover:bg-white/10 lg:hidden"
+            onClick={() => setOpen(false)}
+            aria-label="Close menu"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <nav className="flex flex-col gap-1 px-3 py-2" aria-label="Interviewer">
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-2 pb-6" aria-label="Interviewer">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -73,8 +78,10 @@ export function AppShell() {
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive ? 'bg-navy-950 text-white' : 'text-slate-600 hover:bg-navy-950/5 hover:text-navy-950',
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-coral-600 text-white shadow-sm shadow-coral-600/30'
+                    : 'text-slate-300 hover:bg-white/8 hover:text-white',
                 )
               }
             >
@@ -88,7 +95,7 @@ export function AppShell() {
       {open ? (
         <button
           type="button"
-          className="fixed inset-0 z-30 bg-navy-950/40 lg:hidden"
+          className="fixed inset-0 z-30 bg-navy-950/50 lg:hidden"
           aria-label="Close navigation"
           onClick={() => setOpen(false)}
         />
@@ -96,7 +103,12 @@ export function AppShell() {
 
       <div className="flex min-h-svh min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-navy-950/8 bg-paper/80 px-4 backdrop-blur-xl">
-          <button type="button" className="rounded-full p-2 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
+          <button
+            type="button"
+            className="rounded-xl p-2 lg:hidden"
+            onClick={() => setOpen(true)}
+            aria-label="Open menu"
+          >
             <Menu className="h-5 w-5" />
           </button>
           <p className="hidden text-sm font-medium text-slate-500 sm:block">Interviewer workspace</p>
@@ -104,9 +116,9 @@ export function AppShell() {
             <NotificationBell />
             <Link
               to="/interviewer/profile"
-              className="flex items-center gap-2 rounded-full px-2 py-1.5 hover:bg-navy-950/5"
+              className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-navy-950/5"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-navy-950 text-xs font-semibold text-gold-400">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-navy-950 text-xs font-semibold text-coral-500">
                 {initials(displayName)}
               </span>
               <span className="hidden text-sm font-medium text-navy-950 sm:block">{displayName}</span>

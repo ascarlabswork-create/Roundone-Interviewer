@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { NotificationListItem } from '../components/notifications/NotificationListItem.tsx'
 import { Button } from '../components/ui/Button.tsx'
-import { Card, EmptyState, ErrorState, PageHeader, Skeleton } from '../components/ui/primitives.tsx'
+import { Card, EmptyState, ErrorState, Skeleton } from '../components/ui/primitives.tsx'
+import { ExpertsPageHero } from '../components/ui/ExpertsPageHero.tsx'
 import { useAsync } from '../lib/useAsync.ts'
 import {
   loadMyNotificationBoard,
@@ -59,12 +60,12 @@ export function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <ExpertsPageHero
         title="Notifications"
         subtitle="Booking, interview, and review events for your interviewer account."
         actions={
           state.status === 'success' && state.data.unreadCount > 0 ? (
-            <Button variant="outline" disabled={acting} onClick={() => void onMarkAll()}>
+            <Button variant="inverse" disabled={acting} onClick={() => void onMarkAll()}>
               {acting ? 'Updating…' : 'Mark all as read'}
             </Button>
           ) : null

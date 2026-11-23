@@ -8,11 +8,11 @@ import {
   Card,
   ErrorState,
   FieldLabel,
-  PageHeader,
   SelectInput,
   Skeleton,
   TextInput,
 } from '../components/ui/primitives.tsx'
+import { ExpertsPageHero } from '../components/ui/ExpertsPageHero.tsx'
 import { BUFFER_OPTIONS, INTERVIEW_TYPES } from '../data/catalogs.ts'
 import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import type { InterviewType } from '../data/catalogs.ts'
@@ -248,11 +248,11 @@ export function CalendarPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <ExpertsPageHero
         title="Availability"
         subtitle="Set when candidates can book your interview sessions."
         actions={
-          <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)}>
+          <Button size="sm" variant="inverse" onClick={() => setPreviewOpen(true)}>
             Preview Candidate View
           </Button>
         }

@@ -180,9 +180,14 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-950 sm:text-3xl">Welcome back, {firstName}</h1>
-        <p className="mt-1 text-sm text-slate-600">Your interview operations for today.</p>
+      <div className="experts-rise relative overflow-hidden rounded-2xl border border-navy-950/8 bg-navy-950 px-5 py-6 text-white shadow-[0_24px_60px_-36px_rgba(7,16,31,0.55)] sm:px-7 sm:py-7">
+        <div
+          aria-hidden
+          className="experts-orb pointer-events-none absolute -right-8 -top-10 h-40 w-40 rounded-full bg-coral-500/30 blur-2xl"
+        />
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coral-100">Interviewer workspace</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Welcome back, {firstName}</h1>
+        <p className="mt-1 max-w-xl text-sm text-slate-300">Your interview operations for today.</p>
       </div>
 
       {attention && attention.length > 0 ? (
@@ -190,7 +195,10 @@ export function DashboardPage() {
           <h2 className="mb-3 text-lg font-semibold text-navy-950">Needs Attention</h2>
           <div className="grid gap-3">
             {attention.map((item) => (
-              <Card key={item.id} className="p-4 sm:flex sm:items-center sm:justify-between">
+              <Card
+                key={item.id}
+                className="border-l-4 border-l-coral-600 p-4 sm:flex sm:items-center sm:justify-between"
+              >
                 <div>
                   <p className="font-medium text-navy-950">{item.title}</p>
                   <p className="mt-1 text-sm text-slate-600">{item.detail}</p>
@@ -266,7 +274,7 @@ export function DashboardPage() {
         />
       </div>
 
-      <section>
+      <section className="rounded-2xl border border-navy-950/8 bg-white/60 p-4 shadow-sm backdrop-blur sm:p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy-950">Pending booking requests</h2>
           <Link to="/interviewer/bookings?tab=pending" className="text-sm font-medium text-coral-700 hover:text-coral-800">
@@ -322,7 +330,7 @@ export function DashboardPage() {
         ) : null}
       </section>
 
-      <section>
+      <section className="rounded-2xl border border-navy-950/8 bg-white/60 p-4 shadow-sm backdrop-blur sm:p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy-950">Upcoming interviews</h2>
           <Link to="/interviewer/bookings?tab=upcoming" className="text-sm font-medium text-coral-700 hover:text-coral-800">

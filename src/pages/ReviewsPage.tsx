@@ -3,7 +3,8 @@ import { Button } from '../components/ui/Button.tsx'
 import { VisibilityLabel } from '../components/ui/VisibilityLabel.tsx'
 import { SlideOver } from '../components/ui/dashboard.tsx'
 import { StarRating } from '../components/ui/identity.tsx'
-import { Card, EmptyState, ErrorState, PageHeader, Skeleton } from '../components/ui/primitives.tsx'
+import { Card, EmptyState, ErrorState, Skeleton } from '../components/ui/primitives.tsx'
+import { ExpertsPageHero } from '../components/ui/ExpertsPageHero.tsx'
 import { REVIEW_DIMENSIONS } from '../data/catalogs.ts'
 import { formatCount } from '../lib/format.ts'
 import { formatReviewDate } from '../lib/dates.ts'
@@ -17,7 +18,7 @@ export function ReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <ExpertsPageHero
         title="Reviews & Reputation"
         subtitle="Only approved public candidate reviews appear here. Private performance feedback is never shown."
       />

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
+import { CalendarDays, ClipboardList, IndianRupee, Video } from 'lucide-react'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { AuthModal } from '../components/auth/AuthModal.tsx'
 import { EmailOtpInputs } from '../components/auth/EmailOtpInputs.tsx'
 import { GoogleContinueButton } from '../components/auth/GoogleContinueButton.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
-import { Card, FieldLabel, PageHeader, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
+import { Card, FieldLabel, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
 import { isInPasswordRecoveryFlow, isAuthRecoveryUrl, redirectToPasswordRecovery } from '../lib/authRecovery.ts'
 import { landingPathForAccount } from '../lib/interviewWelcome.ts'
 import { INTERVIEWER_SETUP, defaultHomePath, safeNextPath } from '../lib/nextPath.ts'
@@ -30,14 +32,23 @@ type LoginStep = 'email' | 'code' | 'password'
 export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'; defaultNextPath?: string }) {
   const { status, user, profile, account, error: sessionError, refreshAccount } = useSession()
   const location = useLocation()
+  const navigate = useNavigate()
   const [params] = useSearchParams()
   const [passwordRecovery, setPasswordRecovery] = useState(() => isAuthRecoveryUrl())
-  const isRegister = mode === 'register'
+  const openParam = params.get('open')
+  const accountDeleted = params.get('accountDeleted') === '1'
+  const modalOpen =
+    openParam === 'signin' ||
+    openParam === 'login' ||
+    openParam === 'register' ||
+    openParam === 'signup' ||
+    accountDeleted
+  const isRegister =
+    openParam === 'register' || openParam === 'signup' || (mode === 'register' && modalOpen)
   const nextPath = safeNextPath(
     params.get('next'),
     defaultNextPath ?? (isRegister ? INTERVIEWER_SETUP : defaultHomePath(profile?.role)),
   )
-  const nextQuery = `?next=${encodeURIComponent(nextPath)}`
   const [loginStep, setLoginStep] = useState<LoginStep>('email')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -58,6 +69,23 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   const [info, setInfo] = useState<string | null>(null)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
   const timezone = useMemo(() => detectBrowserTimezone(), [])
+
+  function openAuth(kind: 'signin' | 'register') {
+    const next = new URLSearchParams(params)
+    next.set('open', kind === 'signin' ? 'signin' : 'register')
+    navigate(kind === 'signin' ? `/interviewer/login?${next}` : `/interviewer/register?${next}`)
+  }
+
+  function closeAuth() {
+    const next = new URLSearchParams(params)
+    next.delete('open')
+    next.delete('accountDeleted')
+    const query = next.toString()
+    navigate(query ? `/interviewer/login?${query}` : '/interviewer/login', { replace: true })
+    setLoginStep('email')
+    setError(null)
+    setInfo(null)
+  }
 
   useEffect(() => {
     if (!isInPasswordRecoveryFlow()) return
@@ -286,16 +314,20 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
         {isRegister ? (
           <>
             Already have an account?{' '}
-            <Link className="font-medium text-coral-700" to={`/interviewer/login${nextQuery}`}>
+            <button type="button" className="font-medium text-coral-700 hover:underline" onClick={() => openAuth('signin')}>
               Sign in
-            </Link>
+            </button>
           </>
         ) : (
           <>
             Don&apos;t have an account?{' '}
-            <Link className="font-medium text-coral-700" to={`/interviewer/register${nextQuery}`}>
+            <button
+              type="button"
+              className="font-medium text-coral-700 hover:underline"
+              onClick={() => openAuth('register')}
+            >
               Create Interviewer Account
-            </Link>
+            </button>
           </>
         )}
       </p>
@@ -602,54 +634,109 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
     )
   }
 
+  const featureCards = [
+    {
+      title: 'Live interviews',
+      body: 'Join sessions, keep notes, and stay on schedule without juggling tools.',
+      icon: Video,
+      delay: '40ms',
+    },
+    {
+      title: 'Bookings & calendar',
+      body: 'Accept requests, set availability, and manage services in one workspace.',
+      icon: CalendarDays,
+      delay: '120ms',
+    },
+    {
+      title: 'Feedback loop',
+      body: 'Share structured feedback candidates can actually use to improve.',
+      icon: ClipboardList,
+      delay: '200ms',
+    },
+    {
+      title: 'Earnings clarity',
+      body: 'Track completed sessions and fees without a separate admin console.',
+      icon: IndianRupee,
+      delay: '280ms',
+    },
+  ] as const
+
   return (
-    <div className="mx-auto grid max-w-6xl items-stretch gap-6 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:py-16">
-      <div className="studio-ink hidden flex-col justify-between rounded-[2rem] p-10 text-white lg:flex">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold-400">jobround.ai</p>
-          <h2 className="mt-4 text-4xl font-semibold tracking-tight">
+    <>
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:py-14">
+        <section className="studio-ink experts-fade relative overflow-hidden rounded-[1.75rem] px-6 py-10 text-white sm:px-10 sm:py-14">
+          <div
+            aria-hidden
+            className="experts-orb pointer-events-none absolute -right-10 -top-8 h-48 w-48 rounded-full bg-coral-500/25 blur-2xl"
+          />
+          <div
+            aria-hidden
+            className="experts-orb pointer-events-none absolute -bottom-16 left-8 h-40 w-40 rounded-full bg-gold-400/20 blur-2xl [animation-delay:1.2s]"
+          />
+          <p className="text-4xl font-semibold tracking-tight sm:text-5xl">jobround.ai</p>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-coral-100">Interviewer workspace</p>
+          <h1 className="mt-8 max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
             Candidates practice. You bring the hiring-side eye.
-          </h2>
-          <p className="mt-5 max-w-md text-sm leading-6 text-slate-300">
-            Sign in to run live mocks, keep bookings and notes in one place, and share feedback that actually helps
-            someone land the role.
+          </h1>
+          <p className="mt-5 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+            A professional workspace for live mocks, bookings, availability, and feedback — built for working
+            interviewers.
           </p>
-        </div>
-        <p className="text-sm text-slate-400">Built for working interviewers — not a generic admin panel.</p>
-      </div>
-      <div className="mx-auto w-full max-w-md lg:mx-0 lg:max-w-none">
-        <PageHeader
-          title={isRegister ? 'Create your interviewer account' : 'Sign in'}
-          subtitle={
-            isRegister
-              ? 'Already on jobround.ai as a candidate? Sign in with that email — we’ll add your interviewer profile. New here? We’ll save your details and you can finish setup next.'
-              : 'Enter your email for a 6-digit code, use a password, or continue with Google. Staff: use Admin sign in.'
-          }
-        />
-        {!isRegister ? (
-          <p className="mt-3 text-sm text-slate-600">
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button size="lg" onClick={() => openAuth('signin')}>
+              Sign in
+            </Button>
+            <Button size="lg" variant="inverse" onClick={() => openAuth('register')}>
+              Join as interviewer
+            </Button>
+          </div>
+          <p className="mt-5 text-sm text-slate-400">
             Staff operations:{' '}
-            <Link to="/admin/login" className="font-medium text-coral-700 hover:underline">
+            <Link to="/admin/login" className="font-medium text-coral-100 hover:underline">
               Admin sign in
             </Link>
           </p>
-        ) : null}
+        </section>
 
-        {!isRegister && params.get('accountDeleted') === '1' ? (
+        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {featureCards.map((card) => (
+            <div key={card.title} className="experts-card" style={{ animationDelay: card.delay }}>
+              <Card className="h-full border-white/80 bg-white/95 p-5 shadow-[0_18px_44px_-30px_rgba(7,16,31,0.35)]">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-coral-50 text-coral-700">
+                  <card.icon className="h-5 w-5" />
+                </span>
+                <h2 className="mt-4 text-base font-semibold text-navy-950">{card.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{card.body}</p>
+              </Card>
+            </div>
+          ))}
+        </section>
+      </div>
+
+      <AuthModal
+        open={modalOpen}
+        wide={isRegister}
+        title={isRegister ? 'Create your interviewer account' : 'Welcome back'}
+        subtitle={
+          isRegister
+            ? 'Already a candidate on jobround.ai? Use that email — we’ll add your interviewer profile.'
+            : 'Use email code, password, or Google. The form stays private until you open it.'
+        }
+        onClose={closeAuth}
+      >
+        {accountDeleted ? (
           <div
-            className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-950"
+            className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"
             role="status"
           >
             <p className="font-semibold">Your interviewer account has been deleted</p>
-            <p className="mt-1 leading-relaxed text-emerald-900">
-              You&apos;re signed out. Your login still works if you use the same email on jobround.ai as a candidate, or
-              you can register here again as an interviewer.
+            <p className="mt-1 text-emerald-900">
+              You&apos;re signed out. Sign in again to reopen interviewer access, or register if you&apos;re new here.
             </p>
           </div>
         ) : null}
-
-        <Card className="mt-8 p-6 sm:p-8">{isRegister ? registerForm() : loginForm()}</Card>
-      </div>
-    </div>
+        {isRegister ? registerForm() : loginForm()}
+      </AuthModal>
+    </>
   )
 }

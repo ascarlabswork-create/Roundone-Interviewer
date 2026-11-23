@@ -6,7 +6,8 @@ import { FeedbackAction } from '../components/interview/FeedbackAction.tsx'
 import { JoinInterviewControls, interviewConfirmedCopy } from '../components/interview/JoinInterviewControls.tsx'
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
 import { SlideOver, Tabs } from '../components/ui/dashboard.tsx'
-import { Badge, Card, EmptyState, ErrorState, FieldLabel, PageHeader, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
+import { Badge, Card, EmptyState, ErrorState, FieldLabel, Skeleton, TextArea, TextInput } from '../components/ui/primitives.tsx'
+import { ExpertsPageHero } from '../components/ui/ExpertsPageHero.tsx'
 import {
   formatDateLongInZone,
   formatDateShortInZone,
@@ -240,7 +241,10 @@ export function BookingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Bookings" subtitle="Accept requests, join upcoming sessions, and close the loop with feedback." />
+      <ExpertsPageHero
+        title="Bookings"
+        subtitle="Accept requests, join upcoming sessions, and close the loop with feedback."
+      />
       <Tabs
         value={tab}
         onChange={(id) => {
@@ -260,7 +264,9 @@ export function BookingsPage() {
       {state.status === 'loading' ? <Skeleton className="h-64" /> : null}
       {state.status === 'error' ? <ErrorState body={state.error} onRetry={state.reload} /> : null}
       {state.status === 'success' && rows.length === 0 ? (
-        <EmptyState title={emptyCopy[tab].title} body={emptyCopy[tab].body} />
+        <Card className="border-dashed bg-white/70 p-2">
+          <EmptyState title={emptyCopy[tab].title} body={emptyCopy[tab].body} />
+        </Card>
       ) : null}
 
       {state.status === 'success' && rows.length > 0 ? (

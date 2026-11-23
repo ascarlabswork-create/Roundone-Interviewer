@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { DataTable, TableRow, Td } from '../components/ui/DataTable.tsx'
 import { LiveBookingStatusBadge } from '../components/ui/StatusBadge.tsx'
 import { MetricCard, Tabs } from '../components/ui/dashboard.tsx'
-import { Card, EmptyState, ErrorState, PageHeader, Skeleton } from '../components/ui/primitives.tsx'
+import { Card, EmptyState, ErrorState, Skeleton } from '../components/ui/primitives.tsx'
+import { ExpertsPageHero } from '../components/ui/ExpertsPageHero.tsx'
 import { formatDateShortInZone } from '../lib/dates.ts'
 import { formatCount, formatINR } from '../lib/format.ts'
 import { useAsync } from '../lib/useAsync.ts'
@@ -28,7 +29,7 @@ export function EarningsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <ExpertsPageHero
         title="Earnings"
         subtitle="Completed interview session fees minus the stored platform fee. Payouts are not processed here."
       />

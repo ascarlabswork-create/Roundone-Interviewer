@@ -1,27 +1,28 @@
-@import '@fontsource-variable/inter';
+@import '@fontsource-variable/sora';
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Sora Variable', Sora, ui-sans-serif, system-ui, sans-serif;
 
-  --color-navy-950: #0c1220;
-  --color-navy-900: #141c2e;
-  --color-navy-800: #1c2a45;
-  --color-navy-700: #24385c;
-  --color-navy-600: #2f4d7a;
+  --color-navy-950: #07101f;
+  --color-navy-900: #0d1a2e;
+  --color-navy-800: #15243c;
+  --color-navy-700: #1e3354;
+  --color-navy-600: #2a4568;
 
-  --color-coral-50: #fff4f0;
-  --color-coral-100: #ffddd3;
-  --color-coral-500: #e85d3a;
-  --color-coral-600: #d24726;
-  --color-coral-700: #b3391d;
+  /* Accent kept as coral-* class names for existing UI; values are teal for the experts theme. */
+  --color-coral-50: #f0fdfa;
+  --color-coral-100: #ccfbf1;
+  --color-coral-500: #14b8a6;
+  --color-coral-600: #0d9488;
+  --color-coral-700: #0f766e;
 
-  --color-gold-100: #f8edd0;
-  --color-gold-400: #e3b34c;
-  --color-gold-500: #c9962b;
+  --color-gold-100: #fef6d8;
+  --color-gold-400: #e8c15a;
+  --color-gold-500: #d4a017;
 
-  --color-paper: #f6f1e8;
-  --color-paper-deep: #ebe3d4;
+  --color-paper: #e8eef5;
+  --color-paper-deep: #d5dee9;
 
   --color-violet-50: #f5f3ff;
   --color-violet-100: #ede9fe;
@@ -44,10 +45,10 @@
   body {
     margin: 0;
     min-width: 320px;
-    background: #f6f1e8;
-    color: #3d4450;
+    background: #e8eef5;
+    color: #334155;
     font-family: var(--font-sans);
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-feature-settings: 'ss01';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -67,14 +68,85 @@
 @layer utilities {
   .studio-grid {
     background-image:
-      radial-gradient(ellipse 80% 60% at 12% -10%, rgba(232, 93, 58, 0.18), transparent 55%),
-      radial-gradient(ellipse 50% 40% at 92% 8%, rgba(227, 179, 76, 0.22), transparent 50%),
-      radial-gradient(ellipse 40% 30% at 70% 100%, rgba(15, 118, 110, 0.08), transparent 45%);
+      radial-gradient(ellipse 70% 55% at 8% -8%, rgba(13, 148, 136, 0.16), transparent 55%),
+      radial-gradient(ellipse 45% 40% at 96% 4%, rgba(232, 193, 90, 0.14), transparent 50%),
+      radial-gradient(ellipse 50% 35% at 70% 100%, rgba(7, 16, 31, 0.06), transparent 45%);
   }
 
   .studio-ink {
     background:
-      radial-gradient(ellipse 70% 50% at 80% 0%, rgba(232, 93, 58, 0.22), transparent 50%),
-      linear-gradient(165deg, #141c2e 0%, #0c1220 55%, #1a2438 100%);
+      radial-gradient(ellipse 65% 50% at 85% -5%, rgba(13, 148, 136, 0.28), transparent 55%),
+      radial-gradient(ellipse 40% 35% at 10% 90%, rgba(232, 193, 90, 0.12), transparent 50%),
+      linear-gradient(165deg, #0d1a2e 0%, #07101f 52%, #15243c 100%);
+  }
+
+  .experts-rise {
+    animation: experts-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .experts-fade {
+    animation: experts-fade 0.9s ease both;
+  }
+
+  .experts-orb {
+    animation: experts-orb 10s ease-in-out infinite alternate;
+  }
+
+  .experts-modal {
+    animation: experts-modal 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .experts-card {
+    animation: experts-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .experts-rise,
+    .experts-fade,
+    .experts-orb,
+    .experts-modal,
+    .experts-card {
+      animation: none;
+    }
+  }
+}
+
+@keyframes experts-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes experts-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes experts-orb {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(12px, -18px, 0) scale(1.06);
+  }
+}
+
+@keyframes experts-modal {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }

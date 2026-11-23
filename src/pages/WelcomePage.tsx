@@ -25,6 +25,12 @@ function toggle(list: string[], item: string) {
   return list.includes(item) ? list.filter((entry) => entry !== item) : [...list, item]
 }
 
+function chipClass(selected: boolean) {
+  return selected
+    ? 'rounded-xl bg-coral-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-coral-600/25'
+    : 'rounded-xl border border-navy-950/12 bg-white/90 px-3 py-1.5 text-sm text-slate-700 transition hover:border-coral-600 hover:text-coral-700'
+}
+
 export function WelcomePage() {
   const navigate = useNavigate()
   const { account, refreshAccount } = useSession()
@@ -106,6 +112,7 @@ export function WelcomePage() {
         experienceYears: Math.round(experience),
         headline: welcomeHeadline(currentRole, interviewTypes, account.interviewer.headline),
         bio: welcomeBio(interviewTypes, note),
+        welcomeCompletedAt: new Date().toISOString(),
       })
       await Promise.all([
         updateInterviewerSkills(expertise.skills),
@@ -125,15 +132,26 @@ export function WelcomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coral-700">Before your dashboard</p>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight text-navy-950 sm:text-3xl">What will you interview?</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-        Candidates are matched to you from this. Tell us the work you do, the interviews you came to run, and the
-        skills and roles you can assess. You can change it later from your profile.
-      </p>
+    <div className="relative mx-auto max-w-3xl overflow-hidden px-4 py-10 sm:px-6">
+      <div
+        aria-hidden
+        className="experts-orb pointer-events-none absolute -left-16 top-6 h-40 w-40 rounded-full bg-coral-500/20 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="experts-orb pointer-events-none absolute -right-10 top-32 h-36 w-36 rounded-full bg-gold-400/20 blur-3xl [animation-delay:1.2s]"
+      />
 
-      <Card className="mt-8 p-6 sm:p-8">
+      <div className="experts-rise relative">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coral-700">jobround.ai experts</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-navy-950 sm:text-3xl">What will you interview?</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+          Candidates are matched from this profile. Add your background, interview formats, and the skills and roles you
+          assess. You can change it later from your profile.
+        </p>
+      </div>
+
+      <Card className="experts-rise relative mt-8 border-white/80 bg-white/95 p-6 shadow-[0_24px_60px_-32px_rgba(7,16,31,0.4)] backdrop-blur sm:p-8">
         <form className="grid gap-8" onSubmit={onSubmit}>
           {!account?.profile.full_name.trim() ? (
             <div>
@@ -148,8 +166,8 @@ export function WelcomePage() {
             </div>
           ) : null}
 
-          <fieldset className="grid gap-4 sm:grid-cols-2">
-            <legend className="col-span-full text-sm font-semibold text-navy-950">Your background</legend>
+          <fieldset className="grid gap-4 rounded-2xl border border-navy-950/6 bg-slate-50/70 p-4 sm:grid-cols-2 sm:p-5">
+            <legend className="col-span-full px-1 text-sm font-semibold text-navy-950">Your background</legend>
             <div>
               <FieldLabel htmlFor="welcome-role">Current role</FieldLabel>
               <TextInput
@@ -198,11 +216,7 @@ export function WelcomePage() {
                     type="button"
                     aria-pressed={selected}
                     onClick={() => setInterviewTypes((current) => toggle(current, item))}
-                    className={
-                      selected
-                        ? 'rounded-full bg-navy-950 px-3 py-1.5 text-sm text-white'
-                        : 'rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-navy-700'
-                    }
+                    className={chipClass(selected)}
                   >
                     {item}
                   </button>
@@ -227,11 +241,7 @@ export function WelcomePage() {
                     onClick={() =>
                       setExpertise((current) => ({ ...current, candidateLevels: toggle(current.candidateLevels, item) }))
                     }
-                    className={
-                      selected
-                        ? 'rounded-full bg-navy-950 px-3 py-1.5 text-sm text-white'
-                        : 'rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-navy-700'
-                    }
+                    className={chipClass(selected)}
                   >
                     {item}
                   </button>

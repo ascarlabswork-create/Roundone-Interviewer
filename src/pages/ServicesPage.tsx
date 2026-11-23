@@ -7,11 +7,11 @@ import {
   EmptyState,
   ErrorState,
   FieldLabel,
-  PageHeader,
   Skeleton,
   TextArea,
   TextInput,
 } from '../components/ui/primitives.tsx'
+import { ExpertsPageHero } from '../components/ui/ExpertsPageHero.tsx'
 import { SuggestedSelect } from '../components/ui/suggestions.tsx'
 import { INTERVIEW_TYPES } from '../data/catalogs.ts'
 import { formatINR } from '../lib/format.ts'
@@ -136,7 +136,7 @@ export function ServicesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <ExpertsPageHero
         title="My Interview Services"
         subtitle="What candidates can book from your public profile. Inactive services stay saved but cannot be booked."
         actions={<Button onClick={() => setForm(emptyForm())}>Create New Service</Button>}

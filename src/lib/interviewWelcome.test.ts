@@ -10,24 +10,34 @@ import {
 const ready = {
   skills: ['Python'],
   targetRoles: ['Backend Engineer'],
-  interviewer: { current_role: 'Engineering Manager', company: 'Acme' },
+  interviewer: {
+    current_role: 'Engineering Manager',
+    company: 'Acme',
+    welcome_completed_at: '2026-11-01T00:00:00.000Z',
+  },
 }
 
 describe('needsInterviewWelcome', () => {
-  it('asks when skills, roles, or a real job are still missing', () => {
+  it('requires welcome until welcome_completed_at is set', () => {
     expect(needsInterviewWelcome(ready)).toBe(false)
+    expect(
+      needsInterviewWelcome({
+        ...ready,
+        interviewer: { ...ready.interviewer, welcome_completed_at: null },
+      }),
+    ).toBe(true)
     expect(needsInterviewWelcome({ ...ready, skills: [] })).toBe(true)
     expect(needsInterviewWelcome({ ...ready, targetRoles: [] })).toBe(true)
     expect(
       needsInterviewWelcome({
         ...ready,
-        interviewer: { current_role: 'Pending', company: 'Pending' },
+        interviewer: { current_role: 'Pending', company: 'Pending', welcome_completed_at: null },
       }),
     ).toBe(true)
     expect(
       needsInterviewWelcome({
         ...ready,
-        interviewer: { current_role: 'Deleted', company: 'Deleted' },
+        interviewer: { current_role: 'Deleted', company: 'Deleted', welcome_completed_at: null },
       }),
     ).toBe(true)
   })
