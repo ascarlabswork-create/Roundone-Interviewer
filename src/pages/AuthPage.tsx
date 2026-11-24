@@ -27,7 +27,7 @@ import {
 import { applySignupProfile } from '../services/interviewerProfile.ts'
 import { useSession } from '../state/session.tsx'
 
-type LoginStep = 'email' | 'code' | 'password' | 'forgot'
+type LoginStep = 'email' | 'code' | 'forgot'
 
 export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'; defaultNextPath?: string }) {
   const { status, user, profile, account, error: sessionError, refreshAccount } = useSession()
@@ -162,11 +162,6 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
     } finally {
       setEmailBusy(false)
     }
-  }
-
-  async function continueWithEmail(event: FormEvent) {
-    event.preventDefault()
-    await sendCode()
   }
 
   async function verifyCode(event: FormEvent) {
@@ -442,102 +437,18 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
               {submitting ? 'Checking…' : 'Next'}
             </Button>
           </form>
-          <p className="mt-5 flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-4">
-            <button
-              type="button"
-              className="text-sm font-semibold text-navy-950 hover:underline"
-              onClick={() => {
-                setLoginStep('password')
-                setError(null)
-                setInfo(null)
-              }}
-            >
-              Log in with a password
-            </button>
-            <button
-              type="button"
-              className="text-sm font-medium text-coral-700 hover:underline"
-              onClick={openForgotPassword}
-            >
-              Forgot password?
-            </button>
-          </p>
-          {googleBlock()}
-          {modeLinks()}
-        </div>
-      )
-    }
-
-    if (loginStep === 'password') {
-      return (
-        <div>
-          <form className="space-y-4" onSubmit={(event) => void submitPassword(event)}>
-            <div>
-              <p className="text-sm text-slate-600">
-                Signing in as <span className="font-medium text-navy-950">{email}</span>
-              </p>
-              <button
-                type="button"
-                className="mt-1 text-xs font-medium text-coral-700 hover:underline"
-                onClick={() => {
-                  setLoginStep('email')
-                  setPassword('')
-                  setError(null)
-                  setInfo(null)
-                }}
-              >
-                Change email
-              </button>
-            </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <FieldLabel htmlFor="password">Password</FieldLabel>
-                <button
-                  type="button"
-                  onClick={openForgotPassword}
-                  className="text-xs font-medium text-coral-700 hover:underline"
-                >
-                  Forgot password?
-                </button>
-              </div>
-              <PasswordInput
-                id="password"
-                required
-                minLength={6}
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-            </div>
-            <p className="text-xs text-slate-500">
-              Accounts created with Google have no password. Use Continue with Google, or Forgot password to set one.
-            </p>
-            {error || sessionError || redirectError ? (
-              <p className="text-sm text-red-700">{error || sessionError || redirectError}</p>
-            ) : null}
-            {info ? <p className="text-sm text-emerald-700">{info}</p> : null}
-            {showResend ? (
-              <button
-                type="button"
-                onClick={() => void resendConfirmation()}
-                disabled={busy || resetWait > 0}
-                className="text-sm font-medium text-coral-700 hover:underline disabled:text-slate-400"
-              >
-                {resetWait > 0 ? `Resend available in ${resetWait}s` : 'Resend confirmation email'}
-              </button>
-            ) : null}
-            <Button type="submit" fullWidth disabled={busy}>
-              {submitting ? 'Please wait…' : 'Sign In'}
-            </Button>
-          </form>
           <p className="mt-5 text-center">
             <button
               type="button"
               className="text-sm font-semibold text-navy-950 hover:underline"
-              onClick={() => void sendCode()}
-              disabled={busy || resetWait > 0}
+              onClick={() => {
+                setLoginStep('email')
+                setOtpCode('')
+                setError(null)
+                setInfo(null)
+              }}
             >
-              {resetWait > 0 ? `Send code in ${resetWait}s` : 'Sign in with a code instead'}
+              Sign in with a password
             </button>
           </p>
           {googleBlock()}
@@ -548,7 +459,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
 
     return (
       <div>
-        <form className="space-y-4" onSubmit={(event) => void continueWithEmail(event)}>
+        <form className="space-y-4" onSubmit={(event) => void submitPassword(event)}>
           <div>
             <FieldLabel htmlFor="email">Email</FieldLabel>
             <TextInput
@@ -560,21 +471,53 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
               onChange={(event) => setEmail(event.target.value)}
             />
           </div>
+          <div>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <PasswordInput
+              id="password"
+              required
+              minLength={6}
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </div>
+          <p className="text-xs text-slate-500">
+            Accounts created with Google have no password. Use Continue with Google, or Forgot password to set one.
+          </p>
           {error || sessionError || redirectError ? (
             <p className="text-sm text-red-700">{error || sessionError || redirectError}</p>
           ) : null}
           {info ? <p className="text-sm text-emerald-700">{info}</p> : null}
+          {showResend ? (
+            <button
+              type="button"
+              onClick={() => void resendConfirmation()}
+              disabled={busy || resetWait > 0}
+              className="text-sm font-medium text-coral-700 hover:underline disabled:text-slate-400"
+            >
+              {resetWait > 0 ? `Resend available in ${resetWait}s` : 'Resend confirmation email'}
+            </button>
+          ) : null}
           <Button type="submit" fullWidth disabled={busy}>
-            {emailBusy ? 'Sending code…' : 'Continue'}
+            {submitting ? 'Please wait…' : 'Sign In'}
           </Button>
         </form>
-        <p className="mt-4 text-center">
+        <p className="mt-4 flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-4">
           <button
             type="button"
             className="text-sm font-medium text-coral-700 hover:underline"
             onClick={openForgotPassword}
           >
             Forgot password?
+          </button>
+          <button
+            type="button"
+            className="text-sm font-medium text-navy-950 hover:underline"
+            onClick={() => void sendCode()}
+            disabled={busy || resetWait > 0}
+          >
+            {resetWait > 0 ? `Send code in ${resetWait}s` : 'Sign in with a code'}
           </button>
         </p>
         {googleBlock()}
