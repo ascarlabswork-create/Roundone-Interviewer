@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { Card, FieldLabel, PasswordInput } from '../components/ui/primitives.tsx'
 import {
@@ -13,7 +13,8 @@ import { supabase } from '../lib/supabase.ts'
 import { useSession } from '../state/session.tsx'
 
 export function ResetPasswordPage() {
-  const { refreshAccount } = useSession()
+  const { signOut } = useSession()
+  const navigate = useNavigate()
   const [recoveryReady, setRecoveryReady] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -36,7 +37,7 @@ export function ResetPasswordPage() {
     })
     const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') markPasswordRecoveryPending()
-      if (event === 'PASSWORD_RECOVERY' || session) setRecoveryReady(true)
+      if (event === 'PASSWORD_RECOVERY' || Boolean(session)) setRecoveryReady(true)
     })
     return () => {
       cancelled = true
@@ -47,6 +48,10 @@ export function ResetPasswordPage() {
   async function submit(event: FormEvent) {
     event.preventDefault()
     setError(null)
+    if (password.length < 6) {
+      setError('Your password must be at least 6 characters.')
+      return
+    }
     if (password !== confirmPassword) {
       setError('Passwords do not match.')
       return
@@ -55,8 +60,9 @@ export function ResetPasswordPage() {
     try {
       await updatePassword(password)
       clearPasswordRecoveryPending()
-      await refreshAccount()
+      await signOut()
       setDone(true)
+      window.setTimeout(() => navigate('/interviewer/login', { replace: true }), 1200)
     } catch (caught) {
       setError(authErrorMessage(caught))
     } finally {
@@ -69,7 +75,7 @@ export function ResetPasswordPage() {
       <div className="mx-auto max-w-md px-4 py-10 sm:px-6 lg:py-16">
         <Card className="p-6 sm:p-8 text-center">
           <h1 className="text-xl font-semibold text-navy-950">Password updated</h1>
-          <p className="mt-2 text-sm text-slate-600">Sign in with your new password.</p>
+          <p className="mt-2 text-sm text-slate-600">Redirecting you to sign in…</p>
           <Link to="/interviewer/login" className="mt-6 inline-block">
             <Button>Back to sign in</Button>
           </Link>
@@ -80,51 +86,51 @@ export function ResetPasswordPage() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-10 sm:px-6 lg:py-16">
-    <Card className="p-6 sm:p-8">
-      <h1 className="text-xl font-semibold text-navy-950">Choose a new password</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        {recoveryReady
-          ? 'Enter a new password for your interviewer account.'
-          : 'Open the reset link from your email on this device. Links expire after a short time.'}
-      </p>
+      <Card className="p-6 sm:p-8">
+        <h1 className="text-xl font-semibold text-navy-950">Choose a new password</h1>
+        <p className="mt-1 text-sm text-slate-600">
+          {recoveryReady
+            ? 'Enter a new password for your interviewer account.'
+            : 'Open the reset link from your email on this device. Links expire after a short time.'}
+        </p>
 
-      <form className="mt-6 space-y-4" onSubmit={submit}>
-        <div>
-          <FieldLabel htmlFor="newPassword">New password</FieldLabel>
-          <PasswordInput
-            id="newPassword"
-            required
-            minLength={6}
-            autoComplete="new-password"
-            disabled={!recoveryReady || submitting}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </div>
-        <div>
-          <FieldLabel htmlFor="confirmNewPassword">Confirm password</FieldLabel>
-          <PasswordInput
-            id="confirmNewPassword"
-            required
-            minLength={6}
-            autoComplete="new-password"
-            disabled={!recoveryReady || submitting}
-            value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.target.value)}
-          />
-        </div>
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
-        <Button type="submit" fullWidth disabled={!recoveryReady || submitting}>
-          {submitting ? 'Saving…' : 'Update password'}
-        </Button>
-      </form>
+        <form className="mt-6 space-y-4" onSubmit={(event) => void submit(event)}>
+          <div>
+            <FieldLabel htmlFor="newPassword">New password</FieldLabel>
+            <PasswordInput
+              id="newPassword"
+              required
+              minLength={6}
+              autoComplete="new-password"
+              disabled={!recoveryReady || submitting}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </div>
+          <div>
+            <FieldLabel htmlFor="confirmNewPassword">Confirm password</FieldLabel>
+            <PasswordInput
+              id="confirmNewPassword"
+              required
+              minLength={6}
+              autoComplete="new-password"
+              disabled={!recoveryReady || submitting}
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+            />
+          </div>
+          {error ? <p className="text-sm text-red-700">{error}</p> : null}
+          <Button type="submit" fullWidth disabled={!recoveryReady || submitting}>
+            {submitting ? 'Saving…' : 'Update password'}
+          </Button>
+        </form>
 
-      <p className="mt-4 text-center text-sm text-slate-600">
-        <Link to="/interviewer/login" className="font-medium text-coral-700 hover:underline">
-          Back to sign in
-        </Link>
-      </p>
-    </Card>
+        <p className="mt-4 text-center text-sm text-slate-600">
+          <Link to="/interviewer/login" className="font-medium text-coral-700 hover:underline">
+            Back to sign in
+          </Link>
+        </p>
+      </Card>
     </div>
   )
 }

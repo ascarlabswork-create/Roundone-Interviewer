@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { markPasswordRecoveryPending } from '../lib/authRecovery.ts'
+import { clearPasswordRecoveryPending, markPasswordRecoveryPending } from '../lib/authRecovery.ts'
 import { supabase } from '../lib/supabase.ts'
 import {
   claimInterviewerPersona,
@@ -121,6 +121,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await signOutRequest()
+    clearPasswordRecoveryPending()
     setUser(null)
     setProfile(null)
     setAccount(null)

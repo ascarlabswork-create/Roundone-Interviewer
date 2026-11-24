@@ -1,6 +1,8 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { isInPasswordRecoveryFlow } from '../../lib/authRecovery.ts'
 import { ADMIN_HOME } from '../../lib/nextPath.ts'
 import { useAsync } from '../../lib/useAsync.ts'
+import { PASSWORD_RESET_PATH } from '../../services/auth.ts'
 import { getMyProfile } from '../../services/interviewerProfile.ts'
 import { useSession } from '../../state/session.tsx'
 import { ErrorState, Skeleton } from '../ui/primitives.tsx'
@@ -27,6 +29,11 @@ export function RequireInterviewerAuth() {
   if (!user) {
     const next = `${location.pathname}${location.search}`
     return <Navigate to={`/interviewer/login?next=${encodeURIComponent(next)}`} replace />
+  }
+
+  // Recovery session is authenticated, but the app stays locked until a new password is set.
+  if (isInPasswordRecoveryFlow() && location.pathname !== PASSWORD_RESET_PATH) {
+    return <Navigate to={PASSWORD_RESET_PATH} replace />
   }
 
   if (access.status === 'loading') return <GateSkeleton />
