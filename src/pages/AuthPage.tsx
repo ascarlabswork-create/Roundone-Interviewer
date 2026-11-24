@@ -294,14 +294,17 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
     }
   }
 
-  function googleBlock() {
+  function googleBlock(placement: 'above' | 'below' = 'below') {
+    const divider = (
+      <div className={placement === 'above' ? 'mb-4 mt-1 flex items-center gap-3' : 'my-4 flex items-center gap-3'} aria-hidden="true">
+        <span className="h-px flex-1 bg-slate-200" />
+        <span className="text-xs font-medium uppercase tracking-wide text-slate-400">or</span>
+        <span className="h-px flex-1 bg-slate-200" />
+      </div>
+    )
     return (
       <>
-        <div className="my-5 flex items-center gap-3" aria-hidden="true">
-          <span className="h-px flex-1 bg-slate-200" />
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">or</span>
-          <span className="h-px flex-1 bg-slate-200" />
-        </div>
+        {placement === 'below' ? divider : null}
         <GoogleContinueButton
           disabled={busy}
           nextPath={nextPath}
@@ -310,6 +313,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
             setError(message)
           }}
         />
+        {placement === 'above' ? divider : null}
       </>
     )
   }
@@ -459,7 +463,8 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
 
     return (
       <div>
-        <form className="space-y-4" onSubmit={(event) => void submitPassword(event)}>
+        {googleBlock('above')}
+        <form className="space-y-3" onSubmit={(event) => void submitPassword(event)}>
           <div>
             <FieldLabel htmlFor="email">Email</FieldLabel>
             <TextInput
@@ -472,7 +477,16 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
             />
           </div>
           <div>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <div className="flex items-center justify-between gap-2">
+              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <button
+                type="button"
+                className="text-xs font-medium text-coral-700 hover:underline"
+                onClick={openForgotPassword}
+              >
+                Forgot password?
+              </button>
+            </div>
             <PasswordInput
               id="password"
               required
@@ -482,9 +496,6 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
               onChange={(event) => setPassword(event.target.value)}
             />
           </div>
-          <p className="text-xs text-slate-500">
-            Accounts created with Google have no password. Use Continue with Google, or Forgot password to set one.
-          </p>
           {error || sessionError || redirectError ? (
             <p className="text-sm text-red-700">{error || sessionError || redirectError}</p>
           ) : null}
@@ -503,14 +514,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
             {submitting ? 'Please wait…' : 'Sign In'}
           </Button>
         </form>
-        <p className="mt-4 flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-4">
-          <button
-            type="button"
-            className="text-sm font-medium text-coral-700 hover:underline"
-            onClick={openForgotPassword}
-          >
-            Forgot password?
-          </button>
+        <p className="mt-3 text-center">
           <button
             type="button"
             className="text-sm font-medium text-navy-950 hover:underline"
@@ -520,7 +524,6 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
             {resetWait > 0 ? `Send code in ${resetWait}s` : 'Sign in with a code'}
           </button>
         </p>
-        {googleBlock()}
         {modeLinks()}
       </div>
     )
