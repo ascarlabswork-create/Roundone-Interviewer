@@ -27,7 +27,7 @@ import {
 import { applySignupProfile } from '../services/interviewerProfile.ts'
 import { useSession } from '../state/session.tsx'
 
-type LoginStep = 'email' | 'code' | 'password'
+type LoginStep = 'email' | 'code' | 'password' | 'forgot'
 
 export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'; defaultNextPath?: string }) {
   const { status, user, profile, account, error: sessionError, refreshAccount } = useSession()
@@ -73,6 +73,9 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   function openAuth(kind: 'signin' | 'register') {
     const next = new URLSearchParams(params)
     next.set('open', kind === 'signin' ? 'signin' : 'register')
+    setLoginStep('email')
+    setError(null)
+    setInfo(null)
     navigate(kind === 'signin' ? `/interviewer/login?${next}` : `/interviewer/register?${next}`)
   }
 
@@ -248,11 +251,18 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
     }
   }
 
-  async function forgotPassword() {
+  function openForgotPassword() {
+    setError(null)
+    setInfo(null)
+    setLoginStep('forgot')
+  }
+
+  async function forgotPassword(event?: FormEvent) {
+    event?.preventDefault()
     setError(null)
     setInfo(null)
     if (!email.trim()) {
-      setError('Enter your email above first, then choose “Forgot password?”.')
+      setError('Enter your email to receive a reset link.')
       return
     }
     setResettingPassword(true)
@@ -336,6 +346,53 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   }
 
   function loginForm() {
+    if (loginStep === 'forgot') {
+      return (
+        <div>
+          <form className="space-y-4" onSubmit={(event) => void forgotPassword(event)}>
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-navy-950 sm:text-2xl">Reset your password</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Enter your email and we&apos;ll send a link to choose a new password.
+              </p>
+            </div>
+            <div>
+              <FieldLabel htmlFor="forgot-email">Email</FieldLabel>
+              <TextInput
+                id="forgot-email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </div>
+            {error || sessionError || redirectError ? (
+              <p className="text-sm text-red-700">{error || sessionError || redirectError}</p>
+            ) : null}
+            {info ? <p className="text-sm text-emerald-700">{info}</p> : null}
+            <Button type="submit" fullWidth disabled={busy || resetWait > 0}>
+              {resettingPassword ? 'Sending…' : resetWait > 0 ? `Wait ${resetWait}s` : 'Send reset link'}
+            </Button>
+          </form>
+          <p className="mt-5 text-center">
+            <button
+              type="button"
+              className="text-sm font-semibold text-navy-950 hover:underline"
+              onClick={() => {
+                setLoginStep('email')
+                setError(null)
+                setInfo(null)
+              }}
+            >
+              Back to sign in
+            </button>
+          </p>
+          {modeLinks()}
+        </div>
+      )
+    }
+
     if (loginStep === 'code') {
       return (
         <div>
@@ -385,7 +442,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
               {submitting ? 'Checking…' : 'Next'}
             </Button>
           </form>
-          <p className="mt-5 text-center">
+          <p className="mt-5 flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-center sm:gap-4">
             <button
               type="button"
               className="text-sm font-semibold text-navy-950 hover:underline"
@@ -396,6 +453,13 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
               }}
             >
               Log in with a password
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium text-coral-700 hover:underline"
+              onClick={openForgotPassword}
+            >
+              Forgot password?
             </button>
           </p>
           {googleBlock()}
@@ -430,11 +494,10 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
                 <FieldLabel htmlFor="password">Password</FieldLabel>
                 <button
                   type="button"
-                  onClick={() => void forgotPassword()}
-                  disabled={busy || resetWait > 0}
-                  className="text-xs font-medium text-coral-700 hover:underline disabled:text-slate-400"
+                  onClick={openForgotPassword}
+                  className="text-xs font-medium text-coral-700 hover:underline"
                 >
-                  {resettingPassword ? 'Sending…' : resetWait > 0 ? `Wait ${resetWait}s` : 'Forgot password?'}
+                  Forgot password?
                 </button>
               </div>
               <PasswordInput
@@ -505,6 +568,15 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
             {emailBusy ? 'Sending code…' : 'Continue'}
           </Button>
         </form>
+        <p className="mt-4 text-center">
+          <button
+            type="button"
+            className="text-sm font-medium text-coral-700 hover:underline"
+            onClick={openForgotPassword}
+          >
+            Forgot password?
+          </button>
+        </p>
         {googleBlock()}
         {modeLinks()}
       </div>
