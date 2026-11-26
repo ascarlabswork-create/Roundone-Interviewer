@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Plus } from 'lucide-react'
-import { QUICK_ROLES, QUICK_SKILLS, SKILL_GROUPS, SKILLS, SOFTWARE_ROLE_GROUPS, TARGET_ROLES } from '../../data/catalogs.ts'
+import { QUICK_ROLES, QUICK_SKILLS, SKILLS, TARGET_ROLES } from '../../data/catalogs.ts'
 import { RoleSuggestInput } from '../ui/RoleSuggestInput.tsx'
 import { SuggestionChips } from '../ui/suggestions.tsx'
 import { Button } from '../ui/Button.tsx'
@@ -69,8 +69,6 @@ export function ExpertiseFields({
   onChange: (next: ExpertiseValue) => void
   showSkills?: boolean
 }) {
-  const [browseSkills, setBrowseSkills] = useState(true)
-  const [browseRoles, setBrowseRoles] = useState(true)
   const [roleDraft, setRoleDraft] = useState('')
 
   function addRole(role: string) {
@@ -103,32 +101,6 @@ export function ExpertiseFields({
                 onAdd={(skill) => onChange({ ...value, skills: [...value.skills, skill] })}
               />
             </div>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Browse by category</p>
-              <button
-                type="button"
-                className="text-xs font-medium text-coral-700"
-                aria-expanded={browseSkills}
-                onClick={() => setBrowseSkills((open) => !open)}
-              >
-                {browseSkills ? 'Hide' : 'Show'}
-              </button>
-            </div>
-            {browseSkills ? (
-              <div className="mt-3 grid gap-2.5">
-                {SKILL_GROUPS.map((group) => (
-                  <QuickAdd
-                    key={group.label}
-                    label={group.label}
-                    options={group.skills}
-                    selected={value.skills}
-                    onAdd={(skill) => onChange({ ...value, skills: [...value.skills, skill] })}
-                  />
-                ))}
-              </div>
-            ) : null}
           </div>
         </Section>
       ) : null}
@@ -191,33 +163,6 @@ export function ExpertiseFields({
               onAdd={(role) => onChange({ ...value, targetRoles: [...value.targetRoles, role] })}
             />
           </div>
-        </div>
-
-        <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Browse by category</p>
-            <button
-              type="button"
-              className="text-xs font-medium text-coral-700"
-              aria-expanded={browseRoles}
-              onClick={() => setBrowseRoles((open) => !open)}
-            >
-              {browseRoles ? 'Hide' : 'Show'}
-            </button>
-          </div>
-          {browseRoles ? (
-            <div className="mt-3 grid gap-2.5">
-              {SOFTWARE_ROLE_GROUPS.map((group) => (
-                <QuickAdd
-                  key={group.title}
-                  label={group.title}
-                  options={group.roles}
-                  selected={value.targetRoles}
-                  onAdd={(role) => onChange({ ...value, targetRoles: [...value.targetRoles, role] })}
-                />
-              ))}
-            </div>
-          ) : null}
         </div>
       </Section>
     </div>
