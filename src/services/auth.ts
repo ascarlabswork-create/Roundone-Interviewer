@@ -85,6 +85,9 @@ export function authErrorMessage(error: unknown): string {
   if (message.includes('user already registered') || message.includes('already registered')) {
     return 'An account with this email already exists. Sign in instead — use Continue with Google if you signed up with Google, or Forgot password to set an email password.'
   }
+  if (message.includes('user is banned') || message.includes('banned')) {
+    return 'This login was closed after account deletion. Create a new account with the same email, or use Continue with Google.'
+  }
   if (message.includes('do not match')) {
     return 'Passwords do not match.'
   }
@@ -200,7 +203,20 @@ export async function getCurrentUser(): Promise<User | null> {
   const { data, error } = await supabase.auth.getUser()
   if (error) {
     const message = error.message.toLowerCase()
-    if (message.includes('session') || error.name === 'AuthSessionMissingError') return null
+    // Stale JWT after auth.users row was deleted (account delete).
+    if (
+      message.includes('session') ||
+      message.includes('sub claim') ||
+      message.includes('does not exist') ||
+      error.name === 'AuthSessionMissingError'
+    ) {
+      try {
+        await supabase.auth.signOut({ scope: 'local' })
+      } catch {
+        // ignore
+      }
+      return null
+    }
     throw new Error(error.message)
   }
   return data.user ?? null

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CalendarDays, ClipboardList, IndianRupee, Video } from 'lucide-react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { AccountDeletedDialog } from '../components/auth/AccountDeletedDialog.tsx'
 import { AuthModal } from '../components/auth/AuthModal.tsx'
 import { EmailOtpInputs } from '../components/auth/EmailOtpInputs.tsx'
 import { GoogleContinueButton } from '../components/auth/GoogleContinueButton.tsx'
@@ -38,13 +39,14 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   const [params] = useSearchParams()
   const [passwordRecovery, setPasswordRecovery] = useState(() => isAuthRecoveryUrl())
   const openParam = params.get('open')
-  const accountDeleted = isAccountDeletedFlag(params.get('accountDeleted'))
+  const deletedFlag = isAccountDeletedFlag(params.get('accountDeleted'))
+  const [showDeletedDialog, setShowDeletedDialog] = useState(deletedFlag)
   const modalOpen =
-    openParam === 'signin' ||
-    openParam === 'login' ||
-    openParam === 'register' ||
-    openParam === 'signup' ||
-    accountDeleted
+    !showDeletedDialog &&
+    (openParam === 'signin' ||
+      openParam === 'login' ||
+      openParam === 'register' ||
+      openParam === 'signup')
   const isRegister =
     openParam === 'register' || openParam === 'signup' || (mode === 'register' && modalOpen)
   const nextPath = safeNextPath(
@@ -82,7 +84,6 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   }
 
   function closeAuth() {
-    clearAccountDeleted()
     const next = new URLSearchParams(params)
     next.delete('open')
     next.delete('accountDeleted')
@@ -93,6 +94,15 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
     setInfo(null)
   }
 
+  const dismissDeletedDialog = useCallback(() => {
+    clearAccountDeleted()
+    setShowDeletedDialog(false)
+    const next = new URLSearchParams(params)
+    next.delete('accountDeleted')
+    next.set('open', 'signin')
+    navigate(`/interviewer/login?${next}`, { replace: true })
+  }, [navigate, params])
+
   useEffect(() => {
     if (!isInPasswordRecoveryFlow()) return
     setPasswordRecovery(true)
@@ -102,10 +112,10 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   }, [location.pathname, location.search, location.hash])
 
   useEffect(() => {
-    if (!accountDeleted) return
-    if (status !== 'authenticated') return
+    if (!deletedFlag) return
+    setShowDeletedDialog(true)
     void supabase.auth.signOut({ scope: 'local' })
-  }, [accountDeleted, status])
+  }, [deletedFlag])
 
   if (isInPasswordRecoveryFlow() || passwordRecovery) {
     return (
@@ -118,12 +128,19 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
     )
   }
 
-  // After delete, a leftover session can briefly look authenticated — keep the deleted banner.
-  if (!accountDeleted && status === 'authenticated' && user && (account || profile?.role === 'admin')) {
+  // After delete, a leftover session can briefly look authenticated — keep the deleted dialog.
+  if (!deletedFlag && !showDeletedDialog && status === 'authenticated' && user && (account || profile?.role === 'admin')) {
     return <Navigate to={landingPathForAccount(profile?.role, account, nextPath)} replace />
   }
 
-  if (!accountDeleted && status === 'authenticated' && user && !sessionError) {
+  const visibleSessionError =
+    sessionError &&
+    !sessionError.toLowerCase().includes('sub claim') &&
+    !sessionError.toLowerCase().includes('does not exist')
+      ? sessionError
+      : null
+
+  if (!deletedFlag && !showDeletedDialog && status === 'authenticated' && user && !visibleSessionError) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
         <Card className="p-6 sm:p-8">
@@ -385,8 +402,8 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
                 onChange={(event) => setEmail(event.target.value)}
               />
             </div>
-            {error || sessionError || redirectError ? (
-              <p className="text-sm text-red-700">{error || sessionError || redirectError}</p>
+            {error || visibleSessionError || redirectError ? (
+              <p className="text-sm text-red-700">{error || visibleSessionError || redirectError}</p>
             ) : null}
             {info ? <p className="text-sm text-emerald-700">{info}</p> : null}
             <Button type="submit" fullWidth disabled={busy || resetWait > 0}>
@@ -452,8 +469,8 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
                 Use a different email
               </button>
             </div>
-            {error || sessionError || redirectError ? (
-              <p className="text-sm text-red-700">{error || sessionError || redirectError}</p>
+            {error || visibleSessionError || redirectError ? (
+              <p className="text-sm text-red-700">{error || visibleSessionError || redirectError}</p>
             ) : null}
             {info ? <p className="text-sm text-emerald-700">{info}</p> : null}
             <Button type="submit" fullWidth disabled={busy || otpCode.length !== 6}>
@@ -521,8 +538,8 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
               />
             </div>
           ) : null}
-          {error || sessionError || redirectError ? (
-            <p className="text-sm text-red-700">{error || sessionError || redirectError}</p>
+          {error || visibleSessionError || redirectError ? (
+            <p className="text-sm text-red-700">{error || visibleSessionError || redirectError}</p>
           ) : null}
           {info ? <p className="text-sm text-emerald-700">{info}</p> : null}
           {showResend ? (
@@ -659,8 +676,8 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
               onChange={(event) => setExperienceYears(event.target.value)}
             />
           </div>
-          {error || sessionError || redirectError ? (
-            <p className="text-sm text-red-700">{error || sessionError || redirectError}</p>
+          {error || visibleSessionError || redirectError ? (
+            <p className="text-sm text-red-700">{error || visibleSessionError || redirectError}</p>
           ) : null}
           {info ? <p className="text-sm text-emerald-700">{info}</p> : null}
           {showResend ? (
@@ -726,14 +743,6 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
             A professional workspace for live mocks, bookings, availability, and feedback — built for working
             interviewers.
           </p>
-          {accountDeleted ? (
-            <p
-              className="mt-6 max-w-xl rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-950"
-              role="status"
-            >
-              Your account has been deleted.
-            </p>
-          ) : null}
           <div className="mt-8 flex flex-wrap gap-3">
             <Button size="lg" onClick={() => openAuth('signin')}>
               Sign in
@@ -765,27 +774,19 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
         </section>
       </div>
 
+      <AccountDeletedDialog open={showDeletedDialog} onContinue={dismissDeletedDialog} />
+
       <AuthModal
         open={modalOpen}
         wide={isRegister}
-        title={accountDeleted ? 'Your account has been deleted' : isRegister ? 'Create your interviewer account' : 'Welcome back'}
+        title={isRegister ? 'Create your interviewer account' : 'Welcome back'}
         subtitle={
-          accountDeleted
-            ? 'You can create a new interviewer account with the same email anytime.'
-            : isRegister
-              ? 'Already a candidate on jobround.ai? Use that email — we’ll add your interviewer profile.'
-              : 'Use email code, password, or Google. The form stays private until you open it.'
+          isRegister
+            ? 'Already a candidate on jobround.ai? Use that email — we’ll add your interviewer profile.'
+            : 'Use email code, password, or Google. The form stays private until you open it.'
         }
         onClose={closeAuth}
       >
-        {accountDeleted ? (
-          <p
-            className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-950"
-            role="status"
-          >
-            Your account has been deleted.
-          </p>
-        ) : null}
         {isRegister ? registerForm() : loginForm()}
       </AuthModal>
     </>

@@ -62,8 +62,13 @@ export async function deleteMyInterviewerAccount(options?: {
   markAccountDeleted()
 }
 
-/** Hard redirect so React auth guards cannot steal the navigation. */
-export function goToAccountDeletedLogin() {
+/** Clear the dead JWT, then hard-redirect so the deleted confirmation dialog can show. */
+export async function goToAccountDeletedLogin() {
   markAccountDeleted()
+  try {
+    await supabase.auth.signOut({ scope: 'local' })
+  } catch {
+    // Auth user may already be removed.
+  }
   window.location.replace(ACCOUNT_DELETED_LOGIN_PATH)
 }

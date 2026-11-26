@@ -25,7 +25,7 @@ export function DeleteAccountCard() {
       // to a plain login URL and drop the deleted banner.
       await deleteMyInterviewerAccount()
       reset()
-      goToAccountDeletedLogin()
+      await goToAccountDeletedLogin()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not delete your account. Try again in a moment.')
       setDeleting(false)
