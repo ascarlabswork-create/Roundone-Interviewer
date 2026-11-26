@@ -1,9 +1,15 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button.tsx'
 import { Card, FieldLabel, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
 import { Logo } from '../components/layout/Logo.tsx'
 import { ADMIN_HOME, safeNextPath } from '../lib/nextPath.ts'
+import {
+  clearPasswordSignIn,
+  finishPasswordSignIn,
+  isPasswordSignInPending,
+  markPasswordSignIn,
+} from '../lib/passwordSignIn.ts'
 import { authErrorMessage, signInInterviewer } from '../services/auth.ts'
 import { getMyProfile } from '../services/interviewerProfile.ts'
 import { useSession } from '../state/session.tsx'
@@ -25,6 +31,12 @@ export function AdminLoginPage() {
   const [signingOut, setSigningOut] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (status !== 'authenticated' || !user || profile?.role !== 'admin') return
+    if (!isPasswordSignInPending()) return
+    finishPasswordSignIn(adminNext)
+  }, [adminNext, profile?.role, status, user])
+
   if (status === 'loading') {
     return (
       <div className="flex min-h-svh items-center justify-center bg-paper px-4">
@@ -34,6 +46,13 @@ export function AdminLoginPage() {
   }
 
   if (status === 'authenticated' && user && profile?.role === 'admin') {
+    if (isPasswordSignInPending()) {
+      return (
+        <div className="flex min-h-svh items-center justify-center bg-paper px-4">
+          <p className="text-sm text-slate-600">Signing you in…</p>
+        </div>
+      )
+    }
     return <Navigate to={adminNext} replace />
   }
 
@@ -53,18 +72,22 @@ export function AdminLoginPage() {
     event.preventDefault()
     setError(null)
     setSubmitting(true)
+    markPasswordSignIn()
     try {
       await signInInterviewer({ email, password })
       await refreshAccount()
       const nextProfile = await getMyProfile()
       if (nextProfile.role !== 'admin') {
+        clearPasswordSignIn()
         await signOut()
         setError(
           'This account is not an admin. Use an account with profiles.role = admin, or sign in as an interviewer at /interviewer/login.',
         )
         return
       }
+      finishPasswordSignIn(adminNext)
     } catch (caught) {
+      clearPasswordSignIn()
       setError(authErrorMessage(caught))
     } finally {
       setSubmitting(false)
@@ -113,11 +136,12 @@ export function AdminLoginPage() {
 
         {!interviewerSession ? (
           <Card className="mt-6 p-6 text-navy-950 sm:p-8">
-            <form className="space-y-4" onSubmit={onSubmit}>
+            <form method="post" action={adminNext} autoComplete="on" className="space-y-4" onSubmit={onSubmit}>
               <div>
                 <FieldLabel htmlFor="adminEmail">Work email</FieldLabel>
                 <TextInput
                   id="adminEmail"
+                  name="username"
                   type="email"
                   autoComplete="username"
                   required
@@ -129,6 +153,7 @@ export function AdminLoginPage() {
                 <FieldLabel htmlFor="adminPassword">Password</FieldLabel>
                 <PasswordInput
                   id="adminPassword"
+                  name="password"
                   autoComplete="current-password"
                   required
                   value={password}

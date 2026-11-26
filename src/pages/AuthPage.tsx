@@ -11,6 +11,12 @@ import { Card, FieldLabel, PasswordInput, TextInput } from '../components/ui/pri
 import { clearAccountDeleted, isAccountDeletedFlag } from '../lib/accountDeletedBanner.ts'
 import { isInPasswordRecoveryFlow, isAuthRecoveryUrl, redirectToPasswordRecovery } from '../lib/authRecovery.ts'
 import { landingPathForAccount } from '../lib/interviewWelcome.ts'
+import {
+  clearPasswordSignIn,
+  finishPasswordSignIn,
+  isPasswordSignInPending,
+  markPasswordSignIn,
+} from '../lib/passwordSignIn.ts'
 import { INTERVIEWER_SETUP, defaultHomePath, safeNextPath } from '../lib/nextPath.ts'
 import { supabase } from '../lib/supabase.ts'
 import { detectBrowserTimezone } from '../lib/timezones.ts'
@@ -118,6 +124,14 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
     void supabase.auth.signOut({ scope: 'local' })
   }, [deletedFlag])
 
+  useEffect(() => {
+    if (deletedFlag || showDeletedDialog) return
+    if (status !== 'authenticated' || !user) return
+    if (!account && profile?.role !== 'admin') return
+    if (!isPasswordSignInPending()) return
+    finishPasswordSignIn(landingPathForAccount(profile?.role, account, nextPath))
+  }, [account, deletedFlag, nextPath, profile, showDeletedDialog, status, user])
+
   if (isInPasswordRecoveryFlow() || passwordRecovery) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
@@ -131,6 +145,16 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
 
   // After delete, a leftover session can briefly look authenticated — keep the deleted dialog.
   if (!deletedFlag && !showDeletedDialog && status === 'authenticated' && user && (account || profile?.role === 'admin')) {
+    if (isPasswordSignInPending()) {
+      return (
+        <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
+          <Card className="p-6 text-center sm:p-8">
+            <h1 className="text-xl font-semibold text-navy-950">Signing you in…</h1>
+            <p className="mt-2 text-sm text-slate-600">Your browser may ask to save this password.</p>
+          </Card>
+        </div>
+      )
+    }
     return <Navigate to={landingPathForAccount(profile?.role, account, nextPath)} replace />
   }
 
@@ -221,10 +245,12 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
       return
     }
     setSubmitting(true)
+    markPasswordSignIn()
     try {
       await signInInterviewer({ email, password })
       await refreshAccount()
     } catch (caught) {
+      clearPasswordSignIn()
       const message = authErrorMessage(caught)
       setError(message)
       if (isUnconfirmedEmailError(caught)) setAwaitingConfirmation(true)
@@ -264,6 +290,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
         )
         return
       }
+      markPasswordSignIn()
       await applySignupProfile({
         fullName: `${firstName.trim()} ${lastName.trim()}`.trim(),
         timezone,
@@ -275,6 +302,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
       })
       await refreshAccount()
     } catch (caught) {
+      clearPasswordSignIn()
       const message = authErrorMessage(caught)
       setError(message)
       if (isUnconfirmedEmailError(caught)) setAwaitingConfirmation(true)
@@ -501,14 +529,21 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
     return (
       <div>
         {googleBlock('above')}
-        <form className="space-y-3" onSubmit={(event) => void submitPassword(event)}>
+        <form
+          method="post"
+          action={nextPath}
+          autoComplete="on"
+          className="space-y-3"
+          onSubmit={(event) => void submitPassword(event)}
+        >
           <div>
             <FieldLabel htmlFor="email">Email</FieldLabel>
             <TextInput
               id="email"
+              name="username"
               type="email"
               required
-              autoComplete="email"
+              autoComplete="username"
               value={email}
               onChange={(event) => {
                 const next = event.target.value
@@ -531,6 +566,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
               </div>
               <PasswordInput
                 id="password"
+                name="password"
                 required
                 minLength={6}
                 autoComplete="current-password"
@@ -575,7 +611,13 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   function registerForm() {
     return (
       <div>
-        <form className="space-y-4" onSubmit={(event) => void submitRegister(event)}>
+        <form
+          method="post"
+          action={nextPath}
+          autoComplete="on"
+          className="space-y-4"
+          onSubmit={(event) => void submitRegister(event)}
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <FieldLabel htmlFor="firstName">First name</FieldLabel>
@@ -602,9 +644,10 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
             <FieldLabel htmlFor="email">Email</FieldLabel>
             <TextInput
               id="email"
+              name="username"
               type="email"
               required
-              autoComplete="email"
+              autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
@@ -623,6 +666,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
             <FieldLabel htmlFor="password">Password</FieldLabel>
             <PasswordInput
               id="password"
+              name="new-password"
               required
               minLength={6}
               autoComplete="new-password"
