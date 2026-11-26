@@ -7,9 +7,11 @@ import { GoogleContinueButton } from '../components/auth/GoogleContinueButton.ts
 import { Button } from '../components/ui/Button.tsx'
 import { DetectedTimezoneNote } from '../components/ui/TimezoneSelect.tsx'
 import { Card, FieldLabel, PasswordInput, TextInput } from '../components/ui/primitives.tsx'
+import { clearAccountDeleted, isAccountDeletedFlag } from '../lib/accountDeletedBanner.ts'
 import { isInPasswordRecoveryFlow, isAuthRecoveryUrl, redirectToPasswordRecovery } from '../lib/authRecovery.ts'
 import { landingPathForAccount } from '../lib/interviewWelcome.ts'
 import { INTERVIEWER_SETUP, defaultHomePath, safeNextPath } from '../lib/nextPath.ts'
+import { supabase } from '../lib/supabase.ts'
 import { detectBrowserTimezone } from '../lib/timezones.ts'
 import {
   authErrorMessage,
@@ -36,7 +38,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   const [params] = useSearchParams()
   const [passwordRecovery, setPasswordRecovery] = useState(() => isAuthRecoveryUrl())
   const openParam = params.get('open')
-  const accountDeleted = params.get('accountDeleted') === '1'
+  const accountDeleted = isAccountDeletedFlag(params.get('accountDeleted'))
   const modalOpen =
     openParam === 'signin' ||
     openParam === 'login' ||
@@ -80,6 +82,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   }
 
   function closeAuth() {
+    clearAccountDeleted()
     const next = new URLSearchParams(params)
     next.delete('open')
     next.delete('accountDeleted')
@@ -98,6 +101,12 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
     }
   }, [location.pathname, location.search, location.hash])
 
+  useEffect(() => {
+    if (!accountDeleted) return
+    if (status !== 'authenticated') return
+    void supabase.auth.signOut({ scope: 'local' })
+  }, [accountDeleted, status])
+
   if (isInPasswordRecoveryFlow() || passwordRecovery) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
@@ -109,11 +118,12 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
     )
   }
 
-  if (status === 'authenticated' && user && (account || profile?.role === 'admin')) {
+  // After delete, a leftover session can briefly look authenticated — keep the deleted banner.
+  if (!accountDeleted && status === 'authenticated' && user && (account || profile?.role === 'admin')) {
     return <Navigate to={landingPathForAccount(profile?.role, account, nextPath)} replace />
   }
 
-  if (status === 'authenticated' && user && !sessionError) {
+  if (!accountDeleted && status === 'authenticated' && user && !sessionError) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
         <Card className="p-6 sm:p-8">
@@ -125,6 +135,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   }
 
   const busy = submitting || emailBusy || resending || resettingPassword || status === 'loading'
+  const emailReady = email.trim().includes('@')
   const showResend = awaitingConfirmation || isUnconfirmedEmailError(error)
   const redirectError = oauthRedirectErrorMessage(params)
 
@@ -183,6 +194,14 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
     event.preventDefault()
     setError(null)
     setInfo(null)
+    if (!email.trim().includes('@')) {
+      setError('Enter your email first.')
+      return
+    }
+    if (!password) {
+      setError('Enter your password.')
+      return
+    }
     setSubmitting(true)
     try {
       await signInInterviewer({ email, password })
@@ -473,29 +492,35 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
               required
               autoComplete="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                const next = event.target.value
+                setEmail(next)
+                if (!next.trim().includes('@')) setPassword('')
+              }}
             />
           </div>
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <FieldLabel htmlFor="password">Password</FieldLabel>
-              <button
-                type="button"
-                className="text-xs font-medium text-coral-700 hover:underline"
-                onClick={openForgotPassword}
-              >
-                Forgot password?
-              </button>
+          {emailReady ? (
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-coral-700 hover:underline"
+                  onClick={openForgotPassword}
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <PasswordInput
+                id="password"
+                required
+                minLength={6}
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
             </div>
-            <PasswordInput
-              id="password"
-              required
-              minLength={6}
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </div>
+          ) : null}
           {error || sessionError || redirectError ? (
             <p className="text-sm text-red-700">{error || sessionError || redirectError}</p>
           ) : null}
@@ -510,7 +535,7 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
               {resetWait > 0 ? `Resend available in ${resetWait}s` : 'Resend confirmation email'}
             </button>
           ) : null}
-          <Button type="submit" fullWidth disabled={busy}>
+          <Button type="submit" fullWidth disabled={busy || !emailReady}>
             {submitting ? 'Please wait…' : 'Sign In'}
           </Button>
         </form>
@@ -701,6 +726,14 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
             A professional workspace for live mocks, bookings, availability, and feedback — built for working
             interviewers.
           </p>
+          {accountDeleted ? (
+            <p
+              className="mt-6 max-w-xl rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-950"
+              role="status"
+            >
+              Your account has been deleted.
+            </p>
+          ) : null}
           <div className="mt-8 flex flex-wrap gap-3">
             <Button size="lg" onClick={() => openAuth('signin')}>
               Sign in
@@ -735,25 +768,23 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
       <AuthModal
         open={modalOpen}
         wide={isRegister}
-        title={isRegister ? 'Create your interviewer account' : 'Welcome back'}
+        title={accountDeleted ? 'Your account has been deleted' : isRegister ? 'Create your interviewer account' : 'Welcome back'}
         subtitle={
-          isRegister
-            ? 'Already a candidate on jobround.ai? Use that email — we’ll add your interviewer profile.'
-            : 'Use email code, password, or Google. The form stays private until you open it.'
+          accountDeleted
+            ? 'You can create a new interviewer account with the same email anytime.'
+            : isRegister
+              ? 'Already a candidate on jobround.ai? Use that email — we’ll add your interviewer profile.'
+              : 'Use email code, password, or Google. The form stays private until you open it.'
         }
         onClose={closeAuth}
       >
         {accountDeleted ? (
-          <div
-            className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"
+          <p
+            className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-950"
             role="status"
           >
-            <p className="font-semibold">Your interviewer account has been deleted</p>
-            <p className="mt-1 text-emerald-900">
-              You can create a new interviewer account with the same email anytime. A candidate
-              account on this email is unchanged.
-            </p>
-          </div>
+            Your account has been deleted.
+          </p>
         ) : null}
         {isRegister ? registerForm() : loginForm()}
       </AuthModal>
