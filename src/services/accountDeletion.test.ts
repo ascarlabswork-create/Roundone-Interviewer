@@ -1,5 +1,5 @@
 import { FunctionsHttpError } from '@supabase/supabase-js'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   deleteAccountErrorMessage,
   deleteMyInterviewerAccount,
@@ -20,40 +20,33 @@ describe('delete account confirmation', () => {
 })
 
 describe('deleteMyInterviewerAccount', () => {
-  it('clears the local session only after the server confirms deletion', async () => {
-    const signOutLocal = vi.fn(async () => undefined)
-    await deleteMyInterviewerAccount({
-      invoke: async () => ({ data: { deleted: true }, error: null }),
-      signOutLocal,
-    })
-    expect(signOutLocal).toHaveBeenCalledTimes(1)
+  it('resolves when the server confirms deletion', async () => {
+    await expect(
+      deleteMyInterviewerAccount({
+        invoke: async () => ({ data: { deleted: true }, error: null }),
+      }),
+    ).resolves.toBeUndefined()
   })
 
-  it('keeps the session and shows a friendly message when an interview is in progress', async () => {
-    const signOutLocal = vi.fn(async () => undefined)
+  it('shows a friendly message when an interview is in progress', async () => {
     await expect(
       deleteMyInterviewerAccount({
         invoke: async () => ({ data: null, error: httpError(409, { error: 'interview_in_progress' }) }),
-        signOutLocal,
       }),
     ).rejects.toThrow(deleteAccountErrorMessage('interview_in_progress'))
-    expect(signOutLocal).not.toHaveBeenCalled()
   })
 
   it('does not expose raw server errors', async () => {
     await expect(
       deleteMyInterviewerAccount({
         invoke: async () => ({ data: null, error: httpError(500, { error: 'delete_failed', detail: 'SQL state 23503' }) }),
-        signOutLocal: async () => undefined,
       }),
     ).rejects.toThrow('Could not delete your account. Try again in a moment.')
   })
 
   it('treats an unexpected success body as a failure', async () => {
-    const signOutLocal = vi.fn(async () => undefined)
     await expect(
-      deleteMyInterviewerAccount({ invoke: async () => ({ data: {}, error: null }), signOutLocal }),
+      deleteMyInterviewerAccount({ invoke: async () => ({ data: {}, error: null }) }),
     ).rejects.toThrow()
-    expect(signOutLocal).not.toHaveBeenCalled()
   })
 })

@@ -48,17 +48,22 @@ const invokeDelete: InvokeDelete = () =>
 
 /**
  * Deletes the signed-in interviewer through the server-side Edge Function
- * (which holds the service role), then clears the local session. The auth
- * user no longer exists afterwards, so only the local session is cleared.
+ * (which holds the service role). Does not sign out here — callers must
+ * hard-redirect to the login URL so RequireInterviewerAuth cannot race and
+ * drop the deleted banner.
  */
 export async function deleteMyInterviewerAccount(options?: {
   invoke?: InvokeDelete
-  signOutLocal?: () => Promise<unknown>
 }): Promise<void> {
   const { data, error } = await (options?.invoke ?? invokeDelete)()
   if (error) throw new Error(deleteAccountErrorMessage(await readErrorCode(error)))
   const deleted = data && typeof data === 'object' && (data as { deleted?: unknown }).deleted === true
   if (!deleted) throw new Error(deleteAccountErrorMessage(null))
   markAccountDeleted()
-  await (options?.signOutLocal ?? (() => supabase.auth.signOut({ scope: 'local' })))()
+}
+
+/** Hard redirect so React auth guards cannot steal the navigation. */
+export function goToAccountDeletedLogin() {
+  markAccountDeleted()
+  window.location.replace(ACCOUNT_DELETED_LOGIN_PATH)
 }

@@ -1,7 +1,9 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { isAccountDeletedFlag } from '../../lib/accountDeletedBanner.ts'
 import { isInPasswordRecoveryFlow } from '../../lib/authRecovery.ts'
 import { ADMIN_HOME } from '../../lib/nextPath.ts'
 import { useAsync } from '../../lib/useAsync.ts'
+import { ACCOUNT_DELETED_LOGIN_PATH } from '../../services/accountDeletion.ts'
 import { PASSWORD_RESET_PATH } from '../../services/auth.ts'
 import { getMyProfile } from '../../services/interviewerProfile.ts'
 import { useSession } from '../../state/session.tsx'
@@ -27,6 +29,9 @@ export function RequireInterviewerAuth() {
   if (status === 'loading') return <GateSkeleton />
 
   if (!user) {
+    if (isAccountDeletedFlag(null)) {
+      return <Navigate to={ACCOUNT_DELETED_LOGIN_PATH} replace />
+    }
     const next = `${location.pathname}${location.search}`
     return <Navigate to={`/interviewer/login?next=${encodeURIComponent(next)}`} replace />
   }

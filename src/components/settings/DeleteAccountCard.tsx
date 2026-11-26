@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
-  ACCOUNT_DELETED_LOGIN_PATH,
   DELETE_ACCOUNT_CONFIRMATION,
   deleteMyInterviewerAccount,
+  goToAccountDeletedLogin,
   isDeleteConfirmationValid,
 } from '../../services/accountDeletion.ts'
 import { useOnboarding } from '../../state/onboarding.tsx'
@@ -11,7 +10,6 @@ import { Button } from '../ui/Button.tsx'
 import { Card, FieldLabel, TextInput } from '../ui/primitives.tsx'
 
 export function DeleteAccountCard() {
-  const navigate = useNavigate()
   const { reset } = useOnboarding()
   const [open, setOpen] = useState(false)
   const [confirmation, setConfirmation] = useState('')
@@ -23,9 +21,11 @@ export function DeleteAccountCard() {
     setError(null)
     setDeleting(true)
     try {
+      // Hard-redirect after delete so RequireInterviewerAuth cannot send users
+      // to a plain login URL and drop the deleted banner.
       await deleteMyInterviewerAccount()
       reset()
-      navigate(ACCOUNT_DELETED_LOGIN_PATH, { replace: true })
+      goToAccountDeletedLogin()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not delete your account. Try again in a moment.')
       setDeleting(false)
