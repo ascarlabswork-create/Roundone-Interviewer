@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from 'react'
 import { Plus } from 'lucide-react'
-import { SKILL_GROUPS, SKILLS, TARGET_ROLES } from '../../data/catalogs.ts'
+import { QUICK_ROLES, QUICK_SKILLS, SKILL_GROUPS, SKILLS, SOFTWARE_ROLE_GROUPS, TARGET_ROLES } from '../../data/catalogs.ts'
+import { RoleSuggestInput } from '../ui/RoleSuggestInput.tsx'
 import { SuggestionChips } from '../ui/suggestions.tsx'
+import { Button } from '../ui/Button.tsx'
 
 export type ExpertiseValue = {
   skills: string[]
@@ -68,6 +70,15 @@ export function ExpertiseFields({
   showSkills?: boolean
 }) {
   const [browseSkills, setBrowseSkills] = useState(true)
+  const [browseRoles, setBrowseRoles] = useState(true)
+  const [roleDraft, setRoleDraft] = useState('')
+
+  function addRole(role: string) {
+    const next = role.trim().replace(/\s+/g, ' ')
+    if (next.length < 2 || includesIgnoreCase(value.targetRoles, next)) return
+    onChange({ ...value, targetRoles: [...value.targetRoles, next] })
+    setRoleDraft('')
+  }
 
   return (
     <div className="grid gap-8">
@@ -83,9 +94,19 @@ export function ExpertiseFields({
             onChange={(skills) => onChange({ ...value, skills })}
             placeholder="Type skills, e.g. Python, SQL, Power BI"
           />
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Suggested skills</p>
+            <div className="mt-2">
+              <QuickAdd
+                options={QUICK_SKILLS}
+                selected={value.skills}
+                onAdd={(skill) => onChange({ ...value, skills: [...value.skills, skill] })}
+              />
+            </div>
+          </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Popular with candidates</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Browse by category</p>
               <button
                 type="button"
                 className="text-xs font-medium text-coral-700"
@@ -112,19 +133,92 @@ export function ExpertiseFields({
         </Section>
       ) : null}
 
-      <Section title="Roles you interview for" description="Match the roles candidates are preparing for.">
-        <SuggestionChips
-          id={`${idPrefix}-role`}
-          suggestions={TARGET_ROLES}
-          value={value.targetRoles}
-          onChange={(targetRoles) => onChange({ ...value, targetRoles })}
-          placeholder="Type a target role"
-        />
-        <QuickAdd
-          options={TARGET_ROLES}
-          selected={value.targetRoles}
-          onAdd={(role) => onChange({ ...value, targetRoles: [...value.targetRoles, role] })}
-        />
+      <Section title="Roles you interview for" description="Match the roles candidates are preparing for. Pick one or more.">
+        <div className="flex gap-2">
+          <div className="min-w-0 flex-1">
+            <RoleSuggestInput
+              id={`${idPrefix}-role`}
+              value={roleDraft}
+              exclude={value.targetRoles}
+              options={TARGET_ROLES}
+              placeholder="Software Engineer, ML Engineer…"
+              onChange={setRoleDraft}
+              onCommit={addRole}
+            />
+          </div>
+          <div className="flex items-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!roleDraft.trim()}
+              onClick={() => addRole(roleDraft)}
+            >
+              + Add
+            </Button>
+          </div>
+        </div>
+
+        {value.targetRoles.length > 0 ? (
+          <div className="rounded-2xl border border-navy-950/8 bg-slate-50/80 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Your roles</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {value.targetRoles.map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  aria-label={`Remove ${role}`}
+                  onClick={() =>
+                    onChange({
+                      ...value,
+                      targetRoles: value.targetRoles.filter((item) => item.toLowerCase() !== role.toLowerCase()),
+                    })
+                  }
+                  className="inline-flex h-7 max-w-full items-center gap-1 truncate rounded-full bg-navy-950 px-2.5 text-[11px] font-medium text-white shadow-sm transition hover:bg-navy-800"
+                >
+                  {role} ×
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Suggested roles</p>
+          <div className="mt-2">
+            <QuickAdd
+              options={QUICK_ROLES}
+              selected={value.targetRoles}
+              onAdd={(role) => onChange({ ...value, targetRoles: [...value.targetRoles, role] })}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Browse by category</p>
+            <button
+              type="button"
+              className="text-xs font-medium text-coral-700"
+              aria-expanded={browseRoles}
+              onClick={() => setBrowseRoles((open) => !open)}
+            >
+              {browseRoles ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          {browseRoles ? (
+            <div className="mt-3 grid gap-2.5">
+              {SOFTWARE_ROLE_GROUPS.map((group) => (
+                <QuickAdd
+                  key={group.title}
+                  label={group.title}
+                  options={group.roles}
+                  selected={value.targetRoles}
+                  onAdd={(role) => onChange({ ...value, targetRoles: [...value.targetRoles, role] })}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
       </Section>
     </div>
   )

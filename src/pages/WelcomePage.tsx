@@ -1,9 +1,10 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { ExpertiseFields, type ExpertiseValue } from '../components/profile/ExpertiseFields.tsx'
+import { ExpertiseFields, QuickAdd, type ExpertiseValue } from '../components/profile/ExpertiseFields.tsx'
 import { Button } from '../components/ui/Button.tsx'
+import { RoleSuggestInput } from '../components/ui/RoleSuggestInput.tsx'
 import { Card, FieldLabel, TextArea, TextInput } from '../components/ui/primitives.tsx'
-import { CANDIDATE_LEVELS, INTERVIEW_TYPES } from '../data/catalogs.ts'
+import { CANDIDATE_LEVELS, COMPANIES, INTERVIEW_TYPES, QUICK_ROLES, TARGET_ROLES } from '../data/catalogs.ts'
 import {
   isInterviewWelcomePlaceholder,
   needsInterviewWelcome,
@@ -168,28 +169,43 @@ export function WelcomePage() {
 
           <fieldset className="grid gap-4 rounded-2xl border border-navy-950/6 bg-slate-50/70 p-4 sm:grid-cols-2 sm:p-5">
             <legend className="col-span-full px-1 text-sm font-semibold text-navy-950">Your background</legend>
-            <div>
+            <div className="relative z-20 sm:col-span-2">
               <FieldLabel htmlFor="welcome-role">Current role</FieldLabel>
-              <TextInput
+              <RoleSuggestInput
                 id="welcome-role"
                 required
                 autoComplete="organization-title"
-                placeholder="Staff Engineer"
+                placeholder="Staff Engineer, Backend Engineer…"
+                options={TARGET_ROLES}
                 value={role}
-                onChange={(event) => setRole(event.target.value)}
+                onChange={setRole}
+                disabled={saving}
               />
+              <div className="mt-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Suggested roles</p>
+                <div className="mt-2">
+                  <QuickAdd options={QUICK_ROLES} selected={role ? [role] : []} onAdd={setRole} />
+                </div>
+              </div>
             </div>
             <div>
               <FieldLabel htmlFor="welcome-company">Current company</FieldLabel>
               <TextInput
                 id="welcome-company"
                 required
+                list="welcome-company-options"
                 autoComplete="organization"
+                placeholder="Google, Stripe, Flipkart…"
                 value={company}
                 onChange={(event) => setCompany(event.target.value)}
               />
+              <datalist id="welcome-company-options">
+                {COMPANIES.map((item) => (
+                  <option key={item} value={item} />
+                ))}
+              </datalist>
             </div>
-            <div className="sm:col-span-2">
+            <div>
               <FieldLabel htmlFor="welcome-years">Years of experience</FieldLabel>
               <TextInput
                 id="welcome-years"
