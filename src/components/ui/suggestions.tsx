@@ -276,7 +276,11 @@ export function SuggestionChips({
           />
           {open ? <SuggestionMenu id={listId} items={matches} highlightIndex={highlightIndex} onPick={pick} /> : null}
         </div>
-        <Button type="button" variant="outline" className="shrink-0" onClick={() => commitDraft()}>
+        <Button
+          type="button"
+          className="shrink-0 border border-sky-600 bg-sky-600 text-white shadow-sm shadow-sky-600/25 hover:bg-sky-700 hover:border-sky-700"
+          onClick={() => commitDraft()}
+        >
           Add
         </Button>
       </div>

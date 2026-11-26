@@ -121,11 +121,11 @@ export function ExpertiseFields({
           <div className="flex items-end">
             <Button
               type="button"
-              variant="outline"
               disabled={!roleDraft.trim()}
+              className="shrink-0 border border-sky-600 bg-sky-600 text-white shadow-sm shadow-sky-600/25 hover:border-sky-700 hover:bg-sky-700 disabled:border-slate-300 disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none"
               onClick={() => addRole(roleDraft)}
             >
-              + Add
+              Add
             </Button>
           </div>
         </div>
