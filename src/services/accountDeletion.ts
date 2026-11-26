@@ -1,10 +1,11 @@
 import { FunctionsHttpError } from '@supabase/supabase-js'
+import { markAccountDeleted } from '../lib/accountDeletedBanner.ts'
 import { supabase } from '../lib/supabase.ts'
 
 export const DELETE_ACCOUNT_FUNCTION = 'delete-interviewer-account'
 export const DELETE_ACCOUNT_CONFIRMATION = 'DELETE'
 /** Shown on the sign-in page after a successful delete. */
-export const ACCOUNT_DELETED_LOGIN_PATH = '/interviewer/login?accountDeleted=1'
+export const ACCOUNT_DELETED_LOGIN_PATH = '/interviewer/login?accountDeleted=1&open=signin'
 
 export function isDeleteConfirmationValid(value: string) {
   return value.trim() === DELETE_ACCOUNT_CONFIRMATION
@@ -58,5 +59,6 @@ export async function deleteMyInterviewerAccount(options?: {
   if (error) throw new Error(deleteAccountErrorMessage(await readErrorCode(error)))
   const deleted = data && typeof data === 'object' && (data as { deleted?: unknown }).deleted === true
   if (!deleted) throw new Error(deleteAccountErrorMessage(null))
+  markAccountDeleted()
   await (options?.signOutLocal ?? (() => supabase.auth.signOut({ scope: 'local' })))()
 }
