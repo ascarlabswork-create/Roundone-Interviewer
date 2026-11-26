@@ -278,7 +278,8 @@ export function SuggestionChips({
         </div>
         <Button
           type="button"
-          className="shrink-0 border border-sky-600 bg-sky-600 text-white shadow-sm shadow-sky-600/25 hover:bg-sky-700 hover:border-sky-700"
+          disabled={!draft.trim()}
+          className="shrink-0 border border-sky-600 bg-sky-600 text-white shadow-sm shadow-sky-600/25 hover:border-sky-700 hover:bg-sky-700 disabled:border-slate-300 disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none"
           onClick={() => commitDraft()}
         >
           Add
