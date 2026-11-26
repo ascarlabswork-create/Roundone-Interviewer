@@ -83,7 +83,7 @@ export function authErrorMessage(error: unknown): string {
     return 'Enter a valid email address.'
   }
   if (message.includes('user already registered') || message.includes('already registered')) {
-    return 'An account with this email already exists. Try signing in instead.'
+    return 'An account with this email already exists. Sign in instead — use Continue with Google if you signed up with Google, or Forgot password to set an email password.'
   }
   if (message.includes('do not match')) {
     return 'Passwords do not match.'
@@ -226,7 +226,7 @@ export function interpretSignUpResponse(data: { user: User | null; session: { ac
   }
   if ((user.identities?.length ?? 0) === 0) {
     throw new Error(
-      'An account with this email already exists. Open the Sign in tab and enter your password, or use Forgot password. If your email was never confirmed, try signing in anyway—then use Resend confirmation when prompted.',
+      'An account with this email already exists. Open Sign in and use Continue with Google (if you signed up with Google) or Forgot password to set an email password.',
     )
   }
   return { user, sessionCreated: false, needsEmailConfirmation: true }
