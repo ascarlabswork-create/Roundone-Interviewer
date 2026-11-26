@@ -74,12 +74,57 @@ Deno.serve(async (req) => {
   const hardDelete = result?.hard_delete === true;
   const deleteAuthUser = result?.delete_auth_user === true;
 
-  // Dual-persona users keep auth for the candidate app; only remove auth when the DB says so.
+  // Dual-persona users keep auth for the candidate app. Otherwise free the email so
+  // Create account works again (anonymize first when booking history blocks hard delete).
   if (deleteAuthUser) {
-    const { error: authError } = await admin.auth.admin.deleteUser(userId, !hardDelete);
-    if (authError) {
-      console.log(JSON.stringify({ event: "delete_account_auth_failed", hard_delete: hardDelete }));
+    const freedEmail = `deleted+${userId.replaceAll("-", "")}@deleted.invalid`;
+
+    // Unlink OAuth identities so Google can register the same email again if the
+    // auth row must stay for booking history foreign keys.
+    const { data: userPack } = await admin.auth.admin.getUserById(userId);
+    for (const identity of userPack?.user?.identities ?? []) {
+      const identityId = identity.identity_id ?? identity.id;
+      if (!identityId) continue;
+      const unlinkRes = await fetch(
+        `${supabaseUrl}/auth/v1/admin/users/${userId}/identities/${identityId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${serviceRoleKey}`,
+            apikey: serviceRoleKey,
+          },
+        },
+      );
+      if (!unlinkRes.ok) {
+        console.log(JSON.stringify({
+          event: "delete_account_identity_unlink_failed",
+          status: unlinkRes.status,
+          provider: identity.provider ?? null,
+        }));
+      }
+    }
+
+    const { error: renameError } = await admin.auth.admin.updateUserById(userId, {
+      email: freedEmail,
+      email_confirm: true,
+      ban_duration: "876000h",
+      password: crypto.randomUUID() + crypto.randomUUID(),
+      user_metadata: {},
+      app_metadata: { provider: "email", providers: ["email"] },
+    });
+    if (renameError) {
+      console.log(JSON.stringify({ event: "delete_account_auth_rename_failed", hard_delete: hardDelete }));
       return json(500, { error: "auth_delete_failed" });
+    }
+
+    const { error: authError } = await admin.auth.admin.deleteUser(userId, false);
+    if (authError) {
+      // Email is already freed; retained auth row is banned under the deleted.* address.
+      console.log(JSON.stringify({
+        event: "delete_account_auth_hard_delete_skipped",
+        hard_delete: hardDelete,
+        message: authError.message,
+      }));
     }
   }
 

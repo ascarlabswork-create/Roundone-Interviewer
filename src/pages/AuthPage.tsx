@@ -750,8 +750,8 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
           >
             <p className="font-semibold">Your interviewer account has been deleted</p>
             <p className="mt-1 text-emerald-900">
-              You&apos;re signed out. Sign in with the same email (Continue with Google or Forgot password) to reopen
-              access. Create account only works for emails that were fully removed.
+              You can create a new interviewer account with the same email anytime. A candidate
+              account on this email is unchanged.
             </p>
           </div>
         ) : null}

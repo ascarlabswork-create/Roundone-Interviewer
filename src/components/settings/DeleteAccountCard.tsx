@@ -36,19 +36,21 @@ export function DeleteAccountCard() {
     <Card className="border-red-200 p-6">
       <h2 className="text-lg font-semibold text-red-800">Delete account</h2>
       <p className="mt-1 text-sm text-slate-600">
-        Permanently delete your interviewer account and sign out. This cannot be undone.
+        Permanently delete your interviewer account and sign out. If you also use the same email as a
+        candidate on jobround.ai, that candidate account stays. This cannot be undone.
       </p>
       {open ? (
         <div className="mt-4 space-y-4">
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
             <p className="font-medium">This will:</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
-              <li>Delete your profile, skills, roles, services, availability, custom slots and blocked times.</li>
-              <li>Delete your verifications, notifications, notification preferences and the feedback you wrote.</li>
-              <li>Cancel your upcoming and pending bookings. Candidates are notified of the cancellation.</li>
+              <li>Delete your interviewer profile, skills, roles, services, availability, custom slots and blocked times.</li>
+              <li>Delete interviewer verifications and the feedback you wrote as an interviewer.</li>
+              <li>Cancel your upcoming and pending interviewer bookings. Candidates are notified of the cancellation.</li>
               <li>
                 Keep past booking records for the candidates you interviewed, with your name and details removed.
               </li>
+              <li>Leave any candidate account on the same email untouched.</li>
             </ul>
           </div>
           <div className="max-w-sm">
