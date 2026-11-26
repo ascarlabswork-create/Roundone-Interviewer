@@ -95,8 +95,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       })
       .catch((caught: unknown) => {
         if (cancelled) return
+        const message = caught instanceof Error ? caught.message : 'Could not restore your session.'
+        const lower = message.toLowerCase()
         setStatus('anonymous')
-        setError(caught instanceof Error ? caught.message : 'Could not restore your session.')
+        setError(
+          lower.includes('sub claim') || lower.includes('does not exist') ? null : message,
+        )
       })
 
     const {
