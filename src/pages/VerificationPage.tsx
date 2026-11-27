@@ -26,7 +26,7 @@ const cards: Array<{
   icon: typeof Shield
 }> = [
   { key: 'identity', title: 'Identity', body: 'Government ID check. Document upload is not connected yet.', icon: Shield },
-  { key: 'employment', title: 'Employment', body: 'Current company and role, used for the verified badge.', icon: Briefcase },
+  { key: 'employment', title: 'Employment', body: 'Current role, used for the verified badge.', icon: Briefcase },
   { key: 'professionalEmail', title: 'Professional Email', body: 'Work email is not in the current verification table. Status stays pending until that workflow exists.', icon: Mail },
 ]
 

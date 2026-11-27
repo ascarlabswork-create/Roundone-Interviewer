@@ -67,7 +67,6 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [otpCode, setOtpCode] = useState('')
-  const [company, setCompany] = useState('')
   const [currentRole, setCurrentRole] = useState('')
   const [experienceYears, setExperienceYears] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -280,7 +279,6 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
         phone,
         timezone,
         currentRole,
-        company,
         experienceYears: years,
       })
       if (result.needsEmailConfirmation) {
@@ -295,7 +293,6 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
         fullName: `${firstName.trim()} ${lastName.trim()}`.trim(),
         timezone,
         currentRole,
-        company,
         experienceYears: years,
         phone,
         headline: currentRole.trim(),
@@ -686,27 +683,15 @@ export function AuthPage({ mode, defaultNextPath }: { mode: 'login' | 'register'
             />
           </div>
           <DetectedTimezoneNote timezone={timezone} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <FieldLabel htmlFor="company">Current company</FieldLabel>
-              <TextInput
-                id="company"
-                required
-                autoComplete="organization"
-                value={company}
-                onChange={(event) => setCompany(event.target.value)}
-              />
-            </div>
-            <div>
-              <FieldLabel htmlFor="currentRole">Current role</FieldLabel>
-              <TextInput
-                id="currentRole"
-                required
-                autoComplete="organization-title"
-                value={currentRole}
-                onChange={(event) => setCurrentRole(event.target.value)}
-              />
-            </div>
+          <div>
+            <FieldLabel htmlFor="currentRole">Current role</FieldLabel>
+            <TextInput
+              id="currentRole"
+              required
+              autoComplete="organization-title"
+              value={currentRole}
+              onChange={(event) => setCurrentRole(event.target.value)}
+            />
           </div>
           <div>
             <FieldLabel htmlFor="experienceYears">Years of experience</FieldLabel>

@@ -48,7 +48,6 @@ type ProfileForm = {
   headline: string
   bio: string
   currentRole: string
-  company: string
   experienceYears: string
 }
 
@@ -58,7 +57,6 @@ const EMPTY_FORM: ProfileForm = {
   headline: '',
   bio: '',
   currentRole: '',
-  company: '',
   experienceYears: '',
 }
 
@@ -69,7 +67,6 @@ function formFromAccount(account: InterviewerAccount): ProfileForm {
     headline: account.interviewer.headline ?? '',
     bio: account.interviewer.bio ?? '',
     currentRole: account.interviewer.current_role === 'Pending' ? '' : account.interviewer.current_role,
-    company: account.interviewer.company === 'Pending' ? '' : account.interviewer.company,
     experienceYears: String(account.interviewer.experience_years || ''),
   }
 }
@@ -160,7 +157,6 @@ export function ProfilePage() {
         headline: form.headline,
         bio: form.bio,
         currentRole: form.currentRole,
-        company: form.company,
         experienceYears: Number(form.experienceYears) || 0,
       })
       await updateInterviewerRoles({
@@ -227,15 +223,6 @@ export function ProfilePage() {
                     placeholder="e.g. Senior Data Scientist"
                     value={form.currentRole}
                     onChange={(event) => setForm({ ...form, currentRole: event.target.value })}
-                  />
-                </div>
-                <div>
-                  <FieldLabel htmlFor="company">Current company</FieldLabel>
-                  <TextInput
-                    id="company"
-                    placeholder="e.g. Flipkart"
-                    value={form.company}
-                    onChange={(event) => setForm({ ...form, company: event.target.value })}
                   />
                 </div>
                 <div>

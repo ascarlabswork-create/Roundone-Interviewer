@@ -5,7 +5,7 @@ import { ExpertiseFields, QuickAdd, type ExpertiseValue } from '../components/pr
 import { Button } from '../components/ui/Button.tsx'
 import { RoleSuggestInput } from '../components/ui/RoleSuggestInput.tsx'
 import { Card, FieldLabel, TextArea, TextInput } from '../components/ui/primitives.tsx'
-import { COMPANIES, INTERVIEW_TYPES, QUICK_ROLES, TARGET_ROLES } from '../data/catalogs.ts'
+import { INTERVIEW_TYPES, QUICK_ROLES, TARGET_ROLES } from '../data/catalogs.ts'
 import {
   isInterviewWelcomePlaceholder,
   needsInterviewWelcome,
@@ -39,7 +39,6 @@ export function WelcomePage() {
   const { pushToast } = useToast()
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState('')
-  const [company, setCompany] = useState('')
   const [years, setYears] = useState('')
   const [interviewTypes, setInterviewTypes] = useState<string[]>([])
   const [expertise, setExpertise] = useState<ExpertiseValue>(emptyExpertise)
@@ -55,7 +54,6 @@ export function WelcomePage() {
     const displayName = account.profile.full_name.trim()
     setFullName(displayName === 'Deleted interviewer' || displayName === 'Deleted' ? '' : displayName)
     setRole(pending ? '' : job.current_role)
-    setCompany(pending ? '' : job.company)
     setYears(job.experience_years > 0 ? String(job.experience_years) : '')
     setExpertise({
       skills: account.skills,
@@ -76,10 +74,9 @@ export function WelcomePage() {
     if (!account) return
     setError(null)
     const currentRole = role.trim()
-    const currentCompany = company.trim()
     const experience = Number(years)
-    if (!currentRole || !currentCompany) {
-      setError('Add your current role and company for verification. Candidates see your role, not your company.')
+    if (!currentRole) {
+      setError('Add your current role.')
       return
     }
     if (!Number.isFinite(experience) || experience < 0 || experience > 60) {
@@ -110,7 +107,6 @@ export function WelcomePage() {
         fullName: name || undefined,
         timezone: account.profile.timezone.trim() || detectBrowserTimezone(),
         currentRole,
-        company: currentCompany,
         experienceYears: Math.round(experience),
         headline: welcomeHeadline(currentRole, interviewTypes, account.interviewer.headline),
         bio: welcomeBio(interviewTypes, note),
@@ -188,23 +184,6 @@ export function WelcomePage() {
                   <QuickAdd options={QUICK_ROLES} selected={role ? [role] : []} onAdd={setRole} />
                 </div>
               </div>
-            </div>
-            <div>
-              <FieldLabel htmlFor="welcome-company">Current company</FieldLabel>
-              <TextInput
-                id="welcome-company"
-                required
-                list="welcome-company-options"
-                autoComplete="organization"
-                placeholder="Google, Stripe, Flipkart…"
-                value={company}
-                onChange={(event) => setCompany(event.target.value)}
-              />
-              <datalist id="welcome-company-options">
-                {COMPANIES.map((item) => (
-                  <option key={item} value={item} />
-                ))}
-              </datalist>
             </div>
             <div>
               <FieldLabel htmlFor="welcome-years">Years of experience</FieldLabel>

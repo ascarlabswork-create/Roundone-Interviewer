@@ -275,11 +275,6 @@ export function profileChecklist(account: InterviewerAccount): ProfileChecklistI
       done: Boolean(account.interviewer.current_role.trim()) && professional,
       href: '#section-professional',
     },
-    {
-      label: 'Current company',
-      done: Boolean(account.interviewer.company.trim()) && professional,
-      href: '#section-professional',
-    },
     { label: 'Years of experience', done: account.interviewer.experience_years > 0, href: '#section-professional' },
     { label: 'Skills', done: account.skills.length > 0, href: '#section-skills' },
     { label: 'Target roles', done: account.targetRoles.length > 0, href: '#section-roles' },

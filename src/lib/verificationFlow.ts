@@ -45,11 +45,8 @@ export function verificationProfileChecks(account: InterviewerAccount): Verifica
     },
     {
       id: 'employment',
-      label: 'Current role and company (employment)',
-      done:
-        interviewer.current_role !== 'Pending' &&
-        interviewer.company !== 'Pending' &&
-        Boolean(interviewer.current_role.trim() && interviewer.company.trim()),
+      label: 'Current role (employment)',
+      done: interviewer.current_role !== 'Pending' && Boolean(interviewer.current_role.trim()),
       href: INTERVIEWER_PROFILE_PATH,
     },
     {
