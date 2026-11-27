@@ -53,10 +53,6 @@ export function SetupPage() {
       lastName: rest.join(' '),
       fullName: account.profile.full_name,
       email: account.email,
-      company:
-        account.interviewer.company === 'Pending' || account.interviewer.company === 'Deleted'
-          ? ''
-          : account.interviewer.company,
       role:
         account.interviewer.current_role === 'Pending' || account.interviewer.current_role === 'Deleted'
           ? ''
@@ -145,7 +141,6 @@ export function SetupPage() {
         headline: draft.role,
         bio: draft.professionalSummary,
         currentRole: draft.role,
-        company: draft.company,
         experienceYears: Number(draft.experienceYears) || 0,
         phone: draft.phone,
       })
@@ -245,19 +240,9 @@ export function SetupPage() {
                   onChange={(event) => update({ professionalSummary: event.target.value })}
                 />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <FieldLabel htmlFor="role">Current Role</FieldLabel>
-                  <TextInput id="role" value={draft.role} onChange={(event) => update({ role: event.target.value })} />
-                </div>
-                <div>
-                  <FieldLabel htmlFor="company">Current Company</FieldLabel>
-                  <TextInput
-                    id="company"
-                    value={draft.company}
-                    onChange={(event) => update({ company: event.target.value })}
-                  />
-                </div>
+              <div>
+                <FieldLabel htmlFor="role">Current Role</FieldLabel>
+                <TextInput id="role" value={draft.role} onChange={(event) => update({ role: event.target.value })} />
               </div>
               <div>
                 <FieldLabel htmlFor="yoe">Years of Experience</FieldLabel>
@@ -272,14 +257,6 @@ export function SetupPage() {
                 Interview language: <span className="font-medium text-navy-950">{INTERVIEW_LANGUAGE}</span> (all sessions on
                 jobround.ai are English-only).
               </p>
-              <div>
-                <FieldLabel htmlFor="prev">Previous Companies</FieldLabel>
-                <TextInput
-                  id="prev"
-                  value={draft.previousCompanies}
-                  onChange={(event) => update({ previousCompanies: event.target.value })}
-                />
-              </div>
             </>
           ) : null}
 
@@ -387,7 +364,8 @@ export function SetupPage() {
           {step === 'review' ? (
             <div className="space-y-3 text-sm text-slate-700">
               <p>
-                <strong>{draft.fullName}</strong> · {draft.role} @ {draft.company}
+                <strong>{draft.fullName}</strong>
+                {draft.role.trim() ? <> · {draft.role}</> : null}
               </p>
               <p>{draft.experienceYears} years experience</p>
               <p>Skills: {draft.skills.join(', ') || 'None selected'}</p>

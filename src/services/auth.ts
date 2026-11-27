@@ -12,7 +12,6 @@ export type SignUpInterviewerInput = {
   phone?: string
   timezone?: string
   currentRole: string
-  company: string
   experienceYears: number
 }
 
@@ -253,7 +252,6 @@ export async function signUpInterviewer(input: SignUpInterviewerInput): Promise<
   const lastName = input.lastName.trim()
   const fullName = fullNameFromParts(firstName, lastName)
   if (!fullName) throw new Error('Enter your first and last name.')
-  if (!input.company.trim()) throw new Error('Enter your current company.')
   if (!input.currentRole.trim()) throw new Error('Enter your current role.')
   const experienceYears = Math.max(0, Math.round(input.experienceYears))
   if (!Number.isFinite(experienceYears) || experienceYears > 60) {
@@ -275,7 +273,6 @@ export async function signUpInterviewer(input: SignUpInterviewerInput): Promise<
         timezone: input.timezone?.trim() || detectBrowserTimezone(),
         phone: input.phone?.trim() || '',
         current_role: input.currentRole.trim(),
-        company: input.company.trim(),
         experience_years: String(experienceYears),
       },
     },
