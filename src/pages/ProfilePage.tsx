@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CheckCircle2, Circle } from 'lucide-react'
 import { CandidatePreviewCard } from '../components/profile/CandidatePreviewCard.tsx'
+import { ExperienceLevelPicker } from '../components/profile/ExperienceLevelPicker.tsx'
 import { ExpertiseFields, type ExpertiseValue } from '../components/profile/ExpertiseFields.tsx'
 import { ReadinessCard } from '../components/profile/ReadinessCard.tsx'
 import { SkillManager } from '../components/profile/SkillManager.tsx'
@@ -290,6 +291,18 @@ export function ProfilePage() {
               />
               <div className="mt-5">
                 <ExpertiseFields idPrefix="profile" value={expertise} onChange={setExpertise} showSkills={false} />
+              </div>
+              <div className="mt-8 border-t border-slate-100 pt-5">
+                <p className="text-sm font-semibold text-navy-950">Recommended experience levels</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Levels candidates can book with you. Pick every band you interview.
+                </p>
+                <div className="mt-3">
+                  <ExperienceLevelPicker
+                    value={expertise.candidateLevels}
+                    onChange={(candidateLevels) => setExpertise((current) => ({ ...current, candidateLevels }))}
+                  />
+                </div>
               </div>
               <div className="mt-8 border-t border-slate-100 pt-5">
                 <p className="text-sm font-semibold text-navy-950">Interview formats</p>

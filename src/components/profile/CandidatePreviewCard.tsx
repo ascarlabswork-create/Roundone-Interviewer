@@ -143,7 +143,7 @@ export function CandidatePreviewCard({
             {!hasProfessional ? (
               <p className="mt-1 text-sm sm:text-base">
                 <a href="#section-professional" className="font-medium text-coral-700 hover:underline">
-                  Add your current role and company
+                  Add your current role
                 </a>
               </p>
             ) : null}

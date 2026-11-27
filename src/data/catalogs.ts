@@ -12,22 +12,19 @@ export const INTERVIEW_TYPES = [
 
 export type InterviewType = (typeof INTERVIEW_TYPES)[number]
 
-export const CANDIDATE_LEVELS = [
-  'Intern',
-  'New Grad',
-  'Junior',
-  'SDE 1',
-  'SDE 2',
-  'SDE 3',
-  'Senior',
-  'Staff',
-  'Senior Staff',
-  'Principal',
-  'Lead',
-  'Engineering Manager',
+/** Experience levels interviewers can offer — same shape candidates expect when booking. */
+export const EXPERIENCE_LEVELS = [
+  { id: 'Intern/New Grad', label: 'Intern/New Grad', description: '' },
+  { id: 'Entry Level', label: 'Entry Level', description: '1–3 years' },
+  { id: 'Mid Level', label: 'Mid Level', description: '2–5 years' },
+  { id: 'Senior Level', label: 'Senior Level', description: '5+ years, project leader' },
+  { id: 'Lead/Staff', label: 'Lead/Staff', description: 'Cross-team leader / domain expert' },
+  { id: 'Director/Executive', label: 'Director/Executive', description: 'Director / VP / CXO' },
 ] as const
 
-export type CandidateLevel = (typeof CANDIDATE_LEVELS)[number]
+export type CandidateLevel = (typeof EXPERIENCE_LEVELS)[number]['id']
+
+export const CANDIDATE_LEVELS = EXPERIENCE_LEVELS.map((level) => level.id) as unknown as readonly CandidateLevel[]
 
 export const TARGET_ROLES = [
   'Software Engineer',

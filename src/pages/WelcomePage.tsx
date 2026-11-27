@@ -1,10 +1,11 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
+import { ExperienceLevelPicker } from '../components/profile/ExperienceLevelPicker.tsx'
 import { ExpertiseFields, QuickAdd, type ExpertiseValue } from '../components/profile/ExpertiseFields.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { RoleSuggestInput } from '../components/ui/RoleSuggestInput.tsx'
 import { Card, FieldLabel, TextArea, TextInput } from '../components/ui/primitives.tsx'
-import { CANDIDATE_LEVELS, COMPANIES, INTERVIEW_TYPES, QUICK_ROLES, TARGET_ROLES } from '../data/catalogs.ts'
+import { COMPANIES, INTERVIEW_TYPES, QUICK_ROLES, TARGET_ROLES } from '../data/catalogs.ts'
 import {
   isInterviewWelcomePlaceholder,
   needsInterviewWelcome,
@@ -78,7 +79,7 @@ export function WelcomePage() {
     const currentCompany = company.trim()
     const experience = Number(years)
     if (!currentRole || !currentCompany) {
-      setError('Add your current role and company so candidates know who is interviewing them.')
+      setError('Add your current role and company for verification. Candidates see your role, not your company.')
       return
     }
     if (!Number.isFinite(experience) || experience < 0 || experience > 60) {
@@ -244,25 +245,15 @@ export function WelcomePage() {
           <ExpertiseFields idPrefix="welcome" value={expertise} onChange={setExpertise} />
 
           <fieldset>
-            <legend className="text-sm font-semibold text-navy-950">Seniority you interview</legend>
-            <p className="mt-1 text-xs text-slate-500">Candidates book the level they are preparing for.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {CANDIDATE_LEVELS.map((item) => {
-                const selected = expertise.candidateLevels.includes(item)
-                return (
-                  <button
-                    key={item}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() =>
-                      setExpertise((current) => ({ ...current, candidateLevels: toggle(current.candidateLevels, item) }))
-                    }
-                    className={chipClass(selected)}
-                  >
-                    {item}
-                  </button>
-                )
-              })}
+            <legend className="text-sm font-semibold text-navy-950">Recommended experience levels</legend>
+            <p className="mt-1 text-xs text-slate-500">
+              Pick every level you are ready to interview. Candidates book against these options.
+            </p>
+            <div className="mt-3">
+              <ExperienceLevelPicker
+                value={expertise.candidateLevels}
+                onChange={(candidateLevels) => setExpertise((current) => ({ ...current, candidateLevels }))}
+              />
             </div>
           </fieldset>
 
