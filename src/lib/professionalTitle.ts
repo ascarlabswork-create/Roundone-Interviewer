@@ -3,13 +3,6 @@ export function normalizeProfessionalText(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
-function textIncludesCompany(haystack: string, company: string) {
-  const h = normalizeProfessionalText(haystack)
-  const c = normalizeProfessionalText(company)
-  if (!c) return false
-  return h.includes(c) || h.includes(`@ ${c}`)
-}
-
 /** First phrase of a headline before · / @ / dash separators. */
 function headlineLead(headline: string) {
   const h = normalizeProfessionalText(headline)
@@ -37,12 +30,13 @@ export function headlineCoversRole(headline: string, role: string) {
 export type ProfessionalTitleLines = {
   /** Distinct headline, or empty when it only repeats the role. */
   headline: string
-  /** Role @ company, company alone, or empty when already covered by headline. */
+  /** Role only, or empty when already covered by headline. Company is never shown. */
   detail: string
 }
 
 /**
  * Build non-duplicated title lines for interviewer profile cards.
+ * Company is kept off candidate-facing copy — show role / headline only.
  * Example bug: headline "software Engineer · System Design" + detail "software Engineer @ asc".
  */
 export function professionalTitleLines(input: {
@@ -51,25 +45,22 @@ export function professionalTitleLines(input: {
   company?: string | null
 }): ProfessionalTitleLines {
   const role = (input.currentRole ?? '').trim()
-  const company = (input.company ?? '').trim()
   const rawHeadline = (input.headline ?? '').trim()
-  const roleAtCompany = [role, company].filter(Boolean).join(' @ ')
+  // company is intentionally ignored for public/candidate display
+  void input.company
 
-  const headlineIsOnlyRoleOrJob =
-    !rawHeadline ||
-    normalizeProfessionalText(rawHeadline) === normalizeProfessionalText(role) ||
-    normalizeProfessionalText(rawHeadline) === normalizeProfessionalText(roleAtCompany)
+  const headlineIsOnlyRole =
+    !rawHeadline || normalizeProfessionalText(rawHeadline) === normalizeProfessionalText(role)
 
-  const headline = headlineIsOnlyRoleOrJob ? '' : rawHeadline
+  const headline = headlineIsOnlyRole ? '' : rawHeadline
 
   if (!headline) {
-    return { headline: '', detail: roleAtCompany }
+    return { headline: '', detail: role }
   }
 
   if (headlineCoversRole(headline, role)) {
-    const companyOnly = company && !textIncludesCompany(headline, company) ? company : ''
-    return { headline, detail: companyOnly }
+    return { headline, detail: '' }
   }
 
-  return { headline, detail: roleAtCompany }
+  return { headline, detail: role }
 }

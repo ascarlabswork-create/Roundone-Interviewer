@@ -11,11 +11,11 @@ describe('professionalTitleLines', () => {
       }),
     ).toEqual({
       headline: 'software Engineer · System Design',
-      detail: 'asc',
+      detail: '',
     })
   })
 
-  it('hides headline when it only duplicates the role', () => {
+  it('hides headline when it only duplicates the role and never shows company', () => {
     expect(
       professionalTitleLines({
         headline: 'Software Engineer',
@@ -24,7 +24,7 @@ describe('professionalTitleLines', () => {
       }),
     ).toEqual({
       headline: '',
-      detail: 'software engineer @ Acme',
+      detail: 'software engineer',
     })
   })
 
@@ -37,11 +37,11 @@ describe('professionalTitleLines', () => {
       }),
     ).toEqual({
       headline: 'Helping teams hire better',
-      detail: 'Staff Engineer @ Acme',
+      detail: 'Staff Engineer',
     })
   })
 
-  it('collapses headline that is exactly role @ company into one detail line', () => {
+  it('keeps a role@company headline as-is and still omits a company detail line', () => {
     expect(
       professionalTitleLines({
         headline: 'Engineer @ Asc Labs',
@@ -49,8 +49,8 @@ describe('professionalTitleLines', () => {
         company: 'Asc Labs',
       }),
     ).toEqual({
-      headline: '',
-      detail: 'Engineer @ Asc Labs',
+      headline: 'Engineer @ Asc Labs',
+      detail: '',
     })
   })
 })
