@@ -379,23 +379,41 @@ export function dateCalendarKind(
   return 'unavailable'
 }
 
-export function scheduleSummary(draft: ScheduleDraft, customDates: ReadonlySet<string>) {
+export function scheduleSummary(
+  draft: ScheduleDraft,
+  customDates: ReadonlySet<string>,
+  blockedDates: ReadonlySet<string> = new Set(),
+) {
   const dates = eachDateInRange(draft.from, draft.until)
   let common = 0
   let custom = 0
   let closed = 0
+  let blocked = 0
   for (const date of dates) {
-    const kind = dateCalendarKind(date, draft, customDates)
-    if (kind === 'custom') custom += 1
+    const kind = dateCalendarKind(date, draft, customDates, blockedDates)
+    if (blockedDates.has(date)) blocked += 1
+    else if (kind === 'custom') custom += 1
     else if (kind === 'available') common += 1
     else closed += 1
   }
   return {
     total: dates.length,
+    available: common + custom,
     common,
     custom,
     closed,
+    blocked,
   }
+}
+
+/** Inclusive range length minus days marked unavailable. */
+export function countAvailableDays(
+  from: string,
+  until: string,
+  blockedDates: ReadonlySet<string> = new Set(),
+) {
+  const dates = eachDateInRange(from, until)
+  return dates.filter((date) => !blockedDates.has(date)).length
 }
 
 export type MonthCell = {

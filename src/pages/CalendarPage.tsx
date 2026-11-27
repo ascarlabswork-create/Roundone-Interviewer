@@ -212,6 +212,49 @@ export function CalendarPage() {
     }
   }
 
+  async function onBlockDate(date: string) {
+    if (!board) return
+    try {
+      // Replace any partial blocks and clear custom hours so the day is fully closed.
+      const existingBlocks = board.blockedTimes.filter((item) => item.on_date === date)
+      for (const item of existingBlocks) {
+        await deleteBlockedTime(item.id)
+      }
+      const existingCustom = board.customSlots.filter((slot) => slot.on_date === date)
+      for (const slot of existingCustom) {
+        await deleteCustomSlot(slot.id)
+      }
+      await createBlockedTime({
+        onDate: date,
+        allDay: true,
+        reason: 'Day off',
+      })
+      await refreshBoard()
+      pushToast('Day marked unavailable')
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not mark this day unavailable.'
+      pushToast(message)
+      throw caught instanceof Error ? caught : new Error(message)
+    }
+  }
+
+  async function onUnblockDate(date: string) {
+    if (!board) return
+    try {
+      // Clear every block on that civil date so common/custom hours can book again.
+      const existingBlocks = board.blockedTimes.filter((item) => item.on_date === date)
+      for (const item of existingBlocks) {
+        await deleteBlockedTime(item.id)
+      }
+      await refreshBoard()
+      pushToast('Day is available again')
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not make this day available.'
+      pushToast(message)
+      throw caught instanceof Error ? caught : new Error(message)
+    }
+  }
+
   async function onBufferChange(bufferMin: BookingBufferMinutes) {
     await runMutation(() => updateMyBookingBuffer(bufferMin))
   }
@@ -277,6 +320,8 @@ export function CalendarPage() {
             onSave={(draft) => void onSaveSchedule(draft)}
             onSaveDateCustom={onSaveDateCustom}
             onResetDateCustom={onResetDateCustom}
+            onBlockDate={onBlockDate}
+            onUnblockDate={onUnblockDate}
           />
 
           <Card className="p-5">
