@@ -94,7 +94,7 @@ export function InterviewScheduleCard({
 }: {
   board: AvailabilityBoard
   saving: boolean
-  onSave: (draft: ScheduleDraft) => void
+  onSave: (draft: ScheduleDraft) => Promise<void> | void
   onSaveDateCustom?: (date: string, windows: DateOverrideWindow[]) => Promise<void> | void
   onResetDateCustom?: (date: string) => Promise<void> | void
   /** Mark a day inside the range as unavailable (all-day block). */
@@ -102,11 +102,11 @@ export function InterviewScheduleCard({
   /** Clear the all-day block so common/custom hours apply again. */
   onUnblockDate?: (date: string) => Promise<void> | void
 }) {
-  const savedKey = [
+  // Only range + weekly hours. Day-off / custom slot updates must not wipe the draft range.
+  const scheduleKey = [
     board.availableFrom ?? '',
     board.availableUntil ?? '',
     ...board.availability.map((row) => `${row.id}:${row.weekday}:${row.start_time}:${row.end_time}`),
-    ...board.customSlots.map((row) => `${row.id}:${row.on_date}:${row.start_time}:${row.end_time}`),
   ].join('|')
 
   const [draft, setDraft] = useState(() =>
@@ -149,7 +149,7 @@ export function InterviewScheduleCard({
         current <= next.until
       return keep ? current : fallback
     })
-  }, [savedKey, board.availableFrom, board.availableUntil, board.availability, board.customSlots])
+  }, [scheduleKey, board.availableFrom, board.availableUntil, board.availability])
 
   useEffect(() => {
     if (blockedDates.has(selectedDate)) {
@@ -214,10 +214,20 @@ export function InterviewScheduleCard({
     window.setTimeout(() => setApplyFlash(false), 900)
   }
 
+  async function persistScheduleIfNeeded() {
+    if (!dirty) return
+    const saveErrors = validateScheduleDraft(draft)
+    if (saveErrors.length > 0) {
+      setAttempted(true)
+      throw new Error(saveErrors[0] ?? 'Save your date range and common hours first.')
+    }
+    await onSave(draft)
+  }
+
   function save() {
     setAttempted(true)
     if (errors.length > 0) return
-    onSave(draft)
+    void onSave(draft)
   }
 
   async function saveDateCustom() {
@@ -233,6 +243,7 @@ export function InterviewScheduleCard({
     setDateSaving(true)
     setDateMessage(null)
     try {
+      await persistScheduleIfNeeded()
       await onSaveDateCustom(selectedDate, dateWindows)
       setDateMessage('Custom hours saved for this date.')
     } catch (caught) {
@@ -261,12 +272,24 @@ export function InterviewScheduleCard({
 
   async function blockSelectedDate() {
     if (!onBlockDate) return
+    if (!draft.from || !draft.until) {
+      setDateMessage('Choose a start and end date first, then mark a day off inside that range.')
+      return
+    }
+    if (selectedDate < draft.from || selectedDate > draft.until) {
+      setDateMessage('Pick a day inside your date range to mark it unavailable.')
+      return
+    }
     setDateSaving(true)
     setDateMessage(null)
     try {
+      // Keep the range on the server so a day-off refresh cannot wipe the calendar.
+      await persistScheduleIfNeeded()
       await onBlockDate(selectedDate)
       setDateWindows([])
-      setDateMessage('This day is unavailable. Candidates cannot book it.')
+      setDateMessage(
+        `${formatDateLong(`${selectedDate}T12:00:00`)} is now a day off. Your ${draft.from} → ${draft.until} range stays set.`,
+      )
     } catch (caught) {
       setDateMessage(caught instanceof Error ? caught.message : 'Could not mark this day unavailable.')
     } finally {
@@ -290,7 +313,7 @@ export function InterviewScheduleCard({
             ? cloneWindows(weekly.windows)
             : cloneWindows(draft.commonWindows),
       )
-      setDateMessage('This day is available again.')
+      setDateMessage('This day is available again. Your date range is unchanged.')
     } catch (caught) {
       setDateMessage(caught instanceof Error ? caught.message : 'Could not make this day available.')
     } finally {
@@ -310,8 +333,8 @@ export function InterviewScheduleCard({
               <h2 className="text-xl font-semibold tracking-tight">Interview Availability</h2>
             </div>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Set your date window, apply shared hours, then customize or turn off any single day inside that range.
-              Nothing is published until you save.
+              1) Pick start and end dates. 2) Apply common hours. 3) Open any day to customize hours or mark it as a day
+              off. Your range stays put when you turn one day off.
             </p>
           </div>
           <span
@@ -400,7 +423,8 @@ export function InterviewScheduleCard({
                 </div>
               ) : (
                 <p className="text-xs text-slate-500">
-                  Need a day off inside the range? Open that date in the calendar and mark it unavailable.
+                  Example: range 28 Nov–2 Dec, then open 29 Nov and choose “Mark day unavailable”. The other days stay
+                  bookable.
                 </p>
               )}
             </div>

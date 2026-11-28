@@ -213,14 +213,23 @@ export function CalendarPage() {
   }
 
   async function onBlockDate(date: string) {
-    if (!board) return
     try {
+      // Always read latest board — range may have just been auto-saved before this call.
+      const latest = await loadMyAvailabilityBoard()
+      setBoard(latest)
+      if (
+        !isDateWithinRange(date, latest.availableFrom, latest.availableUntil)
+      ) {
+        throw new Error(
+          `Save a date range that includes this day first (${describeAvailableRange(latest)}).`,
+        )
+      }
       // Replace any partial blocks and clear custom hours so the day is fully closed.
-      const existingBlocks = board.blockedTimes.filter((item) => item.on_date === date)
+      const existingBlocks = latest.blockedTimes.filter((item) => item.on_date === date)
       for (const item of existingBlocks) {
         await deleteBlockedTime(item.id)
       }
-      const existingCustom = board.customSlots.filter((slot) => slot.on_date === date)
+      const existingCustom = latest.customSlots.filter((slot) => slot.on_date === date)
       for (const slot of existingCustom) {
         await deleteCustomSlot(slot.id)
       }
@@ -230,7 +239,7 @@ export function CalendarPage() {
         reason: 'Day off',
       })
       await refreshBoard()
-      pushToast('Day marked unavailable')
+      pushToast('Day marked unavailable — your date range is unchanged')
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Could not mark this day unavailable.'
       pushToast(message)
@@ -239,15 +248,15 @@ export function CalendarPage() {
   }
 
   async function onUnblockDate(date: string) {
-    if (!board) return
     try {
-      // Clear every block on that civil date so common/custom hours can book again.
-      const existingBlocks = board.blockedTimes.filter((item) => item.on_date === date)
+      const latest = await loadMyAvailabilityBoard()
+      setBoard(latest)
+      const existingBlocks = latest.blockedTimes.filter((item) => item.on_date === date)
       for (const item of existingBlocks) {
         await deleteBlockedTime(item.id)
       }
       await refreshBoard()
-      pushToast('Day is available again')
+      pushToast('Day is available again — your date range is unchanged')
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Could not make this day available.'
       pushToast(message)
@@ -317,7 +326,7 @@ export function CalendarPage() {
           <InterviewScheduleCard
             board={board}
             saving={saving}
-            onSave={(draft) => void onSaveSchedule(draft)}
+            onSave={onSaveSchedule}
             onSaveDateCustom={onSaveDateCustom}
             onResetDateCustom={onResetDateCustom}
             onBlockDate={onBlockDate}
