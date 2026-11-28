@@ -432,8 +432,8 @@ export function InterviewScheduleCard({
 
           <Panel step={2} title="Set Common Time Slots">
             <p className="mb-3 text-xs text-slate-500">
-              These hours repeat on every weekday inside your date range. Apply once, then customize individual dates
-              below.
+              These hours repeat on every open day in your range (days off stay closed). Set the slots, pick how to
+              apply them, then press Apply.
             </p>
             <div className="space-y-2">
               {draft.commonWindows.map((window, index) => (
@@ -480,32 +480,47 @@ export function InterviewScheduleCard({
               Add another time slot
             </button>
 
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              {(
-                [
-                  { mode: 'replace' as const, title: 'Replace existing', body: 'Overwrite weekday hours with these slots.' },
-                  { mode: 'add' as const, title: 'Add to existing', body: 'Keep current hours and append these slots.' },
-                ] as const
-              ).map((option) => {
-                const active = draft.applyMode === option.mode
-                return (
-                  <button
-                    key={option.mode}
-                    type="button"
-                    disabled={saving}
-                    onClick={() => setDraft((current) => ({ ...current, applyMode: option.mode }))}
-                    className={cn(
-                      'rounded-xl border px-3 py-3 text-left transition-all duration-200',
-                      active
-                        ? 'border-navy-950 bg-navy-950 text-white shadow-md'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-navy-950/30',
-                    )}
-                  >
-                    <p className="text-sm font-semibold">{option.title}</p>
-                    <p className={cn('mt-1 text-xs', active ? 'text-white/70' : 'text-slate-500')}>{option.body}</p>
-                  </button>
-                )
-              })}
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                When you press Apply, what should happen?
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(
+                  [
+                    {
+                      mode: 'replace' as const,
+                      title: 'Use only these hours',
+                      body: 'Recommended. Clears old hours and uses only the slots above (example: only 1–5 PM).',
+                    },
+                    {
+                      mode: 'add' as const,
+                      title: 'Keep old hours + add these',
+                      body: 'If you already had 9–12, that stays, and the slots above are added next to it.',
+                    },
+                  ] as const
+                ).map((option) => {
+                  const active = draft.applyMode === option.mode
+                  return (
+                    <button
+                      key={option.mode}
+                      type="button"
+                      disabled={saving}
+                      onClick={() => setDraft((current) => ({ ...current, applyMode: option.mode }))}
+                      className={cn(
+                        'rounded-xl border px-3 py-3 text-left transition-all duration-200',
+                        active
+                          ? 'border-navy-950 bg-navy-950 text-white shadow-md'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-navy-950/30',
+                      )}
+                    >
+                      <p className="text-sm font-semibold">{option.title}</p>
+                      <p className={cn('mt-1 text-xs leading-5', active ? 'text-white/75' : 'text-slate-500')}>
+                        {option.body}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             <Button
