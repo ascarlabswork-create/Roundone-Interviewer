@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   applyCommonSlotsToDays,
   applyTimeToSelectedDays,
+  countAvailableDays,
   countInclusiveDays,
   dateCalendarKind,
   scheduleDraftFromAvailability,
@@ -74,13 +75,34 @@ describe('calendar helpers', () => {
     expect(dateCalendarKind('2026-11-01', draft, new Set())).toBe('outside')
   })
 
+  it('marks blocked days unavailable even when weekly hours apply', () => {
+    const draft = applyCommonSlotsToDays(scheduleDraftFromAvailability('2026-11-27', '2026-11-30', []))
+    expect(dateCalendarKind('2026-11-29', draft, new Set(), new Set(['2026-11-29']))).toBe('unavailable')
+    expect(dateCalendarKind('2026-11-28', draft, new Set(), new Set(['2026-11-29']))).toBe('available')
+    expect(countAvailableDays('2026-11-27', '2026-11-30', new Set(['2026-11-29']))).toBe(3)
+  })
+
   it('summarizes common vs custom dates in the window', () => {
     const draft = applyCommonSlotsToDays(scheduleDraftFromAvailability('2026-11-10', '2026-11-12', []))
     expect(scheduleSummary(draft, new Set(['2026-11-11']))).toEqual({
       total: 3,
+      available: 3,
       common: 2,
       custom: 1,
       closed: 0,
+      blocked: 0,
+    })
+  })
+
+  it('counts blocked days separately in the window summary', () => {
+    const draft = applyCommonSlotsToDays(scheduleDraftFromAvailability('2026-11-27', '2026-11-30', []))
+    expect(scheduleSummary(draft, new Set(), new Set(['2026-11-29']))).toEqual({
+      total: 4,
+      available: 3,
+      common: 3,
+      custom: 0,
+      closed: 0,
+      blocked: 1,
     })
   })
 })

@@ -12,8 +12,10 @@ import {
   addCommonWindow,
   applyCommonSlotsToDays,
   buildMonthCells,
+  countAvailableDays,
   countInclusiveDays,
   dateCalendarKind,
+  eachDateInRange,
   removeCommonWindow,
   scheduleDraftFromAvailability,
   scheduleSummary,
@@ -87,18 +89,24 @@ export function InterviewScheduleCard({
   onSave,
   onSaveDateCustom,
   onResetDateCustom,
+  onBlockDate,
+  onUnblockDate,
 }: {
   board: AvailabilityBoard
   saving: boolean
-  onSave: (draft: ScheduleDraft) => void
+  onSave: (draft: ScheduleDraft) => Promise<void> | void
   onSaveDateCustom?: (date: string, windows: DateOverrideWindow[]) => Promise<void> | void
   onResetDateCustom?: (date: string) => Promise<void> | void
+  /** Mark a day inside the range as unavailable (all-day block). */
+  onBlockDate?: (date: string) => Promise<void> | void
+  /** Clear the all-day block so common/custom hours apply again. */
+  onUnblockDate?: (date: string) => Promise<void> | void
 }) {
-  const savedKey = [
+  // Only range + weekly hours. Day-off / custom slot updates must not wipe the draft range.
+  const scheduleKey = [
     board.availableFrom ?? '',
     board.availableUntil ?? '',
     ...board.availability.map((row) => `${row.id}:${row.weekday}:${row.start_time}:${row.end_time}`),
-    ...board.customSlots.map((row) => `${row.id}:${row.on_date}:${row.start_time}:${row.end_time}`),
   ].join('|')
 
   const [draft, setDraft] = useState(() =>
@@ -118,6 +126,12 @@ export function InterviewScheduleCard({
   const [dateSaving, setDateSaving] = useState(false)
   const [dateMessage, setDateMessage] = useState<string | null>(null)
 
+  const customDates = useMemo(() => new Set(board.customSlots.map((slot) => slot.on_date)), [board.customSlots])
+  const blockedDates = useMemo(
+    () => new Set(board.blockedTimes.filter((row) => row.all_day).map((row) => row.on_date)),
+    [board.blockedTimes],
+  )
+
   useEffect(() => {
     const next = scheduleDraftFromAvailability(board.availableFrom, board.availableUntil, board.availability)
     setDraft(next)
@@ -125,31 +139,55 @@ export function InterviewScheduleCard({
     setApplyError(null)
     const seed = next.from ? fromYMD(next.from) : new Date()
     setMonthCursor(new Date(seed.getFullYear(), seed.getMonth(), 1))
-    const nextSelected = next.from || toISODate(new Date())
-    setSelectedDate(nextSelected)
-    setDateWindows(windowsFromCustomSlots(board.customSlots, nextSelected))
-  }, [savedKey, board.availableFrom, board.availableUntil, board.availability, board.customSlots])
+    setSelectedDate((current) => {
+      const fallback = next.from || toISODate(new Date())
+      const keep =
+        Boolean(current) &&
+        Boolean(next.from) &&
+        Boolean(next.until) &&
+        current >= next.from &&
+        current <= next.until
+      return keep ? current : fallback
+    })
+  }, [scheduleKey, board.availableFrom, board.availableUntil, board.availability])
+
+  useEffect(() => {
+    if (blockedDates.has(selectedDate)) {
+      setDateWindows([])
+      return
+    }
+    const custom = windowsFromCustomSlots(board.customSlots, selectedDate)
+    if (custom.length > 0) setDateWindows(custom)
+  }, [board.customSlots, blockedDates, selectedDate])
 
   const errors = validateScheduleDraft(draft)
   const saved = scheduleDraftFromAvailability(board.availableFrom, board.availableUntil, board.availability)
   const dirty = JSON.stringify({ ...draft, applyMode: 'replace' }) !== JSON.stringify({ ...saved, applyMode: 'replace' })
 
-  const customDates = useMemo(() => new Set(board.customSlots.map((slot) => slot.on_date)), [board.customSlots])
-  const blockedDates = useMemo(
-    () => new Set(board.blockedTimes.filter((row) => row.all_day).map((row) => row.on_date)),
-    [board.blockedTimes],
+  const excludedInRange = useMemo(
+    () => eachDateInRange(draft.from, draft.until).filter((date) => blockedDates.has(date)),
+    [draft.from, draft.until, blockedDates],
   )
-  const summary = scheduleSummary(draft, customDates)
+  const summary = scheduleSummary(draft, customDates, blockedDates)
   const selectedCount = countInclusiveDays(draft.from, draft.until)
+  const availableCount = countAvailableDays(draft.from, draft.until, blockedDates)
   const monthCells = buildMonthCells(monthCursor)
   const monthLabel = monthCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
   const selectedKind = dateCalendarKind(selectedDate, draft, customDates, blockedDates)
   const selectedHasCustom = customDates.has(selectedDate)
+  const selectedIsBlocked = blockedDates.has(selectedDate)
+  const selectedInRange = Boolean(
+    draft.from && draft.until && selectedDate >= draft.from && selectedDate <= draft.until,
+  )
   const commonWindowsPreview = draft.days.find((day) => day.enabled)?.windows ?? draft.commonWindows
 
   function selectDate(date: string) {
     setSelectedDate(date)
     setDateMessage(null)
+    if (blockedDates.has(date)) {
+      setDateWindows([])
+      return
+    }
     const custom = windowsFromCustomSlots(board.customSlots, date)
     if (custom.length > 0) {
       setDateWindows(custom)
@@ -176,10 +214,20 @@ export function InterviewScheduleCard({
     window.setTimeout(() => setApplyFlash(false), 900)
   }
 
+  async function persistScheduleIfNeeded() {
+    if (!dirty) return
+    const saveErrors = validateScheduleDraft(draft)
+    if (saveErrors.length > 0) {
+      setAttempted(true)
+      throw new Error(saveErrors[0] ?? 'Save your date range and common hours first.')
+    }
+    await onSave(draft)
+  }
+
   function save() {
     setAttempted(true)
     if (errors.length > 0) return
-    onSave(draft)
+    void onSave(draft)
   }
 
   async function saveDateCustom() {
@@ -195,6 +243,7 @@ export function InterviewScheduleCard({
     setDateSaving(true)
     setDateMessage(null)
     try {
+      await persistScheduleIfNeeded()
       await onSaveDateCustom(selectedDate, dateWindows)
       setDateMessage('Custom hours saved for this date.')
     } catch (caught) {
@@ -221,6 +270,57 @@ export function InterviewScheduleCard({
     }
   }
 
+  async function blockSelectedDate() {
+    if (!onBlockDate) return
+    if (!draft.from || !draft.until) {
+      setDateMessage('Choose a start and end date first, then mark a day off inside that range.')
+      return
+    }
+    if (selectedDate < draft.from || selectedDate > draft.until) {
+      setDateMessage('Pick a day inside your date range to mark it unavailable.')
+      return
+    }
+    setDateSaving(true)
+    setDateMessage(null)
+    try {
+      // Keep the range on the server so a day-off refresh cannot wipe the calendar.
+      await persistScheduleIfNeeded()
+      await onBlockDate(selectedDate)
+      setDateWindows([])
+      setDateMessage(
+        `${formatDateLong(`${selectedDate}T12:00:00`)} is now a day off. Your ${draft.from} → ${draft.until} range stays set.`,
+      )
+    } catch (caught) {
+      setDateMessage(caught instanceof Error ? caught.message : 'Could not mark this day unavailable.')
+    } finally {
+      setDateSaving(false)
+    }
+  }
+
+  async function unblockSelectedDate() {
+    if (!onUnblockDate) return
+    setDateSaving(true)
+    setDateMessage(null)
+    try {
+      await onUnblockDate(selectedDate)
+      const weekday = fromYMD(selectedDate).getDay()
+      const weekly = draft.days[weekday]
+      const custom = windowsFromCustomSlots(board.customSlots, selectedDate)
+      setDateWindows(
+        custom.length > 0
+          ? custom
+          : weekly?.enabled
+            ? cloneWindows(weekly.windows)
+            : cloneWindows(draft.commonWindows),
+      )
+      setDateMessage('This day is available again. Your date range is unchanged.')
+    } catch (caught) {
+      setDateMessage(caught instanceof Error ? caught.message : 'Could not make this day available.')
+    } finally {
+      setDateSaving(false)
+    }
+  }
+
   return (
     <Card className="overflow-hidden border-navy-950/10 p-0 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.45)]">
       <div className="relative overflow-hidden border-b border-navy-950/8 bg-gradient-to-br from-white via-coral-50/70 to-paper-deep/80 px-5 py-6 text-navy-950 sm:px-6">
@@ -233,8 +333,8 @@ export function InterviewScheduleCard({
               <h2 className="text-xl font-semibold tracking-tight">Interview Availability</h2>
             </div>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Set your date window, apply shared hours across those days, then customize any single date. Nothing is
-              published until you save.
+              1) Pick start and end dates. 2) Apply common hours. 3) Open any day to customize hours or mark it as a day
+              off. Your range stays put when you turn one day off.
             </p>
           </div>
           <span
@@ -287,14 +387,46 @@ export function InterviewScheduleCard({
                 />
               </div>
             </div>
-            <div className="mt-4 flex items-center justify-between rounded-xl border border-navy-950/8 bg-slate-50 px-4 py-3">
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                <CalendarDays className="h-4 w-4 text-navy-700" aria-hidden />
-                <span>Days in window</span>
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between rounded-xl border border-navy-950/8 bg-slate-50 px-4 py-3">
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <CalendarDays className="h-4 w-4 text-navy-700" aria-hidden />
+                  <span>Days in window</span>
+                </div>
+                <span className="text-sm font-semibold text-navy-950">
+                  {selectedCount > 0
+                    ? excludedInRange.length > 0
+                      ? `${availableCount} available · ${excludedInRange.length} day off`
+                      : `${selectedCount} days selected`
+                    : 'Set both dates'}
+                </span>
               </div>
-              <span className="text-sm font-semibold text-navy-950">
-                {selectedCount > 0 ? `${selectedCount} days selected` : 'Set both dates'}
-              </span>
+              {excludedInRange.length > 0 ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950">
+                  <p className="font-medium">Days off inside this range</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {excludedInRange.map((date) => (
+                      <button
+                        key={date}
+                        type="button"
+                        disabled={saving}
+                        onClick={() => selectDate(date)}
+                        className="rounded-full bg-white px-2.5 py-1 font-medium text-amber-900 ring-1 ring-amber-200 transition hover:bg-amber-100"
+                      >
+                        {formatDateLong(`${date}T12:00:00`)}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-amber-800/80">
+                    Select a day in the calendar and choose “Make available again” to reopen it.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  Example: range 28 Nov–2 Dec, then open 29 Nov and choose “Mark day unavailable”. The other days stay
+                  bookable.
+                </p>
+              )}
             </div>
           </Panel>
 
@@ -387,7 +519,13 @@ export function InterviewScheduleCard({
                   <Check className="h-4 w-4" /> Applied
                 </span>
               ) : (
-                `Apply to ${selectedCount > 0 ? `all ${selectedCount} dates` : 'date range'}`
+                `Apply to ${
+                  availableCount > 0
+                    ? excludedInRange.length > 0
+                      ? `${availableCount} open dates`
+                      : `all ${availableCount} dates`
+                    : 'date range'
+                }`
               )}
             </Button>
             {applyError ? <p className="mt-2 text-sm text-red-700">{applyError}</p> : null}
@@ -430,6 +568,7 @@ export function InterviewScheduleCard({
             <div className="mt-1 grid grid-cols-7 gap-1">
               {monthCells.map((cell) => {
                 const kind = dateCalendarKind(cell.date, draft, customDates, blockedDates)
+                const isBlocked = blockedDates.has(cell.date)
                 const selected = cell.date === selectedDate
                 return (
                   <button
@@ -437,22 +576,35 @@ export function InterviewScheduleCard({
                     type="button"
                     disabled={saving || !cell.inMonth}
                     onClick={() => selectDate(cell.date)}
+                    aria-label={
+                      isBlocked
+                        ? `${cell.date}, day off`
+                        : kind === 'custom'
+                          ? `${cell.date}, custom hours`
+                          : kind === 'available'
+                            ? `${cell.date}, available`
+                            : cell.date
+                    }
                     className={cn(
                       'relative aspect-square rounded-xl text-sm transition-all duration-200',
                       !cell.inMonth && 'opacity-25',
-                      cell.inMonth && kind === 'available' && 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100',
-                      cell.inMonth && kind === 'custom' && 'bg-navy-950 text-white shadow-md',
-                      cell.inMonth && kind === 'unavailable' && 'bg-slate-50 text-slate-400 hover:bg-slate-100',
+                      cell.inMonth && isBlocked && 'bg-rose-50 text-rose-700 line-through hover:bg-rose-100',
+                      cell.inMonth && !isBlocked && kind === 'available' && 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100',
+                      cell.inMonth && !isBlocked && kind === 'custom' && 'bg-navy-950 text-white shadow-md',
+                      cell.inMonth && !isBlocked && kind === 'unavailable' && 'bg-slate-50 text-slate-400 hover:bg-slate-100',
                       cell.inMonth && kind === 'outside' && 'text-slate-300 hover:bg-slate-50',
                       selected && 'ring-2 ring-coral-500 ring-offset-1',
                     )}
                   >
                     {cell.dayNumber}
-                    {cell.inMonth && kind === 'available' ? (
+                    {cell.inMonth && !isBlocked && kind === 'available' ? (
                       <span className="absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-emerald-500" />
                     ) : null}
-                    {cell.inMonth && kind === 'custom' ? (
+                    {cell.inMonth && !isBlocked && kind === 'custom' ? (
                       <span className="absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-gold-400" />
+                    ) : null}
+                    {cell.inMonth && isBlocked ? (
+                      <span className="absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-rose-500" />
                     ) : null}
                   </button>
                 )
@@ -467,7 +619,10 @@ export function InterviewScheduleCard({
                 <span className="h-2.5 w-2.5 rounded-full bg-navy-950" /> Custom time
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-slate-300" /> Not available
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Day off
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-300" /> No hours
               </span>
             </div>
           </Panel>
@@ -479,107 +634,144 @@ export function InterviewScheduleCard({
                 <p className="mt-0.5 text-xs text-slate-500">
                   {selectedKind === 'outside'
                     ? 'Outside your date window'
-                    : selectedHasCustom
-                      ? 'Using custom hours for this date'
-                      : selectedKind === 'available'
-                        ? 'Using common hours for this weekday'
-                        : 'No bookable hours on this date yet'}
+                    : selectedIsBlocked
+                      ? 'Marked as a day off — candidates cannot book'
+                      : selectedHasCustom
+                        ? 'Using custom hours for this date'
+                        : selectedKind === 'available'
+                          ? 'Using common hours for this weekday'
+                          : 'No bookable hours on this date yet'}
                 </p>
               </div>
-              {selectedHasCustom ? (
+              {selectedIsBlocked ? (
+                <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">Day off</span>
+              ) : selectedHasCustom ? (
                 <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800">Customized</span>
               ) : null}
             </div>
 
-            <div className="mt-4 space-y-2">
-              {dateWindows.map((window, index) => (
-                <div
-                  key={`date-${selectedDate}-${index}`}
-                  className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5"
-                >
-                  <span className="min-w-20 text-xs font-medium text-slate-500">Slot {index + 1}</span>
-                  <ClockTimeInput
-                    value={window.startTime}
+            {selectedIsBlocked ? (
+              <div className="mt-4 space-y-3">
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-900">
+                  This date stays inside your range ({draft.from || '…'} → {draft.until || '…'}) but is closed for
+                  bookings. Other days in the window keep their hours.
+                </div>
+                {onUnblockDate ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={saving || dateSaving}
+                    onClick={() => void unblockSelectedDate()}
+                  >
+                    {dateSaving ? 'Saving…' : 'Make available again'}
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <>
+                <div className="mt-4 space-y-2">
+                  {dateWindows.map((window, index) => (
+                    <div
+                      key={`date-${selectedDate}-${index}`}
+                      className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5"
+                    >
+                      <span className="min-w-20 text-xs font-medium text-slate-500">Slot {index + 1}</span>
+                      <ClockTimeInput
+                        value={window.startTime}
+                        disabled={saving || dateSaving || !onSaveDateCustom}
+                        aria-label={`Date slot ${index + 1} start`}
+                        onChange={(startTime) =>
+                          setDateWindows((current) =>
+                            current.map((row, rowIndex) => (rowIndex === index ? { ...row, startTime } : row)),
+                          )
+                        }
+                      />
+                      <span className="text-sm text-slate-400">to</span>
+                      <ClockTimeInput
+                        value={window.endTime}
+                        disabled={saving || dateSaving || !onSaveDateCustom}
+                        aria-label={`Date slot ${index + 1} end`}
+                        onChange={(endTime) =>
+                          setDateWindows((current) =>
+                            current.map((row, rowIndex) => (rowIndex === index ? { ...row, endTime } : row)),
+                          )
+                        }
+                      />
+                      {dateWindows.length > 1 ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={saving || dateSaving || !onSaveDateCustom}
+                          onClick={() => setDateWindows((current) => current.filter((_, rowIndex) => rowIndex !== index))}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
                     disabled={saving || dateSaving || !onSaveDateCustom}
-                    aria-label={`Date slot ${index + 1} start`}
-                    onChange={(startTime) =>
-                      setDateWindows((current) =>
-                        current.map((row, rowIndex) => (rowIndex === index ? { ...row, startTime } : row)),
-                      )
-                    }
-                  />
-                  <span className="text-sm text-slate-400">to</span>
-                  <ClockTimeInput
-                    value={window.endTime}
-                    disabled={saving || dateSaving || !onSaveDateCustom}
-                    aria-label={`Date slot ${index + 1} end`}
-                    onChange={(endTime) =>
-                      setDateWindows((current) =>
-                        current.map((row, rowIndex) => (rowIndex === index ? { ...row, endTime } : row)),
-                      )
-                    }
-                  />
-                  {dateWindows.length > 1 ? (
+                    onClick={() => {
+                      const last = dateWindows[dateWindows.length - 1]
+                      const start = last ? timeToMinutes(last.endTime) : timeToMinutes(draft.allStart)
+                      const end = Math.min(start + 60, 23 * 60 + 59)
+                      if (end <= start) return
+                      setDateWindows((current) => [
+                        ...current,
+                        { startTime: minutesToTime(start), endTime: minutesToTime(end) },
+                      ])
+                    }}
+                  >
+                    <Plus className="mr-1 h-4 w-4" />
+                    Add slot
+                  </Button>
+                  {onSaveDateCustom ? (
+                    <Button type="button" size="sm" disabled={saving || dateSaving} onClick={() => void saveDateCustom()}>
+                      {dateSaving ? 'Saving…' : 'Save date hours'}
+                    </Button>
+                  ) : null}
+                  {selectedHasCustom && onResetDateCustom ? (
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
-                      disabled={saving || dateSaving || !onSaveDateCustom}
-                      onClick={() => setDateWindows((current) => current.filter((_, rowIndex) => rowIndex !== index))}
+                      disabled={saving || dateSaving}
+                      onClick={() => void resetDateCustom()}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      Reset to common
+                    </Button>
+                  ) : null}
+                  {selectedInRange && onBlockDate ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={saving || dateSaving}
+                      onClick={() => void blockSelectedDate()}
+                      className="border-rose-200 text-rose-800 hover:bg-rose-50"
+                    >
+                      Mark day unavailable
                     </Button>
                   ) : null}
                 </div>
-              ))}
-            </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={saving || dateSaving || !onSaveDateCustom}
-                onClick={() => {
-                  const last = dateWindows[dateWindows.length - 1]
-                  const start = last ? timeToMinutes(last.endTime) : timeToMinutes(draft.allStart)
-                  const end = Math.min(start + 60, 23 * 60 + 59)
-                  if (end <= start) return
-                  setDateWindows((current) => [
-                    ...current,
-                    { startTime: minutesToTime(start), endTime: minutesToTime(end) },
-                  ])
-                }}
-              >
-                <Plus className="mr-1 h-4 w-4" />
-                Add slot
-              </Button>
-              {onSaveDateCustom ? (
-                <Button type="button" size="sm" disabled={saving || dateSaving} onClick={() => void saveDateCustom()}>
-                  {dateSaving ? 'Saving…' : 'Save date hours'}
-                </Button>
-              ) : null}
-              {selectedHasCustom && onResetDateCustom ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  disabled={saving || dateSaving}
-                  onClick={() => void resetDateCustom()}
-                >
-                  Reset to common
-                </Button>
-              ) : null}
-            </div>
-
-            <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-900">
-              {selectedHasCustom
-                ? `Custom windows are saved for ${formatDateLong(`${selectedDate}T12:00:00`)} and add to your common weekday hours.`
-                : `Save date hours to add custom windows for ${formatDateLong(`${selectedDate}T12:00:00`)} only. Common hours still apply until you customize.`}
-            </div>
+                <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-900">
+                  {selectedHasCustom
+                    ? `Custom windows are saved for ${formatDateLong(`${selectedDate}T12:00:00`)} and add to your common weekday hours.`
+                    : `Save date hours to add custom windows for ${formatDateLong(`${selectedDate}T12:00:00`)} only. Common hours still apply until you customize.`}
+                </div>
+              </>
+            )}
             {dateMessage ? <p className="mt-2 text-sm text-navy-800">{dateMessage}</p> : null}
 
-            {commonWindowsPreview.length > 0 ? (
+            {!selectedIsBlocked && commonWindowsPreview.length > 0 ? (
               <div className="mt-4 rounded-xl border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500">
                 Common preview:{' '}
                 {commonWindowsPreview.map((window) => `${formatClock(window.startTime)}–${formatClock(window.endTime)}`).join(', ')}
@@ -600,7 +792,7 @@ export function InterviewScheduleCard({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
               <span>
-                <strong className="text-navy-950">{summary.total}</strong> total dates
+                <strong className="text-navy-950">{summary.available}</strong> available
               </span>
               <span>
                 <strong className="text-navy-950">{summary.common}</strong> common hours
@@ -608,6 +800,11 @@ export function InterviewScheduleCard({
               <span>
                 <strong className="text-navy-950">{summary.custom}</strong> custom dates
               </span>
+              {summary.blocked > 0 ? (
+                <span>
+                  <strong className="text-navy-950">{summary.blocked}</strong> day off
+                </span>
+              ) : null}
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">

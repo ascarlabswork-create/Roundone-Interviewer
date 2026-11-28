@@ -212,6 +212,58 @@ export function CalendarPage() {
     }
   }
 
+  async function onBlockDate(date: string) {
+    try {
+      // Always read latest board — range may have just been auto-saved before this call.
+      const latest = await loadMyAvailabilityBoard()
+      setBoard(latest)
+      if (
+        !isDateWithinRange(date, latest.availableFrom, latest.availableUntil)
+      ) {
+        throw new Error(
+          `Save a date range that includes this day first (${describeAvailableRange(latest)}).`,
+        )
+      }
+      // Replace any partial blocks and clear custom hours so the day is fully closed.
+      const existingBlocks = latest.blockedTimes.filter((item) => item.on_date === date)
+      for (const item of existingBlocks) {
+        await deleteBlockedTime(item.id)
+      }
+      const existingCustom = latest.customSlots.filter((slot) => slot.on_date === date)
+      for (const slot of existingCustom) {
+        await deleteCustomSlot(slot.id)
+      }
+      await createBlockedTime({
+        onDate: date,
+        allDay: true,
+        reason: 'Day off',
+      })
+      await refreshBoard()
+      pushToast('Day marked unavailable — your date range is unchanged')
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not mark this day unavailable.'
+      pushToast(message)
+      throw caught instanceof Error ? caught : new Error(message)
+    }
+  }
+
+  async function onUnblockDate(date: string) {
+    try {
+      const latest = await loadMyAvailabilityBoard()
+      setBoard(latest)
+      const existingBlocks = latest.blockedTimes.filter((item) => item.on_date === date)
+      for (const item of existingBlocks) {
+        await deleteBlockedTime(item.id)
+      }
+      await refreshBoard()
+      pushToast('Day is available again — your date range is unchanged')
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Could not make this day available.'
+      pushToast(message)
+      throw caught instanceof Error ? caught : new Error(message)
+    }
+  }
+
   async function onBufferChange(bufferMin: BookingBufferMinutes) {
     await runMutation(() => updateMyBookingBuffer(bufferMin))
   }
@@ -274,9 +326,11 @@ export function CalendarPage() {
           <InterviewScheduleCard
             board={board}
             saving={saving}
-            onSave={(draft) => void onSaveSchedule(draft)}
+            onSave={onSaveSchedule}
             onSaveDateCustom={onSaveDateCustom}
             onResetDateCustom={onResetDateCustom}
+            onBlockDate={onBlockDate}
+            onUnblockDate={onUnblockDate}
           />
 
           <Card className="p-5">
